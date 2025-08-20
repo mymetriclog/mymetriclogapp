@@ -5,6 +5,7 @@ import {
   getAllUsersWithIntegrations,
   addUsersToQueue,
   getQueueStats,
+  userReportQueue,
 } from "@/lib/queue/queue-service";
 
 export async function POST(request: Request) {
@@ -18,42 +19,16 @@ export async function POST(request: Request) {
 
     const { reportType = "daily", batchSize = 10 } = await request.json();
 
-    // Fetch users with integrations
-    const supabase = await getServerSupabaseClient();
-    const { data: users, error: usersError } = await supabase
-      .from("profiles")
-      .select("id, email, full_name")
-      .not("integrations", "is", null);
+    // Use the existing function to get users with integrations
+    const users = await getAllUsersWithIntegrations();
 
-    if (usersError) {
-      return NextResponse.json(
-        { error: "Failed to fetch users" },
-        { status: 500 }
-      );
-    }
-
-    const usersWithIntegrations = users.filter(
-      (user) => user.integrations && Object.keys(user.integrations).length > 0
-    );
-
+    const usersWithIntegrations = users.filter((user) => user.hasIntegrations);
     const usersWithoutIntegrations = users.filter(
-      (user) => !user.integrations || Object.keys(user.integrations).length === 0
+      (user) => !user.hasIntegrations
     );
 
-    // Add users to queue
-    const jobs = [];
-    for (const user of usersWithIntegrations) {
-      const job = await addJobToQueue({
-        userId: user.id,
-        userEmail: user.email,
-        reportType,
-        priority: "normal",
-      });
-
-      if (job) {
-        jobs.push(job);
-      }
-    }
+    // Add users to queue using the existing function
+    const jobs = await addUsersToQueue(usersWithIntegrations);
 
     return NextResponse.json({
       success: true,

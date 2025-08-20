@@ -1,4 +1,4 @@
-import { updateSession } from "./src/utils/supabase/middleware";
+import { middleware as updateSession } from "@/utils/supabase/middleware";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
