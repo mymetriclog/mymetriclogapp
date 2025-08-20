@@ -23,29 +23,14 @@ const protectedRoutes = [
   "/queue",
 ];
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+export async function updateSession(request: NextRequest) {
+  // Create a single response object that we'll reuse
+  const response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  });
 
-  // Get the pathname of the request (e.g. /, /protected)
-  const isAuthPage = pathname.startsWith('/login') || 
-                    pathname.startsWith('/signup') || 
-                    pathname.startsWith('/forgot') || 
-                    pathname.startsWith('/reset') || 
-                    pathname.startsWith('/verify');
-
-  const isProtectedPage = pathname.startsWith('/dashboard') || 
-                         pathname.startsWith('/reports') || 
-                         pathname.startsWith('/integrations') || 
-                         pathname.startsWith('/queue') || 
-                         pathname.startsWith('/weathers') || 
-                         pathname.startsWith('/settings');
-
-  const isApiRoute = pathname.startsWith('/api/');
-
-  // Create a response object
-  let response = NextResponse.next();
-
-  // Get the session from the request
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -55,16 +40,7 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
+          // Don't create new response objects, just set cookies on existing response
           response.cookies.set({
             name,
             value,
@@ -72,19 +48,10 @@ export async function middleware(request: NextRequest) {
           });
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
+          // Don't create new response objects, just remove cookies on existing response
           response.cookies.set({
             name,
-            value: '',
+            value: "",
             ...options,
           });
         },
@@ -92,26 +59,28 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  // Handle authentication logic
-  if (isProtectedPage && !session) {
-    // Redirect to login if accessing protected page without session
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    return NextResponse.redirect(url);
-  }
-
-  if (isAuthPage && session) {
-    // Redirect to dashboard if accessing auth page with session
-    const url = request.nextUrl.clone();
-    url.pathname = '/dashboard';
-    return NextResponse.redirect(url);
-  }
-
-  // For API routes, let them handle their own authentication
-  if (isApiRoute) {
+  if (!user && nonAuthPath.some((e) => request.nextUrl.pathname.startsWith(e)))
     return response;
+
+  if (user && nonAuthPath.some((e) => request.nextUrl.pathname.startsWith(e))) {
+    // Redirect all authenticated users to dashboard
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  if (
+    !user &&
+    protectedRoutes.some((e) => request.nextUrl.pathname.startsWith(e))
+  ) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // Redirect all authenticated users to dashboard if they try to access non-protected routes
+  if (user && nonAuthPath.some((e) => request.nextUrl.pathname.startsWith(e))) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return response;
