@@ -70,7 +70,6 @@ async function getIntegrationsData() {
     if (
       it.key === "spotify" ||
       it.key === "fitbit" ||
-      it.key === "tryterra" ||
       it.key === "google-calendar" ||
       it.key === "gmail"
     ) {
