@@ -19,7 +19,6 @@ import type { IntegrationItem } from "@/app/data/mock";
 const iconMap: Record<IntegrationItem["key"], any> = {
   spotify: Music,
   fitbit: Watch,
-  tryterra: Activity,
   "google-calendar": Calendar,
   gmail: Mail,
 };
@@ -80,8 +79,7 @@ export function IntegrationCard({
         return "/integrations/spotify";
       case "fitbit":
         return "/integrations/fitbit";
-      case "tryterra":
-        return "/integrations/tryterra";
+
       case "gmail":
         return "/integrations/gmail";
       case "google-calendar":
@@ -97,7 +95,6 @@ export function IntegrationCard({
   const isActionable =
     key === "spotify" ||
     key === "fitbit" ||
-    key === "tryterra" ||
     key === "gmail" ||
     key === "google-calendar";
 

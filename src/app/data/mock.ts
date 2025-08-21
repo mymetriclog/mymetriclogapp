@@ -77,7 +77,7 @@ export const mockReports: ReportItem[] = [
 ];
 
 export type IntegrationItem = {
-  key: "spotify" | "fitbit" | "tryterra" | "google-calendar" | "gmail";
+  key: "spotify" | "fitbit" | "google-calendar" | "gmail";
   name: string;
   status: "connected" | "disconnected" | "error";
   lastSync?: string;
@@ -115,12 +115,5 @@ export const mockIntegrations: IntegrationItem[] = [
     status: "connected",
     lastSync: "2 hours ago",
     created_at: "2025-08-10 09:15:22",
-  },
-  {
-    key: "tryterra",
-    name: "TryTerra",
-    status: "connected",
-    lastSync: "2 hours ago",
-    created_at: "2025-08-09 16:42:18",
   },
 ];
