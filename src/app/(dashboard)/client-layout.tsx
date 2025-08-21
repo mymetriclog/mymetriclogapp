@@ -347,7 +347,7 @@ function DashboardContent({
       >
         {/* Enhanced header - Fixed */}
         <header
-          className={`h-20 border-b bg-white/80 backdrop-blur-sm flex items-center px-4 sm:px-6 lg:px-8 flex-shrink-0 shadow-sm fixed top-0 right-0 z-50 transition-all duration-300 ${
+          className={`h-[66px] border-b bg-white/80 backdrop-blur-sm flex items-center px-4 sm:px-6 lg:px-8 flex-shrink-0 shadow-sm fixed top-0 right-0 z-50 transition-all duration-300 ${
             state === "collapsed" ? "left-0 md:left-16" : "left-0 md:left-64"
           }`}
         >

@@ -50,7 +50,7 @@ export function ReportsHeader({ isLoading, onRefresh }: ReportsHeaderProps) {
   return (
     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
       <div className="flex items-center justify-between reports-header-section flex-wrap">
-        <div className="flex items-center gap-4 reports-header-section">
+        <div className="flex items-start gap-4 reports-header-section">
           <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg">
             <FileText className="size-8 text-white" />
           </div>
@@ -58,10 +58,7 @@ export function ReportsHeader({ isLoading, onRefresh }: ReportsHeaderProps) {
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
               Reports & Analytics
             </h1>
-            <p className="text-gray-600">
-              Generate comprehensive reports for your email, Spotify, and Fitbit
-              data.
-            </p>
+
             {/* Timezone Information */}
             <div className="flex items-center gap-2 mt-2 text-sm text-blue-700">
               <Clock className="size-4" />
