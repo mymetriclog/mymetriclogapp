@@ -349,6 +349,61 @@ export function getScoreColor(score: number): string {
 }
 
 /**
+ * Get score-based SVG colors and styling for dashboard components
+ */
+export function getScoreBasedStyling(score: number) {
+  if (score >= 90) {
+    return {
+      color: "text-green-600",
+      bgColor: "bg-green-100",
+      strokeColor: "hsl(142 76% 36%)",
+      icon: "TrendingUp",
+      quality: "Excellent"
+    };
+  } else if (score >= 80) {
+    return {
+      color: "text-green-600", 
+      bgColor: "bg-green-100",
+      strokeColor: "hsl(142 76% 36%)",
+      icon: "TrendingUp",
+      quality: "Very Good"
+    };
+  } else if (score >= 70) {
+    return {
+      color: "text-blue-600",
+      bgColor: "bg-blue-100", 
+      strokeColor: "hsl(221 83% 53%)",
+      icon: "BarChart3",
+      quality: "Good"
+    };
+  } else if (score >= 60) {
+    return {
+      color: "text-yellow-600",
+      bgColor: "bg-yellow-100",
+      strokeColor: "hsl(38 92% 50%)", 
+      icon: "BarChart3",
+      quality: "Fair"
+    };
+  } else if (score >= 50) {
+    return {
+      color: "text-orange-600",
+      bgColor: "bg-orange-100",
+      strokeColor: "hsl(25 95% 53%)",
+      icon: "FileText",
+      quality: "Poor"
+    };
+  } else {
+    return {
+      color: "text-red-600",
+      bgColor: "bg-red-100",
+      strokeColor: "hsl(0 84% 60%)",
+      icon: "FileText", 
+      quality: "Very Poor"
+    };
+  }
+}
+
+/**
  * Calculate weekly average scores
  * Mirrors the weekly calculation logic from code.js
  */

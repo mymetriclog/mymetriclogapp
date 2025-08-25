@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { FileText, Eye, Download, Code, Check, Copy } from "lucide-react";
 import { ReportViewerModal } from "@/components/reports/report-viewer-modal";
 import { generateDailyReportEmail } from "@/lib/sendgrid/templates/daily-report";
+import { getScoreBasedStyling } from "@/lib/scoring/wellness-scoring";
 
 interface ReportData {
   id: string;
@@ -34,17 +35,8 @@ export function RecentReportCard({ report, userName }: RecentReportCardProps) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-600";
-    if (score >= 60) return "text-yellow-600";
-    return "text-red-600";
-  };
-
-  const getScoreLabel = (score: number) => {
-    if (score >= 80) return "Excellent";
-    if (score >= 60) return "Good";
-    return "Fair";
-  };
+  // Use score-based styling
+  const scoreStyling = getScoreBasedStyling(report.score);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -238,12 +230,12 @@ export function RecentReportCard({ report, userName }: RecentReportCardProps) {
               <div className="text-lg font-semibold">{formatDate(report.date)}</div>
             </div>
             <div className="text-right">
-              <div className={`text-xl font-bold ${getScoreColor(report.score)}`}>
+              <div className={`text-xl font-bold ${scoreStyling.color}`}>
                 {report.score}
               </div>
-              <div className="text-xs text-muted-foreground">
-                {getScoreLabel(report.score)}
-              </div>
+                              <div className="text-xs text-muted-foreground">
+                  {scoreStyling.quality}
+                </div>
             </div>
           </div>
           
