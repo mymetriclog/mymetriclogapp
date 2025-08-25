@@ -81,14 +81,13 @@ async function processUserReportJob(job: any) {
     console.log(`🔧 Fix RLS policies first to enable email sending`);
 
     try {
-      // For daily reports, use yesterday's date to match what saveReportToDatabase uses
-      const reportDate = new Date();
-      reportDate.setDate(reportDate.getDate() - 1); // Yesterday for daily reports
+      // For daily reports, use current date
+      const reportDate = new Date(); // Today's date for daily reports
 
       console.log(
         `📅 Using report date: ${
           reportDate.toISOString().split("T")[0]
-        } (yesterday for daily reports)`
+        } (today's date for daily reports)`
       );
 
       const emailPayload = {
@@ -97,7 +96,7 @@ async function processUserReportJob(job: any) {
         reportType: "daily",
         type: "daily",
         to: userEmail,
-        date: reportDate.toISOString().split("T")[0], // Yesterday's date in YYYY-MM-DD format
+        date: reportDate.toISOString().split("T")[0], // Today's date in YYYY-MM-DD format
         subject: `Daily Wellness Report - ${reportDate.toLocaleDateString(
           "en-US",
           {

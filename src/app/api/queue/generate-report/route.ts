@@ -323,21 +323,21 @@ export async function POST(req: NextRequest) {
 
     // Get current date and calculate date ranges
     const now = new Date();
+    const today = new Date(); // Use today's date instead of yesterday
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const twoDaysAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
 
     const startDate =
       dateRange === "weekly"
         ? new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-        : yesterday;
-    const endDate = yesterday;
+        : today; // Use today for daily reports
+    const endDate = today; // Use today as end date
 
     // Fetch weather data
     console.log("🌤️ Fetching weather data...");
     const weatherData = await WeatherService.getWeatherData(
       latitude || 40.7128,
       longitude || -74.006,
-      yesterday
+      today // Use today's date for weather data
     );
 
     let weatherInsights = null;
@@ -388,7 +388,7 @@ export async function POST(req: NextRequest) {
         gmailData,
         fitbitData,
         spotifyData,
-        date: yesterday.toISOString(),
+        date: today.toISOString(), // Use today's date
         reportType: "daily",
         weatherData: weatherInsights, // Include weather insights
       });
@@ -412,7 +412,7 @@ export async function POST(req: NextRequest) {
         googleCalendarData,
         fitbitData,
         spotifyData,
-        yesterday,
+        today, // Use today's date
         connectedIntegrations,
         aiInsights,
         weatherInsights // Pass weather insights
@@ -493,7 +493,7 @@ export async function POST(req: NextRequest) {
             : null,
           date:
             reportType === "daily"
-              ? yesterday.toISOString()
+              ? today.toISOString() // Use today's date
               : endDate.toISOString(),
           reportType,
         },
