@@ -28,10 +28,10 @@ if (rawRedisUrl.includes("redis-cli")) {
 
 const QUEUE_NAME = "user-report-generation";
 
-console.log("🔍 Redis Configuration:");
-console.log("📡 Using Upstash Redis with native Redis client");
-console.log("🔗 Raw input:", rawRedisUrl.replace(/:[^:]*@/, ":***@")); // Hide password in logs
-console.log("🔗 Extracted URL:", REDIS_URL.replace(/:[^:]*@/, ":***@")); // Hide password in logs
+// console.log("🔍 Redis Configuration:");
+// console.log("📡 Using Upstash Redis with native Redis client");
+// console.log("🔗 Raw input:", rawRedisUrl.replace(/:[^:]*@/, ":***@"));
+// console.log("🔗 Extracted URL:", REDIS_URL.replace(/:[^:]*@/, ":***@"));
 
 // Create Redis client
 const redisClient = createClient({
