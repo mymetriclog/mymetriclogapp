@@ -24,25 +24,30 @@ export async function POST(req: NextRequest) {
 
     switch (action) {
       case "pause":
-        await userReportQueue.pause();
-        console.log("⏸️ Queue paused");
+        // Note: Native Redis queue doesn't have pause/resume functionality like Bull
+        // You could implement this by setting a flag in Redis if needed
+        console.log(
+          "⏸️ Queue pause requested (not implemented for native Redis)"
+        );
         return NextResponse.json({
           success: true,
-          message: "Queue paused successfully",
+          message: "Queue pause not available with native Redis implementation",
           data: { action: "pause", timestamp: new Date().toISOString() },
         });
 
       case "resume":
-        await userReportQueue.resume();
-        console.log("▶️ Queue resumed");
+        console.log(
+          "▶️ Queue resume requested (not implemented for native Redis)"
+        );
         return NextResponse.json({
           success: true,
-          message: "Queue resumed successfully",
+          message:
+            "Queue resume not available with native Redis implementation",
           data: { action: "resume", timestamp: new Date().toISOString() },
         });
 
       case "clear-completed":
-        await userReportQueue.clean(0, "completed");
+        await userReportQueue.clearCompleted();
         console.log("🧹 Completed jobs cleared");
         return NextResponse.json({
           success: true,
@@ -54,7 +59,7 @@ export async function POST(req: NextRequest) {
         });
 
       case "clear-failed":
-        await userReportQueue.clean(0, "failed");
+        await userReportQueue.clearFailed();
         console.log("🧹 Failed jobs cleared");
         return NextResponse.json({
           success: true,
@@ -63,7 +68,7 @@ export async function POST(req: NextRequest) {
         });
 
       case "clear-all":
-        await userReportQueue.empty();
+        await userReportQueue.clearAll();
         console.log("🧹 All jobs cleared");
         return NextResponse.json({
           success: true,
@@ -72,12 +77,17 @@ export async function POST(req: NextRequest) {
         });
 
       case "get-counts":
-        const jobCounts = await userReportQueue.getJobCounts();
+        const stats = await userReportQueue.getStats();
         return NextResponse.json({
           success: true,
           data: {
             action: "get-counts",
-            jobCounts,
+            jobCounts: {
+              waiting: stats.pending,
+              active: stats.processing,
+              completed: stats.completed,
+              failed: stats.failed,
+            },
             timestamp: new Date().toISOString(),
           },
         });
@@ -125,19 +135,23 @@ export async function GET() {
     }
 
     // Get queue information
-    const jobCounts = await userReportQueue.getJobCounts();
-    const isPaused = await userReportQueue.isPaused();
-    const isActive = userReportQueue.client.status === "ready";
+    const stats = await userReportQueue.getStats();
+    const isActive = userReportQueue.isActive();
 
     return NextResponse.json({
       success: true,
       data: {
         queueInfo: {
-          name: userReportQueue.name,
+          name: "user-report-generation",
           isActive,
-          isPaused,
-          jobCounts,
-          clientStatus: userReportQueue.client.status,
+          isPaused: false, // Native Redis doesn't support pause/resume
+          jobCounts: {
+            waiting: stats.pending,
+            active: stats.processing,
+            completed: stats.completed,
+            failed: stats.failed,
+          },
+          clientStatus: isActive ? "ready" : "disconnected",
         },
         timestamp: new Date().toISOString(),
       },
