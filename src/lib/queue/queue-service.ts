@@ -5,8 +5,32 @@ import Queue from "bull";
 const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 const QUEUE_NAME = "user-report-generation";
 
-// Create the main queue
-export const userReportQueue = new Queue(QUEUE_NAME, REDIS_URL, {
+// Redis connection options for Upstash (TLS required)
+const redisOptions = {
+  redis: {
+    host: "literate-raptor-38100.upstash.io",
+    port: 6379,
+    password: process.env.REDIS_password,
+    username: "default",
+    tls: {
+      rejectUnauthorized: false,
+    },
+    retryDelayOnFailover: 100,
+    enableReadyCheck: false,
+    maxRetriesPerRequest: null,
+    lazyConnect: true,
+    connectTimeout: 60000,
+    commandTimeout: 5000,
+  },
+};
+
+console.log("🔍 Redis Configuration:");
+console.log("📡 Using Upstash Redis with TLS");
+console.log("🏠 Host: literate-raptor-38100.upstash.io:6379");
+
+// Create the main queue with proper Upstash configuration
+export const userReportQueue = new Queue(QUEUE_NAME, {
+  redis: redisOptions.redis,
   defaultJobOptions: {
     removeOnComplete: 100, // Keep last 100 completed jobs
     removeOnFail: 50, // Keep last 50 failed jobs
@@ -17,6 +41,26 @@ export const userReportQueue = new Queue(QUEUE_NAME, REDIS_URL, {
     },
   },
 });
+
+// Add connection event listeners for debugging
+userReportQueue.on("ready", () => {
+  console.log("✅ Queue is ready and connected to Upstash Redis");
+});
+
+userReportQueue.on("error", (error) => {
+  console.error("❌ Queue error:", error);
+});
+
+userReportQueue.on("failed", (job, err) => {
+  console.error("❌ Job failed:", job.id, err);
+});
+
+// Log queue creation
+console.log("🚀 Queue created with Upstash configuration");
+console.log(
+  "📊 Queue client status:",
+  userReportQueue.client?.status || "connecting"
+);
 
 // Job data interface
 export interface UserReportJobData {
