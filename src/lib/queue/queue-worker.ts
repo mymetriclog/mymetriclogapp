@@ -1,11 +1,39 @@
 import { userReportQueue, UserReportJobData } from "./queue-service";
 
-// Process user report generation jobs
-userReportQueue.process("generate-user-report", async (job) => {
+// Worker function to continuously process jobs
+async function processJobs() {
+  console.log("🚀 ===== QUEUE WORKER STARTED =====");
+  console.log("👷 Worker is ready to process jobs from Redis");
+  console.log("⏰ Started at:", new Date().toISOString());
+
+  while (true) {
+    try {
+      // Get next job from queue
+      const job = await userReportQueue.getNextJob();
+
+      if (!job) {
+        // No jobs available, wait a bit before checking again
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        continue;
+      }
+
+      // Process the job
+      await processUserReportJob(job);
+    } catch (error) {
+      console.error("❌ Error in job processing loop:", error);
+      // Wait before retrying
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+  }
+}
+
+// Process individual user report generation job
+async function processUserReportJob(job: any) {
   const { userId, userEmail } = job.data as UserReportJobData;
 
   console.log(`\n🚀 ===== STARTING JOB PROCESSING =====`);
   console.log(`📋 Job ID: ${job.id}`);
+  console.log(`📋 Job Type: ${job.type}`);
   console.log(`👤 User: ${userEmail} (${userId})`);
   console.log(`⏰ Started at: ${new Date().toISOString()}`);
 
@@ -17,6 +45,10 @@ userReportQueue.process("generate-user-report", async (job) => {
 
     if (!hasIntegrations) {
       console.log(`⏭️ Skipping user - no integrations found`);
+      await userReportQueue.completeJob(job.id, {
+        status: "skipped",
+        reason: "No integrations found",
+      });
       return { status: "skipped", reason: "No integrations found" };
     }
 
@@ -115,11 +147,14 @@ userReportQueue.process("generate-user-report", async (job) => {
 
     console.log(`✅ Job completed successfully!`);
 
-    return {
+    const result = {
       status: "completed",
       reportId: reportResult.reportId,
       message: "Report generated successfully",
     };
+
+    await userReportQueue.completeJob(job.id, result);
+    return result;
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error occurred";
@@ -129,8 +164,15 @@ userReportQueue.process("generate-user-report", async (job) => {
     console.error(`🚨 Error: ${errorMessage}`);
     console.error(`⏰ Failed at: ${new Date().toISOString()}`);
 
-    throw error; // Re-throw to trigger retry mechanism
+    await userReportQueue.failJob(job.id, errorMessage);
+    throw error;
   }
+}
+
+// Start processing jobs
+processJobs().catch((error) => {
+  console.error("❌ Fatal error in queue worker:", error);
+  process.exit(1);
 });
 
 // Summary of the 4-step process:
