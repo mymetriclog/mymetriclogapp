@@ -366,32 +366,26 @@ export default async function DashboardPage() {
             <ReportCard
               title="Total Reports"
               value={totalReports.toString()}
-              iconName="FileText"
-              color="text-blue-600"
-              bgColor="bg-blue-100"
+              score={totalReports > 0 ? 85 : 0} // Use score-based styling
               spark={[1, 2, 3, 4, 5, 6, totalReports]}
             />
             <ReportCard
               title="Best Score"
               value={bestScore.toString()}
-              iconName="BarChart3"
-              color="text-green-600"
-              bgColor="bg-green-100"
+              score={bestScore} // Use actual best score for styling
               spark={[45, 52, 58, 55, 62, 68, bestScore]}
             />
             <ReportCard
               title="Latest Score"
               value={latestScore.toString()}
-              iconName="TrendingUp"
-              color="text-purple-600"
-              bgColor="bg-purple-100"
+              score={latestScore} // Use actual latest score for styling
               spark={[60, 65, 58, 72, 68, 75, latestScore]}
             />
           </div>
         </div>
 
         {/* Recent Reports Grid */}
-        {reports.length > 0 && (
+        {reports.length > 0 ? (
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-xl font-semibold">Recent Reports</h2>
@@ -407,6 +401,24 @@ export default async function DashboardPage() {
                   userName={name}
                 />
               ))}
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xl font-semibold">Recent Reports</h2>
+            </div>
+            <div className="flex items-center justify-center p-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <div className="text-center">
+                <div className="text-4xl mb-4">📊</div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Reports Found</h3>
+                <p className="text-gray-500 mb-4">
+                  You haven't generated any reports yet. Start tracking your wellness metrics to see your first report.
+                </p>
+                <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
+                  <Link href="/reports">Generate Your First Report</Link>
+                </Button>
+              </div>
             </div>
           </div>
         )}
