@@ -93,12 +93,12 @@ export default function LoginPage() {
         <div className="text-center text-white max-w-md">
           <div className="mb-8">
             <Image
-              src="/placeholder-logo.svg"
+              src="/MyMetricLog.png"
               alt="MyMetricLog Logo"
               width={120}
               height={120}
               className="mx-auto mb-6"
-              style={{ width: "auto", height: "auto" }}
+              style={{ width: "55%", height: "auto" }}
             />
           </div>
           <h1 className="text-4xl font-bold mb-4">Welcome to MyMetricLog</h1>
@@ -114,7 +114,7 @@ export default function LoginPage() {
         <Card className="w-full max-w-md shadow-xl border-0 backdrop-blur-sm">
           <div className="mt-4">
             <Image
-              src="/placeholder-logo.svg"
+              src="/MyMetricLog.png"
               alt="MyMetricLog Logo"
               width={150}
               height={150}

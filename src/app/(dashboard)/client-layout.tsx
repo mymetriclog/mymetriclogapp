@@ -39,6 +39,7 @@ import { getBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { notifications } from "@/lib/notifications";
 import { nameToColors, toInitials } from "@/lib/name-colors";
+import Image from "next/image";
 
 type User = {
   name: string;
@@ -183,18 +184,17 @@ function DashboardContent({
                 state === "collapsed" ? "justify-center" : "gap-3"
               }`}
             >
-              <div className="size-8 rounded-md bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-sm">
-                <span className="text-white font-bold text-sm">M</span>
+              <div className="size-8 rounded-md flex items-center justify-start shadow-sm overflow-hidden w-full h-full">
+                <Image
+                  src="/MyMetricLog.png"
+                  alt="MyMetricLog Logo"
+                  width={32}
+                  height={32}
+                  className={`h-full object-cover transition-all duration-300 ${
+                    state === "collapsed" ? "w-full" : "w-[55%]"
+                  }`}
+                />
               </div>
-              <span
-                className={`font-bold text-lg text-slate-800 transition-all duration-300 ${
-                  state === "collapsed"
-                    ? "opacity-0 w-0 overflow-hidden"
-                    : "opacity-100"
-                }`}
-              >
-                MyMetricLog
-              </span>
             </div>
             {/* Mobile close button */}
             <Button
