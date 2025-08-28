@@ -69,18 +69,19 @@ export default function SignupPage() {
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-emerald-500 to-emerald-700 items-center justify-center p-8">
         <div className="text-center text-white max-w-md">
           <div className="mb-8">
-            <Image 
-              src="/placeholder-logo.svg" 
-              alt="MyMetricLog Logo" 
-              width={120} 
-              height={120} 
+            <Image
+              src="/MyMetricLog.png"
+              alt="MyMetricLog Logo"
+              width={120}
+              height={120}
               className="mx-auto mb-6"
-              style={{ width: 'auto', height: 'auto' }}
+              style={{ width: "auto", height: "auto" }}
             />
           </div>
           <h1 className="text-4xl font-bold mb-4">Join MyMetricLog</h1>
           <p className="text-xl text-emerald-100 mb-6">
-            Start your journey to better wellness and productivity tracking
+            Your personal wellness and productivity dashboard for daily & weekly
+            insights
           </p>
         </div>
       </div>
@@ -89,11 +90,11 @@ export default function SignupPage() {
       <div className="flex-1 flex items-center justify-center p-4 lg:p-8">
         <Card className="w-full max-w-md shadow-xl border-0 backdrop-blur-sm">
           <div className="mt-4">
-            <Image 
-              src="/placeholder-logo.svg" 
-              alt="MyMetricLog Logo" 
-              width={150} 
-              height={150} 
+            <Image
+              src="/MyMetricLog.png"
+              alt="MyMetricLog Logo"
+              width={150}
+              height={150}
               className="mx-auto mb-1"
             />
           </div>

@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { nameToColors, toInitials } from "@/lib/name-colors"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image";
 
 type User = {
   name: string
@@ -75,8 +76,14 @@ export function MobileMenu({ user, onLogout }: MobileMenuProps) {
           {/* Header */}
           <div className="p-4 border-b">
             <div className="flex items-center gap-3">
-              <div className="size-8 rounded-md bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">M</span>
+              <div className="size-8 rounded-md flex items-center justify-center overflow-hidden">
+                <Image
+                  src="/MyMetricLog.png"
+                  alt="MyMetricLog Logo"
+                  width={32}
+                  height={32}
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div>
                 <div className="font-bold text-lg">MyMetricLog</div>

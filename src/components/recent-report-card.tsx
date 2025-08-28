@@ -233,9 +233,9 @@ export function RecentReportCard({ report, userName }: RecentReportCardProps) {
               <div className={`text-xl font-bold ${scoreStyling.color}`}>
                 {report.score}
               </div>
-                              <div className="text-xs text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                   {scoreStyling.quality}
-                </div>
+              </div>
             </div>
           </div>
           
