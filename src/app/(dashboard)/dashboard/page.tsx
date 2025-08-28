@@ -3,7 +3,7 @@ import { RecentReportCard } from "@/components/recent-report-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Cloud } from "lucide-react";
-import { mockIntegrations, mockReports } from "@/app/data/mock";
+import { mockIntegrations } from "@/app/data/mock";
 import Link from "next/link";
 
 import { WeatherCard } from "@/components/weather-card";
@@ -194,35 +194,19 @@ export default async function DashboardPage() {
           : 0;
       latestScore = reports.length > 0 ? reports[0].score : 0;
     } else {
-      // Fallback to mock data if API fails
-      reports = mockReports.map((report) => ({
-        ...report,
-        user_id: user?.id || "",
-        user_email: email,
-        user_name: name,
-      }));
-      totalReports = reports.length;
-      bestScore =
-        reports.length > 0
-          ? Math.max(...reports.map((r: ReportData) => r.score))
-          : 0;
-      latestScore = reports.length > 0 ? reports[0].score : 0;
+      // No fallback to mock data - show real data or 0
+      reports = [];
+      totalReports = 0;
+      bestScore = 0;
+      latestScore = 0;
     }
   } catch (error) {
     console.error("❌ Dashboard: Error fetching reports:", error);
-    // Fallback to mock data if API fails
-    reports = mockReports.map((report) => ({
-      ...report,
-      user_id: user?.id || "",
-      user_email: email,
-      user_name: name,
-    }));
-    totalReports = reports.length;
-    bestScore =
-      reports.length > 0
-        ? Math.max(...reports.map((r: ReportData) => r.score))
-        : 0;
-    latestScore = reports.length > 0 ? reports[0].score : 0;
+    // No fallback to mock data - show real data or 0
+    reports = [];
+    totalReports = 0;
+    bestScore = 0;
+    latestScore = 0;
   }
 
   return (
@@ -366,20 +350,20 @@ export default async function DashboardPage() {
             <ReportCard
               title="Total Reports"
               value={totalReports.toString()}
-              score={totalReports > 0 ? 85 : 0} // Use score-based styling
-              spark={[1, 2, 3, 4, 5, 6, totalReports]}
+              score={totalReports > 0 ? 100 : 0} // Show 100 if has reports, 0 if none
+              spark={totalReports > 0 ? [totalReports] : [0]}
             />
             <ReportCard
               title="Best Score"
               value={bestScore.toString()}
-              score={bestScore} // Use actual best score for styling
-              spark={[45, 52, 58, 55, 62, 68, bestScore]}
+              score={bestScore} // Use actual best score
+              spark={bestScore > 0 ? [bestScore] : [0]}
             />
             <ReportCard
               title="Latest Score"
               value={latestScore.toString()}
-              score={latestScore} // Use actual latest score for styling
-              spark={[60, 65, 58, 72, 68, 75, latestScore]}
+              score={latestScore} // Use actual latest score
+              spark={latestScore > 0 ? [latestScore] : [0]}
             />
           </div>
         </div>
@@ -411,9 +395,12 @@ export default async function DashboardPage() {
             <div className="flex items-center justify-center p-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
               <div className="text-center">
                 <div className="text-4xl mb-4">📊</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Reports Found</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No Reports Found
+                </h3>
                 <p className="text-gray-500 mb-4">
-                  You haven't generated any reports yet. Start tracking your wellness metrics to see your first report.
+                  You haven't generated any reports yet. Start tracking your
+                  wellness metrics to see your first report.
                 </p>
                 <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
                   <Link href="/reports">Generate Your First Report</Link>
