@@ -40,18 +40,8 @@ type SpotifyStats = {
 };
 
 export async function upsertSpotifyTokens(userId: string, tok: TokenResponse) {
-  console.log("💾 Storing Spotify tokens for user:", userId);
-  console.log("🔑 Token data:", {
-    hasAccessToken: !!tok.access_token,
-    hasRefreshToken: !!tok.refresh_token,
-    scope: tok.scope,
-    expiresIn: tok.expires_in,
-    tokenType: tok.token_type,
-  });
-
   // Validate token data
   if (!tok.access_token || !tok.access_token.trim()) {
-    console.log("❌ Invalid access token received");
     throw new Error("Invalid access token");
   }
 
@@ -93,13 +83,6 @@ export async function upsertSpotifyTokens(userId: string, tok: TokenResponse) {
     console.log("❌ Error storing tokens:", error);
     throw error;
   }
-
-  console.log("✅ Tokens stored successfully");
-  console.log(
-    "🔑 Stored access token:",
-    tok.access_token.substring(0, 20) + "..."
-  );
-  console.log("🔑 Stored scope:", tok.scope);
 }
 
 export async function getSpotifyAccessToken(
@@ -131,11 +114,6 @@ export async function getSpotifyAccessToken(
     const now = Math.floor(Date.now() / 1000);
 
     if (data.expires_at && data.expires_at > now && data.access_token) {
-      console.log("✅ Spotify token is valid and not expired");
-      console.log(
-        "🔑 Retrieved token:",
-        data.access_token.substring(0, 20) + "..."
-      );
       return data.access_token;
     }
 
