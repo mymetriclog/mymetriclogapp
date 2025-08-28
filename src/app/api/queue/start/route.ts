@@ -10,11 +10,33 @@ import {
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession();
-    const isAdmin = session?.user?.user_metadata?.role === "admin";
+    const body = await request.json();
+    const { source, timestamp, scheduledTime } = body;
 
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Check if this is a cron request
+    if (source === "cron") {
+      // Verify cron secret for internal requests
+      const authHeader = request.headers.get("Authorization");
+      const cronSecret = process.env.CRON_SECRET;
+
+      if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+        console.error("❌ Invalid cron secret in queue start");
+        return NextResponse.json(
+          { error: "Unauthorized cron request" },
+          { status: 401 }
+        );
+      }
+
+      console.log("🕐 Queue start triggered by cron job at:", timestamp);
+      console.log("📅 Scheduled time:", scheduledTime);
+    } else {
+      // Regular user request - check admin permissions
+      const session = await getServerSession();
+      const isAdmin = session?.user?.user_metadata?.role === "admin";
+
+      if (!isAdmin) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
     }
 
     const { reportType = "daily", batchSize = 10 } = await request.json();
