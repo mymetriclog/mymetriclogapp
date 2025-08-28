@@ -40,9 +40,34 @@ type SpotifyStats = {
 };
 
 export async function upsertSpotifyTokens(userId: string, tok: TokenResponse) {
+  console.log("💾 Storing Spotify tokens for user:", userId);
+  console.log("🔑 Token data:", {
+    hasAccessToken: !!tok.access_token,
+    hasRefreshToken: !!tok.refresh_token,
+    scope: tok.scope,
+    expiresIn: tok.expires_in,
+    tokenType: tok.token_type,
+  });
+
+  // Validate token data
+  if (!tok.access_token || !tok.access_token.trim()) {
+    console.log("❌ Invalid access token received");
+    throw new Error("Invalid access token");
+  }
+
+  if (!tok.scope || !tok.scope.trim()) {
+    console.log("❌ No scope received from Spotify");
+    throw new Error("No scope received");
+  }
+
   const supabase = await getServerSupabaseClient();
   const now = Math.floor(Date.now() / 1000);
   const expires_at = now + (tok.expires_in ?? 3600) - 60; // 1 hour default
+
+  console.log(
+    "📅 Token expires at:",
+    new Date(expires_at * 1000).toISOString()
+  );
 
   const { data: existing } = await supabase
     .from("integration_tokens")
@@ -55,15 +80,26 @@ export async function upsertSpotifyTokens(userId: string, tok: TokenResponse) {
     {
       user_id: userId,
       provider: "spotify",
-      access_token: tok.access_token,
+      access_token: tok.access_token.trim(),
       refresh_token: tok.refresh_token ?? existing?.refresh_token ?? null,
-      scope: tok.scope ?? null,
+      scope: tok.scope.trim(),
       token_type: tok.token_type ?? "Bearer",
       expires_at,
     },
     { onConflict: "user_id,provider" }
   );
-  if (error) throw error;
+
+  if (error) {
+    console.log("❌ Error storing tokens:", error);
+    throw error;
+  }
+
+  console.log("✅ Tokens stored successfully");
+  console.log(
+    "🔑 Stored access token:",
+    tok.access_token.substring(0, 20) + "..."
+  );
+  console.log("🔑 Stored scope:", tok.scope);
 }
 
 export async function getSpotifyAccessToken(
@@ -96,6 +132,10 @@ export async function getSpotifyAccessToken(
 
     if (data.expires_at && data.expires_at > now && data.access_token) {
       console.log("✅ Spotify token is valid and not expired");
+      console.log(
+        "🔑 Retrieved token:",
+        data.access_token.substring(0, 20) + "..."
+      );
       return data.access_token;
     }
 

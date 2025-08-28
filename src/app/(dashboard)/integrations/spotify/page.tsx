@@ -9,11 +9,11 @@ import {
   getServerSession,
   getServerSupabaseClient,
 } from "@/lib/supabase/server";
-import { getSpotifyAccessToken } from "@/lib/integrations/spotify";
+
 import { cookies } from "next/headers";
 
 // Force dynamic rendering since we use cookies for authentication
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 // Types for Spotify data
 type SpotifyAccount = {
@@ -177,10 +177,17 @@ export default async function SpotifyIntegrationPage() {
       isConnected = !tokenData.expires_at || tokenData.expires_at > now;
       currentScopes = tokenData.scope;
 
+      console.log("🔍 Spotify token check:");
+      console.log("📅 Current time:", now);
+      console.log("⏰ Token expires at:", tokenData.expires_at);
+      console.log("🔗 Is connected:", isConnected);
+      console.log("🔑 Token scopes:", currentScopes);
+
       if (currentScopes) {
         availableScopes = currentScopes
           .split(" ")
           .filter((scope) => scope.trim());
+        console.log("🔑 Available Spotify scopes:", availableScopes);
       }
 
       if (isConnected) {
@@ -201,6 +208,7 @@ export default async function SpotifyIntegrationPage() {
 
           // Fetch account data (user-read-email, user-read-private)
           try {
+            console.log("🔍 Fetching Spotify account data...");
             const accountRes = await fetch(
               `${
                 process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
@@ -210,8 +218,11 @@ export default async function SpotifyIntegrationPage() {
                 headers: { Cookie: (await cookies()).toString() },
               }
             );
+            console.log("📡 Account API response status:", accountRes.status);
+
             if (accountRes.ok) {
               const accountData = await accountRes.json();
+              console.log("✅ Account data received:", accountData);
               data.account = {
                 display_name: accountData.display_name,
                 email: accountData.email,
@@ -220,16 +231,24 @@ export default async function SpotifyIntegrationPage() {
               };
               hasAnyData = true;
             } else if (accountRes.status === 403) {
-              // console.log(
-              //   "Account API returned 403 - insufficient permissions"
-              // );
+              console.log(
+                "❌ Account API returned 403 - insufficient permissions"
+              );
+            } else {
+              console.log(
+                "❌ Account API failed with status:",
+                accountRes.status
+              );
+              const errorText = await accountRes.text();
+              console.log("❌ Error details:", errorText);
             }
           } catch (e) {
-            // console.log("Could not fetch account data:", e);
+            console.log("❌ Could not fetch account data:", e);
           }
 
           // Fetch recent tracks (user-read-recently-played)
           try {
+            console.log("🔍 Fetching Spotify recent tracks...");
             const recentRes = await fetch(
               `${
                 process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
@@ -239,17 +258,30 @@ export default async function SpotifyIntegrationPage() {
                 headers: { Cookie: (await cookies()).toString() },
               }
             );
+            console.log(
+              "📡 Recent tracks API response status:",
+              recentRes.status
+            );
+
             if (recentRes.ok) {
               const recentData = await recentRes.json();
+              console.log("✅ Recent tracks data received:", recentData);
               data.recentTracks = recentData.items || [];
               hasAnyData = true;
             } else if (recentRes.status === 403) {
-              // console.log(
-              //   "Recent tracks API returned 403 - insufficient permissions"
-              // );
+              console.log(
+                "❌ Recent tracks API returned 403 - insufficient permissions"
+              );
+            } else {
+              console.log(
+                "❌ Recent tracks API failed with status:",
+                recentRes.status
+              );
+              const errorText = await recentRes.text();
+              console.log("❌ Error details:", errorText);
             }
           } catch (e) {
-            // console.log("Could not fetch recent tracks:", e);
+            console.log("❌ Could not fetch recent tracks:", e);
           }
 
           // Fetch top tracks (user-top-read)

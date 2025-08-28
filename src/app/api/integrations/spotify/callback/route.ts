@@ -65,14 +65,24 @@ export async function GET(req: NextRequest) {
     }
 
     const tokenData = await tokenRes.json();
+    console.log("🎯 Spotify OAuth callback - Token response:", {
+      hasAccessToken: !!tokenData.access_token,
+      hasRefreshToken: !!tokenData.refresh_token,
+      scope: tokenData.scope,
+      expiresIn: tokenData.expires_in,
+      tokenType: tokenData.token_type,
+    });
+
     const session = await getServerSession();
 
     if (!session) {
+      console.log("❌ No session found in callback");
       const errorUrl = new URL("/integrations/spotify", url.origin);
       errorUrl.searchParams.set("error", "Not authenticated");
       return NextResponse.redirect(errorUrl);
     }
 
+    console.log("👤 User authenticated, storing tokens...");
     await upsertSpotifyTokens(session.user.id, tokenData);
 
     const returnTo = statePayload.returnTo || "/integrations/spotify";

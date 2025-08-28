@@ -1,23 +1,51 @@
-import { NextResponse } from "next/server"
-import { getServerSession } from "@/lib/supabase/server"
-import { getSpotifyAccessToken } from "@/lib/integrations/spotify"
+import { NextResponse } from "next/server";
+import { getServerSession } from "@/lib/supabase/server";
+import { getSpotifyAccessToken } from "@/lib/integrations/spotify";
 
 export async function GET() {
-  const session = await getServerSession()
-  if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 })
+  console.log("🔍 Spotify /recent API called");
 
-  const token = await getSpotifyAccessToken(session.user.id)
-  if (!token) return NextResponse.json({ error: "no_token" }, { status: 401 })
+  const session = await getServerSession();
+  if (!session) {
+    console.log("❌ No session found");
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
 
-  const sp = await fetch("https://api.spotify.com/v1/me/player/recently-played?limit=10", {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: "no-store",
-  })
+  console.log("👤 User ID:", session.user.id);
 
-  if (sp.status === 204) return NextResponse.json({ items: [] })
-  if (!sp.ok) return NextResponse.json({ error: "spotify_error" }, { status: sp.status })
+  const token = await getSpotifyAccessToken(session.user.id);
+  if (!token) {
+    console.log("❌ No Spotify token found");
+    return NextResponse.json({ error: "no_token" }, { status: 401 });
+  }
 
-  const data = await sp.json()
+  console.log("🔑 Token found, calling Spotify API...");
+
+  // Try to get more recent tracks with higher limit
+  const sp = await fetch(
+    "https://api.spotify.com/v1/me/player/recently-played?limit=50",
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    }
+  );
+
+  console.log("📡 Spotify API response status:", sp.status);
+
+  if (sp.status === 204) {
+    console.log("ℹ️ No recent tracks found (204 status)");
+    return NextResponse.json({ items: [] });
+  }
+
+  if (!sp.ok) {
+    const errorText = await sp.text();
+    console.log("❌ Spotify API error:", errorText);
+    return NextResponse.json({ error: "spotify_error" }, { status: sp.status });
+  }
+
+  const data = await sp.json();
+  console.log("✅ Recent tracks data received:", data);
+
   const items =
     (data.items || []).map((it: any) => ({
       id: it.played_at,
@@ -25,7 +53,8 @@ export async function GET() {
       artist: (it.track?.artists || []).map((a: any) => a.name).join(", "),
       playedAt: it.played_at,
       art: it.track?.album?.images?.[0]?.url,
-    })) ?? []
+    })) ?? [];
 
-  return NextResponse.json({ items })
+  console.log("🎵 Processed items:", items.length);
+  return NextResponse.json({ items });
 }
