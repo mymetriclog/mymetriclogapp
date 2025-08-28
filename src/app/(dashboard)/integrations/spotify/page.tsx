@@ -13,6 +13,7 @@ import {
 import { cookies } from "next/headers";
 
 // Force dynamic rendering since we use cookies for authentication
+// This prevents hydration issues by ensuring server and client render the same content
 export const dynamic = "force-dynamic";
 
 // Types for Spotify data
@@ -163,6 +164,15 @@ export default async function SpotifyIntegrationPage() {
   let currentScopes: string | null = null;
   let availableScopes: string[] = [];
 
+  // Add hydration safety - ensure consistent data structure
+  const defaultStats: SpotifyStats = {
+    totalPlaylists: 0,
+    totalSavedAlbums: 0,
+    totalSavedTracks: 0,
+    averagePopularity: 0,
+    listeningTime: 0,
+  };
+
   if (session) {
     const supabase = await getServerSupabaseClient();
     const { data: tokenData } = await supabase
@@ -195,14 +205,8 @@ export default async function SpotifyIntegrationPage() {
           // Fetch all available data with current scopes
           const data: Partial<SpotifyData> = {};
 
-          // Initialize stats object
-          data.stats = {
-            totalPlaylists: 0,
-            totalSavedAlbums: 0,
-            totalSavedTracks: 0,
-            averagePopularity: 0,
-            listeningTime: 0,
-          };
+          // Initialize stats object with default values
+          data.stats = { ...defaultStats };
 
           let hasAnyData = false;
 
@@ -434,6 +438,15 @@ export default async function SpotifyIntegrationPage() {
     }
   }
 
+  // Ensure consistent data structure for hydration
+  const safeSpotifyData = spotifyData || {
+    account: null,
+    recentTracks: [],
+    topTracks: [],
+    savedAlbums: [],
+    stats: defaultStats,
+  };
+
   return (
     <div className="p-4 md:p-6 space-y-6">
       <SpotifyHeader connected={isConnected} />
@@ -450,48 +463,48 @@ export default async function SpotifyIntegrationPage() {
         </div>
       )}
 
-      {isConnected && spotifyData ? (
+      {isConnected && safeSpotifyData ? (
         <>
           {/* Stats Grid - Only show if we have meaningful stats */}
-          {(spotifyData.stats.totalPlaylists > 0 ||
-            spotifyData.stats.totalSavedAlbums > 0 ||
-            spotifyData.stats.totalSavedTracks > 0) && (
+          {(safeSpotifyData.stats.totalPlaylists > 0 ||
+            safeSpotifyData.stats.totalSavedAlbums > 0 ||
+            safeSpotifyData.stats.totalSavedTracks > 0) && (
             <>
               <div className="grid gap-4 md:grid-cols-4">
-                {spotifyData.stats.totalPlaylists > 0 && (
+                {safeSpotifyData.stats.totalPlaylists > 0 && (
                   <div className="text-center p-4 border rounded-lg">
                     <div className="text-2xl font-bold text-blue-600">
-                      {spotifyData.stats.totalPlaylists}
+                      {safeSpotifyData.stats.totalPlaylists}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       Playlists
                     </div>
                   </div>
                 )}
-                {spotifyData.stats.totalSavedAlbums > 0 && (
+                {safeSpotifyData.stats.totalSavedAlbums > 0 && (
                   <div className="text-center p-4 border rounded-lg">
                     <div className="text-2xl font-bold text-green-600">
-                      {spotifyData.stats.totalSavedAlbums}
+                      {safeSpotifyData.stats.totalSavedAlbums}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       Saved Albums
                     </div>
                   </div>
                 )}
-                {spotifyData.stats.totalSavedTracks > 0 && (
+                {safeSpotifyData.stats.totalSavedTracks > 0 && (
                   <div className="text-center p-4 border rounded-lg">
                     <div className="text-2xl font-bold text-red-600">
-                      {spotifyData.stats.totalSavedTracks}
+                      {safeSpotifyData.stats.totalSavedTracks}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       Recent Tracks
                     </div>
                   </div>
                 )}
-                {spotifyData.stats.averagePopularity > 0 && (
+                {safeSpotifyData.stats.averagePopularity > 0 && (
                   <div className="text-center p-4 border rounded-lg">
                     <div className="text-2xl font-bold text-purple-600">
-                      {spotifyData.stats.averagePopularity}%
+                      {safeSpotifyData.stats.averagePopularity}%
                     </div>
                     <div className="text-sm text-muted-foreground">
                       Avg Popularity
@@ -506,51 +519,54 @@ export default async function SpotifyIntegrationPage() {
           {/* Main Content Grid */}
           <div className="grid gap-6 md:grid-cols-3">
             {/* Recent Tracks - Only show if we have data */}
-            {spotifyData.recentTracks &&
-              spotifyData.recentTracks.length > 0 && (
+            {safeSpotifyData.recentTracks &&
+              safeSpotifyData.recentTracks.length > 0 && (
                 <div className="md:col-span-2">
                   <SpotifyRecentTracks
                     connected={isConnected}
-                    initialItems={spotifyData.recentTracks}
+                    initialItems={safeSpotifyData.recentTracks}
                   />
                 </div>
               )}
 
             {/* Account Card - Only show if we have account data */}
-            {spotifyData.account && (
+            {safeSpotifyData.account && (
               <div
                 className={
-                  spotifyData.recentTracks &&
-                  spotifyData.recentTracks.length > 0
+                  safeSpotifyData.recentTracks &&
+                  safeSpotifyData.recentTracks.length > 0
                     ? ""
                     : "md:col-span-3"
                 }
               >
                 <SpotifyAccountCard
                   connected={isConnected}
-                  initialAccount={spotifyData.account}
+                  initialAccount={safeSpotifyData.account}
                 />
               </div>
             )}
           </div>
 
           {/* Bottom Grid - Only show if we have data */}
-          {(spotifyData.topTracks && spotifyData.topTracks.length > 0) ||
-          (spotifyData.savedAlbums && spotifyData.savedAlbums.length > 0) ? (
+          {(safeSpotifyData.topTracks &&
+            safeSpotifyData.topTracks.length > 0) ||
+          (safeSpotifyData.savedAlbums &&
+            safeSpotifyData.savedAlbums.length > 0) ? (
             <>
               <Separator />
               <div className="grid gap-6 md:grid-cols-2">
-                {spotifyData.topTracks && spotifyData.topTracks.length > 0 && (
-                  <SpotifyTopTracks
-                    connected={isConnected}
-                    initialTracks={spotifyData.topTracks}
-                  />
-                )}
-                {spotifyData.savedAlbums &&
-                  spotifyData.savedAlbums.length > 0 && (
+                {safeSpotifyData.topTracks &&
+                  safeSpotifyData.topTracks.length > 0 && (
+                    <SpotifyTopTracks
+                      connected={isConnected}
+                      initialTracks={safeSpotifyData.topTracks}
+                    />
+                  )}
+                {safeSpotifyData.savedAlbums &&
+                  safeSpotifyData.savedAlbums.length > 0 && (
                     <SpotifySavedAlbums
                       connected={isConnected}
-                      initialAlbums={spotifyData.savedAlbums}
+                      initialAlbums={safeSpotifyData.savedAlbums}
                     />
                   )}
               </div>
