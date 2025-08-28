@@ -440,15 +440,6 @@ export default async function SpotifyIntegrationPage() {
       <SpotifyConnect connected={isConnected} />
       <Separator />
 
-      {currentScopes && (
-        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-          <div className="text-sm text-green-800">
-            <strong>✅ Full Spotify Access:</strong>{" "}
-            {availableScopes.join(", ")}
-          </div>
-        </div>
-      )}
-
       {errorMessage && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
           <div className="text-sm text-red-800">{errorMessage}</div>
