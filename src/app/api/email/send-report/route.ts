@@ -11,6 +11,24 @@ async function getDailyReportData(userId: string, date: string) {
     .select("report_data, scores")
     .eq("user_id", userId)
     .eq("report_date", date)
+    .eq("report_type", "daily")
+    .single();
+
+  if (error || !data) return null;
+  return data;
+}
+
+async function getWeeklyReportData(userId: string, dateRange: string) {
+  const supabase = await getServerSupabaseClientWithServiceRole();
+
+  // For weekly reports, we need to find the most recent weekly report
+  const { data, error } = await supabase
+    .from("reports")
+    .select("report_data, scores")
+    .eq("user_id", userId)
+    .eq("report_type", "weekly")
+    .order("report_date", { ascending: false })
+    .limit(1)
     .single();
 
   if (error || !data) return null;
@@ -19,7 +37,7 @@ async function getDailyReportData(userId: string, date: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { type, to, userId, date, subject } = await request.json();
+    const { type, to, userId, date, subject, dateRange } = await request.json();
 
     console.log("🔍Today date From API: ", date);
 
@@ -31,9 +49,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to) || type !== "daily") {
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to) ||
+      !["daily", "weekly"].includes(type)
+    ) {
       return NextResponse.json(
-        { error: "Invalid email or type" },
+        { error: "Invalid email or report type" },
         { status: 400 }
       );
     }
@@ -44,12 +65,21 @@ export async function POST(request: NextRequest) {
       recipient_email: to,
       sender_email:
         process.env.SENDER_VERIFICATION_EMAIL || "asad@devstitch.com",
-      email_type: "daily_report" as const,
-      subject: subject || `Daily Wellness Report - ${date}`,
+      email_type: (type === "daily" ? "daily_report" : "weekly_report") as
+        | "daily_report"
+        | "weekly_report",
+      subject:
+        subject ||
+        `${type === "daily" ? "Daily" : "Weekly"} Wellness Report - ${date}`,
       status: "pending" as const,
       report_date: date,
-      report_type: "daily" as const,
-      metadata: { type, date, userId },
+      report_type: type as "daily" | "weekly",
+      metadata: {
+        type,
+        date,
+        userId,
+        dateRange: type === "weekly" ? dateRange : undefined,
+      },
     };
 
     // Insert initial log
@@ -58,7 +88,11 @@ export async function POST(request: NextRequest) {
       console.error("Failed to log email:", logResult.error);
     }
 
-    const reportData = await getDailyReportData(userId, date);
+    const reportData =
+      type === "daily"
+        ? await getDailyReportData(userId, date)
+        : await getWeeklyReportData(userId, dateRange || date);
+
     console.log("🔍 Report data:", reportData);
     if (!reportData) {
       // Update log status to failed

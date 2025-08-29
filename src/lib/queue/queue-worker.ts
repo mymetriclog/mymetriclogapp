@@ -29,11 +29,16 @@ async function processJobs() {
 
 // Process individual user report generation job
 async function processUserReportJob(job: any) {
-  const { userId, userEmail } = job.data as UserReportJobData;
+  const {
+    userId,
+    userEmail,
+    reportType = "daily",
+  } = job.data as UserReportJobData;
 
   console.log(`\n🚀 ===== STARTING JOB PROCESSING =====`);
   console.log(`📋 Job ID: ${job.id}`);
   console.log(`📋 Job Type: ${job.type}`);
+  console.log(`📊 Report Type: ${reportType}`);
   console.log(`👤 User: ${userEmail} (${userId})`);
   console.log(`⏰ Started at: ${new Date().toISOString()}`);
 
@@ -52,7 +57,9 @@ async function processUserReportJob(job: any) {
       return { status: "skipped", reason: "No integrations found" };
     }
 
-    console.log(`✅ User has integrations, proceeding with report generation`);
+    console.log(
+      `✅ User has integrations, proceeding with ${reportType} report generation`
+    );
 
     // Step 2: Generate report using the API endpoint
     console.log(`\n🌐 STEP 2: Calling report generation API...`);
@@ -64,10 +71,14 @@ async function processUserReportJob(job: any) {
     console.log(`📤 Request payload:`, {
       userId,
       userEmail,
-      reportType: "daily",
+      reportType,
     });
 
-    const reportResult = await generateUserReport(userId, userEmail);
+    const reportResult = await generateUserReport(
+      userId,
+      userEmail,
+      reportType
+    );
 
     console.log(`✅ Report generated successfully!`);
     console.log(`📄 Report ID: ${reportResult.reportId}`);
@@ -81,31 +92,57 @@ async function processUserReportJob(job: any) {
     console.log(`🔧 Fix RLS policies first to enable email sending`);
 
     try {
-      // For daily reports, use current date
-      const reportDate = new Date(); // Today's date for daily reports
+      // Calculate report date based on report type
+      let reportDate: Date;
+      let dateRange: string;
+
+      if (reportType === "weekly") {
+        // For weekly reports, use the end of the week (Sunday)
+        const now = new Date();
+        const daysUntilSunday = 7 - now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+        reportDate = new Date(
+          now.getTime() + daysUntilSunday * 24 * 60 * 60 * 1000
+        );
+        dateRange = `${
+          new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split("T")[0]
+        } - ${reportDate.toISOString().split("T")[0]}`;
+      } else {
+        // For daily reports, use current date
+        reportDate = new Date();
+        dateRange = reportDate.toISOString().split("T")[0];
+      }
 
       console.log(
         `📅 Using report date: ${
           reportDate.toISOString().split("T")[0]
-        } (today's date for daily reports)`
+        } (${reportType} report)`
       );
+      if (reportType === "weekly") {
+        console.log(`📅 Date range: ${dateRange}`);
+      }
 
       const emailPayload = {
         userId: userId,
         userEmail: userEmail,
-        reportType: "daily",
-        type: "daily",
+        reportType: reportType,
+        type: reportType,
         to: userEmail,
-        date: reportDate.toISOString().split("T")[0], // Today's date in YYYY-MM-DD format
-        subject: `Daily Wellness Report - ${reportDate.toLocaleDateString(
-          "en-US",
-          {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          }
-        )}`,
+        date: reportDate.toISOString().split("T")[0],
+        dateRange: reportType === "weekly" ? dateRange : undefined,
+        subject:
+          reportType === "weekly"
+            ? `Weekly Wellness Report - ${dateRange}`
+            : `Daily Wellness Report - ${reportDate.toLocaleDateString(
+                "en-US",
+                {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                }
+              )}`,
       };
 
       console.log(`📧 Email payload:`, emailPayload);
@@ -240,7 +277,11 @@ async function checkUserIntegrations(userId: string): Promise<boolean> {
 }
 
 // Generate user report
-async function generateUserReport(userId: string, userEmail: string) {
+async function generateUserReport(
+  userId: string,
+  userEmail: string,
+  reportType: string
+) {
   try {
     console.log(`🌐 Generating report for user: ${userEmail}`);
 
@@ -256,7 +297,7 @@ async function generateUserReport(userId: string, userEmail: string) {
       body: JSON.stringify({
         userId,
         userEmail,
-        reportType: "daily",
+        reportType,
       }),
     });
 
