@@ -74,6 +74,7 @@ export { redisClient };
 export interface UserReportJobData {
   userId: string;
   userEmail: string;
+  reportType: "daily" | "weekly";
   jobId?: string;
   timestamp?: string;
   attempts?: number;
@@ -341,7 +342,8 @@ export async function getAllUsersWithIntegrations() {
 
 // Add users to the queue
 export async function addUsersToQueue(
-  users: Array<{ id: string; email: string; hasIntegrations: boolean }>
+  users: Array<{ id: string; email: string; hasIntegrations: boolean }>,
+  reportType: "daily" | "weekly" = "daily"
 ) {
   try {
     const jobs = [];
@@ -357,12 +359,18 @@ export async function addUsersToQueue(
       const jobId = await userReportQueue.add("generate-user-report", {
         userId: user.id,
         userEmail: user.email,
+        reportType: reportType,
       });
 
-      jobs.push({ id: jobId, userId: user.id, userEmail: user.email });
+      jobs.push({
+        id: jobId,
+        userId: user.id,
+        userEmail: user.email,
+        reportType,
+      });
     }
 
-    console.log(`✅ Added ${jobs.length} jobs to queue`);
+    console.log(`✅ Added ${jobs.length} ${reportType} report jobs to queue`);
     return jobs;
   } catch (error) {
     console.error("Error adding users to queue:", error);

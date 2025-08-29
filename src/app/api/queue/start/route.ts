@@ -17,57 +17,68 @@ export async function POST(request: Request) {
       scheduledTime,
       reportType = "daily",
       batchSize = 50,
+      testingMode = false, // Add testing mode support
     } = body;
 
-    // Check if this is a cron request
+    // Validate cron secret for automated runs
     if (source === "cron") {
-      // Verify cron secret for internal requests
-      const authHeader = request.headers.get("Authorization");
-      const cronSecret = process.env.CRON_SECRET;
-
-      if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-        console.error("❌ Invalid cron secret in queue start");
-        return NextResponse.json(
-          { error: "Unauthorized cron request" },
-          { status: 401 }
-        );
-      }
-
-      console.log("🕐 Queue start triggered by cron job at:", timestamp);
-      console.log("📅 Scheduled time:", scheduledTime);
-    } else {
-      // Regular user request - check admin permissions
-      const session = await getServerSession();
-      const isAdmin = session?.user?.user_metadata?.role === "admin";
-
-      if (!isAdmin) {
+      const cronSecret = request.headers.get("x-cron-secret");
+      if (cronSecret !== process.env.CRON_SECRET) {
+        console.error("❌ Invalid cron secret");
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
     }
 
-    // Use the existing function to get users with integrations
+    // For weekly reports, check if it's Sunday OR if testing mode is enabled
+    if (reportType === "weekly" && !testingMode) {
+      const now = new Date();
+      const today = now.getDay(); // 0 = Sunday
+      if (today !== 0) {
+        console.log(
+          `⏭️ Weekly report generation skipped - today is not Sunday (${today})`
+        );
+        return NextResponse.json(
+          {
+            error: "Weekly reports can only be generated on Sundays",
+            today: today,
+            daysUntilSunday: 7 - today,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    console.log(`🚀 Starting ${reportType} report generation from ${source}`);
+    console.log(`📊 Report Type: ${reportType}`);
+    console.log(`🧪 Testing Mode: ${testingMode}`);
+
     const users = await getAllUsersWithIntegrations();
-
     const usersWithIntegrations = users.filter((user) => user.hasIntegrations);
-    const usersWithoutIntegrations = users.filter(
-      (user) => !user.hasIntegrations
-    );
+    const jobs = await addUsersToQueue(usersWithIntegrations, reportType);
 
-    // Add users to queue using the existing function
-    const jobs = await addUsersToQueue(usersWithIntegrations);
+    console.log(`✅ Added ${jobs.length} ${reportType} report jobs to queue`);
+    console.log(`👥 Total users: ${users.length}`);
+    console.log(`🔗 Users with integrations: ${usersWithIntegrations.length}`);
+    console.log(
+      `❌ Users without integrations: ${
+        users.length - usersWithIntegrations.length
+      }`
+    );
 
     return NextResponse.json({
       success: true,
-      message: `Queue started with ${jobs.length} jobs`,
       jobsAdded: jobs.length,
       totalUsers: users.length,
       usersWithIntegrations: usersWithIntegrations.length,
-      usersWithoutIntegrations: usersWithoutIntegrations.length,
+      usersWithoutIntegrations: users.length - usersWithIntegrations.length,
+      reportType,
+      testingMode,
+      message: `${reportType} report generation started successfully`,
     });
   } catch (error) {
-    console.error("Queue start error:", error);
+    console.error("❌ Error starting report generation:", error);
     return NextResponse.json(
-      { error: "Failed to start queue" },
+      { error: "Failed to start report generation" },
       { status: 500 }
     );
   }
