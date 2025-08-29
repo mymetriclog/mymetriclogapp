@@ -534,10 +534,35 @@ export async function POST(req: NextRequest) {
       savedToDatabase: !!savedReport,
     });
   } catch (error) {
-    console.error("Report generation error:", error);
+    console.error("❌ Report generation error:", error);
+
+    // Provide more specific error messages
+    let errorMessage = "Failed to generate report";
+    let statusCode = 500;
+
+    if (error instanceof Error) {
+      if (error.message.includes("API request failed")) {
+        errorMessage =
+          "Integration API request failed - some services may be unavailable";
+        statusCode = 400;
+      } else if (error.message.includes("database")) {
+        errorMessage = "Database operation failed";
+        statusCode = 500;
+      } else if (error.message.includes("authentication")) {
+        errorMessage = "Authentication failed";
+        statusCode = 401;
+      } else {
+        errorMessage = error.message;
+      }
+    }
+
     return NextResponse.json(
-      { error: "Failed to generate report" },
-      { status: 500 }
+      {
+        error: errorMessage,
+        details: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString(),
+      },
+      { status: statusCode }
     );
   }
 }
@@ -551,45 +576,100 @@ async function fetchIntegrationData(provider: string, userId: string) {
     switch (provider) {
       case "gmail":
         const gmailToken = await getGmailAccessToken(userId);
-        if (!gmailToken) return null;
-        const [gmailProfile, gmailStats] = await Promise.all([
-          getGmailProfile(gmailToken),
-          getGmailStats(gmailToken),
-        ]);
-        return { profile: gmailProfile, stats: gmailStats };
+        if (!gmailToken) {
+          console.log(`⚠️ No Gmail token available for user ${userId}`);
+          return null;
+        }
+        try {
+          const [gmailProfile, gmailStats] = await Promise.all([
+            getGmailProfile(gmailToken),
+            getGmailStats(gmailToken),
+          ]);
+          return { profile: gmailProfile, stats: gmailStats };
+        } catch (error) {
+          console.error(
+            `❌ Error fetching Gmail data for user ${userId}:`,
+            error
+          );
+          return null;
+        }
 
       case "google-calendar":
         const googleCalendarToken = await getGoogleCalendarAccessToken(userId);
-        if (!googleCalendarToken) return null;
-        const [googleCalendarStats, googleCalendarEvents] = await Promise.all([
-          getGoogleCalendarStats(googleCalendarToken),
-          getGoogleCalendarUpcomingEvents(googleCalendarToken, "primary", 10),
-        ]);
-        return { stats: googleCalendarStats, events: googleCalendarEvents };
+        if (!googleCalendarToken) {
+          console.log(
+            `⚠️ No Google Calendar token available for user ${userId}`
+          );
+          return null;
+        }
+        try {
+          const [googleCalendarStats, googleCalendarEvents] = await Promise.all(
+            [
+              getGoogleCalendarStats(googleCalendarToken),
+              getGoogleCalendarUpcomingEvents(
+                googleCalendarToken,
+                "primary",
+                10
+              ),
+            ]
+          );
+          return { stats: googleCalendarStats, events: googleCalendarEvents };
+        } catch (error) {
+          console.error(
+            `❌ Error fetching Google Calendar data for user ${userId}:`,
+            error
+          );
+          return null;
+        }
 
       case "fitbit":
         const fitbitToken = await getFitbitAccessToken(userId);
-        if (!fitbitToken) return null;
-        const [fitbitProfile, fitbitStats] = await Promise.all([
-          getFitbitProfile(fitbitToken),
-          getFitbitStats(fitbitToken),
-        ]);
-        return { profile: fitbitProfile, stats: fitbitStats };
+        if (!fitbitToken) {
+          console.log(`⚠️ No Fitbit token available for user ${userId}`);
+          return null;
+        }
+        try {
+          const [fitbitProfile, fitbitStats] = await Promise.all([
+            getFitbitProfile(fitbitToken),
+            getFitbitStats(fitbitToken),
+          ]);
+          return { profile: fitbitProfile, stats: fitbitStats };
+        } catch (error) {
+          console.error(
+            `❌ Error fetching Fitbit data for user ${userId}:`,
+            error
+          );
+          return null;
+        }
 
       case "spotify":
         const spotifyToken = await getSpotifyAccessToken(userId);
-        if (!spotifyToken) return null;
-        const [spotifyProfile, spotifyStats] = await Promise.all([
-          getSpotifyProfile(spotifyToken),
-          getSpotifyStats(spotifyToken),
-        ]);
-        return { profile: spotifyProfile, stats: spotifyStats };
+        if (!spotifyToken) {
+          console.log(`⚠️ No Spotify token available for user ${userId}`);
+          return null;
+        }
+        try {
+          const [spotifyProfile, spotifyStats] = await Promise.all([
+            getSpotifyProfile(spotifyToken),
+            getSpotifyStats(spotifyToken),
+          ]);
+          return { profile: spotifyProfile, stats: spotifyStats };
+        } catch (error) {
+          console.error(
+            `❌ Error fetching Spotify data for user ${userId}:`,
+            error
+          );
+          return null;
+        }
 
       default:
         return null;
     }
   } catch (error) {
-    console.error(`Error fetching ${provider} data:`, error);
+    console.error(
+      `❌ Error fetching ${provider} data for user ${userId}:`,
+      error
+    );
     return null;
   }
 }

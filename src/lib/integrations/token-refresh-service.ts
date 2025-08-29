@@ -227,19 +227,29 @@ export class TokenRefreshService {
   ): Promise<void> {
     const supabase = await getServerSupabaseClientWithServiceRole();
 
-    const { error } = await supabase
-      .from("integration_tokens")
-      .update({
+    // Use upsert to handle cases where the token might not exist or RLS policies are strict
+    const { error } = await supabase.from("integration_tokens").upsert(
+      {
+        user_id: userId,
+        provider: provider,
         access_token: tokenData.access_token,
         expires_at: tokenData.expires_at,
         refresh_token: tokenData.refresh_token,
         updated_at: new Date().toISOString(),
-      })
-      .eq("provider", provider)
-      .eq("user_id", userId);
+      },
+      {
+        onConflict: "user_id,provider",
+      }
+    );
 
     if (error) {
+      console.error(
+        `❌ Failed to update token in database for ${provider}:`,
+        error
+      );
       throw new Error(`Failed to update token in database: ${error.message}`);
     }
+
+    console.log(`✅ Token updated successfully for ${provider} user ${userId}`);
   }
 }
