@@ -11,7 +11,13 @@ import {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { source, timestamp, scheduledTime } = body;
+    const {
+      source,
+      timestamp,
+      scheduledTime,
+      reportType = "daily",
+      batchSize = 50,
+    } = body;
 
     // Check if this is a cron request
     if (source === "cron") {
@@ -38,8 +44,6 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
     }
-
-    const { reportType = "daily", batchSize = 10 } = await request.json();
 
     // Use the existing function to get users with integrations
     const users = await getAllUsersWithIntegrations();

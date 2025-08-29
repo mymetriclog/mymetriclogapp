@@ -111,14 +111,17 @@ export class EmailLogger {
         .single();
 
       if (error) {
+        console.error(`❌ Failed to update message ID in database:`, error);
         throw new Error(`Failed to update message ID: ${error.message}`);
       }
 
+      console.log(`✅ Message ID updated successfully: ${messageId}`);
       return {
         success: true,
         message: "Message ID updated successfully",
       };
     } catch (error) {
+      console.error(`❌ Message ID update failed:`, error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
@@ -181,13 +184,17 @@ export class EmailLogger {
         delivered:
           data?.filter((log: any) => log.status === "delivered").length || 0,
         failed: data?.filter((log: any) => log.status === "failed").length || 0,
-        bounced: data?.filter((log: any) => log.status === "bounced").length || 0,
+        bounced:
+          data?.filter((log: any) => log.status === "bounced").length || 0,
         dailyReports:
-          data?.filter((log: any) => log.email_type === "daily_report").length || 0,
+          data?.filter((log: any) => log.email_type === "daily_report")
+            .length || 0,
         weeklyReports:
-          data?.filter((log: any) => log.email_type === "weekly_report").length || 0,
+          data?.filter((log: any) => log.email_type === "weekly_report")
+            .length || 0,
         verifications:
-          data?.filter((log: any) => log.email_type === "verification").length || 0,
+          data?.filter((log: any) => log.email_type === "verification")
+            .length || 0,
       };
 
       return {
