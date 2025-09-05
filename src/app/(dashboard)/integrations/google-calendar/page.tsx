@@ -317,15 +317,9 @@ export default function GoogleCalendarIntegrationPage() {
                     "/api/integrations/google-calendar/connect")
                 }
               >
-                Reconnect with Full Permissions
+                Connect Google Calendar
               </button>
               <div className="text-sm text-gray-500">or</div>
-              <button
-                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-                onClick={handleDisconnect}
-              >
-                Disconnect Google Calendar
-              </button>
             </div>
           </div>
         </div>
