@@ -2,7 +2,6 @@
 
 import { GoogleCalendarHeader } from "@/components/integrations/google-calendar/google-calendar-header";
 import { GoogleCalendarConnect } from "@/components/integrations/google-calendar/google-calendar-connect";
-import { Separator } from "@/components/ui/separator";
 import { useState, useEffect } from "react";
 import {
   Calendar,
@@ -65,69 +64,6 @@ type GoogleCalendarData = {
   events: GoogleCalendarEvent[];
   upcomingEvents: GoogleCalendarEvent[];
 };
-
-// Loading Skeleton Components
-const MetricSkeleton = () => (
-  <div className="bg-white rounded-lg p-6 border border-gray-200 animate-pulse">
-    <div className="flex items-center gap-3">
-      <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
-      <div className="flex-1">
-        <div className="h-4 bg-gray-200 rounded w-20 mb-2"></div>
-        <div className="h-8 bg-gray-200 rounded w-16"></div>
-      </div>
-    </div>
-  </div>
-);
-
-const AccountOverviewSkeleton = () => (
-  <div className="bg-white rounded-lg p-6 border border-gray-200 animate-pulse">
-    <div className="flex items-center gap-3 mb-4">
-      <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
-      <div className="h-6 bg-gray-200 rounded w-32"></div>
-    </div>
-    <div className="grid gap-4 md:grid-cols-3">
-      {[1, 2, 3].map((i) => (
-        <div key={i}>
-          <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
-          <div className="h-5 bg-gray-200 rounded w-32"></div>
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
-const EventSkeleton = () => (
-  <div className="p-6 border-b border-gray-200 animate-pulse">
-    <div className="flex items-center gap-3 mb-2">
-      <div className="w-2 h-2 bg-gray-200 rounded-full"></div>
-      <div className="h-4 bg-gray-200 rounded w-32"></div>
-      <div className="h-4 bg-gray-200 rounded w-20 ml-auto"></div>
-    </div>
-    <div className="h-5 bg-gray-200 rounded w-48 mb-2"></div>
-    <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-  </div>
-);
-
-const EventsSkeleton = () => (
-  <div className="bg-white rounded-lg border border-gray-200 animate-pulse">
-    <div className="flex items-center justify-between p-6 border-b border-gray-200">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
-        <div>
-          <div className="h-6 bg-gray-200 rounded w-16 mb-1"></div>
-          <div className="h-4 bg-gray-200 rounded w-24"></div>
-        </div>
-      </div>
-      <div className="w-24 h-9 bg-gray-200 rounded-lg"></div>
-    </div>
-    <div className="divide-y divide-gray-200">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <EventSkeleton key={i} />
-      ))}
-    </div>
-  </div>
-);
 
 export default function GoogleCalendarIntegrationPage() {
   const [isConnected, setIsConnected] = useState(false);
