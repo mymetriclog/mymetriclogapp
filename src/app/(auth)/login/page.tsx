@@ -32,16 +32,19 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("Please wait…");
+  const [showResendButton, setShowResendButton] = useState(false);
 
   const supabase = getBrowserSupabaseClient();
 
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
         if (session) {
-          router.push('/dashboard');
+          router.push("/dashboard");
         }
       } catch (error) {
         // Session check failed, continue with login
@@ -66,18 +69,78 @@ export default function LoginPage() {
     }
   }
 
+  async function resendVerificationEmail() {
+    if (!email) {
+      notifications.error(
+        "Email Required",
+        "Please enter your email address first."
+      );
+      return;
+    }
+
+    setLoadingMessage("Sending verification email…");
+    setLoading(true);
+
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: email,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      notifications.error("Failed to Send", error.message);
+    } else {
+      notifications.success(
+        "Verification Email Sent",
+        "Please check your inbox and spam folder for the verification link."
+      );
+      setShowResendButton(false);
+    }
+  }
+
   async function signInWithEmail(e: React.FormEvent) {
     e.preventDefault();
     setLoadingMessage("Signing in…");
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     setLoading(false);
+
     if (error) {
-      notifications.error("Login Failed", error.message);
+      // Handle specific error cases
+      if (error.message.includes("Email not confirmed")) {
+        notifications.error(
+          "Email Not Verified",
+          "Please check your email and click the verification link before signing in. Check your spam folder if you don't see the email."
+        );
+        setShowResendButton(true);
+      } else if (error.message.includes("Invalid login credentials")) {
+        notifications.error(
+          "Invalid Credentials",
+          "Please check your email and password and try again."
+        );
+      } else if (error.message.includes("Too many requests")) {
+        notifications.error(
+          "Too Many Attempts",
+          "Please wait a few minutes before trying again."
+        );
+      } else {
+        notifications.error("Login Failed", error.message);
+      }
     } else {
+      // Check if email is verified
+      if (data.user && !data.user.email_confirmed_at) {
+        notifications.error(
+          "Email Not Verified",
+          "Please verify your email address before signing in. Check your inbox for the verification link."
+        );
+        setShowResendButton(true);
+        return;
+      }
+
       notifications.success("Login Successful", "Welcome back!");
       // Always redirect to dashboard after successful login
       router.replace("/dashboard");
@@ -161,7 +224,10 @@ export default function LoginPage() {
                   type="email"
                   placeholder="you@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setShowResendButton(false); // Hide resend button when user types
+                  }}
                   required
                   className="h-12 px-4 border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20 bg-gray-50/50 hover:bg-gray-50 transition-colors"
                 />
@@ -213,6 +279,20 @@ export default function LoginPage() {
                 Forgot password?
               </Link>
             </div>
+
+            {showResendButton && (
+              <div className="text-center">
+                <Button
+                  type="button"
+                  onClick={resendVerificationEmail}
+                  disabled={loading}
+                  variant="outline"
+                  className="w-full text-emerald-600 border-emerald-600 hover:bg-emerald-50"
+                >
+                  Resend Verification Email
+                </Button>
+              </div>
+            )}
             <span className="text-gray-600 text-center w-full block">
               Don't have an account?{" "}
               <Link
