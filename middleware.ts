@@ -7,7 +7,7 @@ const nonAuthPath = [
   "/register",
   "/email-verify",
   "/forgot-password",
-  "/password-reset",
+  "/reset-password",
   "/api/auth/callback",
   "/", // Allow home page access
 ];
