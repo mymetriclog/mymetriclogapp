@@ -40,7 +40,6 @@ function ResetPasswordForm() {
   const [passwordReset, setPasswordReset] = useState(false);
 
   const supabase = getBrowserSupabaseClient();
-
   // Check if we have a valid session for password reset
   useEffect(() => {
     const checkSession = async () => {
