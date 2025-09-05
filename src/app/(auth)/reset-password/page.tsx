@@ -26,7 +26,6 @@ import {
 import Image from "next/image";
 import { LoadingOverlay } from "@/components/loading-overlay";
 import { notifications } from "@/lib/notifications";
-
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
