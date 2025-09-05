@@ -255,7 +255,6 @@ export default function GoogleCalendarIntegrationPage() {
               >
                 Connect Google Calendar
               </button>
-              <div className="text-sm text-gray-500">or</div>
             </div>
           </div>
         </div>
