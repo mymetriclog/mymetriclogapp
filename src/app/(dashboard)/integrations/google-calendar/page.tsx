@@ -250,8 +250,8 @@ export default function GoogleCalendarIntegrationPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="p-6 space-y-6">
-          <GoogleCalendarHeader connected={true} />
-          <GoogleCalendarConnect connected={true} />
+          {/* <GoogleCalendarHeader connected={true} />
+          <GoogleCalendarConnect connected={true} /> */}
 
           <div className="bg-white rounded-lg p-8 text-center">
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -338,8 +338,8 @@ export default function GoogleCalendarIntegrationPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="p-6 space-y-6">
-          <GoogleCalendarHeader connected={true} />
-          <GoogleCalendarConnect connected={true} />
+          {/* <GoogleCalendarHeader connected={true} />
+          <GoogleCalendarConnect connected={true} /> */}
 
           <div className="bg-white rounded-lg p-8 text-center">
             <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
