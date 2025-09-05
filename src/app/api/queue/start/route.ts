@@ -20,12 +20,25 @@ export async function POST(request: Request) {
       testingMode = false, // Add testing mode support
     } = body;
 
-    // Validate cron secret for automated runs
+    // Public cron endpoint - no authentication required for cron requests
     if (source === "cron") {
-      const cronSecret = request.headers.get("x-cron-secret");
-      if (cronSecret !== process.env.CRON_SECRET) {
-        console.error("❌ Invalid cron secret");
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.log("🕐 Processing public cron request");
+    } else if (source === "manual") {
+      // Manual requests still require admin authentication
+      const session = await getServerSession();
+      if (!session) {
+        return NextResponse.json(
+          { error: "Not authenticated" },
+          { status: 401 }
+        );
+      }
+
+      const isAdmin = isUserAdmin(session.user);
+      if (!isAdmin) {
+        return NextResponse.json(
+          { error: "Admin access required" },
+          { status: 403 }
+        );
       }
     }
 

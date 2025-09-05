@@ -3,22 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
-  // Verify the request is from Vercel Cron
-  const authHeader = request.headers.get("Authorization");
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (!cronSecret) {
-    console.error("❌ CRON_SECRET environment variable not set");
-    return NextResponse.json(
-      { error: "Cron secret not configured" },
-      { status: 500 }
-    );
-  }
-
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    console.error("❌ Unauthorized cron request");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Public cron endpoint - no authentication required
+  console.log(
+    "🕐 Public cron job triggered at 11 PM - starting queue processing..."
+  );
 
   try {
     console.log(
@@ -33,7 +21,6 @@ export async function GET(request: NextRequest) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${cronSecret}`, // Pass the secret for internal auth
       },
       body: JSON.stringify({
         source: "cron",

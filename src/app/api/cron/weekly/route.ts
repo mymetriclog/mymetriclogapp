@@ -6,17 +6,8 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify cron secret for internal requests
-    const authHeader = request.headers.get("Authorization");
-    const cronSecret = process.env.CRON_SECRET;
-
-    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-      console.error("❌ Invalid cron secret in weekly cron");
-      return NextResponse.json(
-        { error: "Unauthorized cron request" },
-        { status: 401 }
-      );
-    }
+    // Public cron endpoint - no authentication required
+    console.log("🕐 Public weekly cron job triggered");
 
     const now = new Date();
     const today = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
