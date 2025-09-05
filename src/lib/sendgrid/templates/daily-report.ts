@@ -519,65 +519,6 @@ export function generateDailyReportEmail(data: DailyReportData): string {
         Your typical day: ${data.score} (today matches average)
       </div>
     </div>
-
-      <div class="chart-section">
-
-      <div class="chart-title">Historical Score Trend</div>
-
-      <div class="chart-bars">
-
-        <div class="chart-bar" style="height: 82%">
-
-          <div class="score">82</div>
-
-          <div class="day">5d</div>
-
-        </div>
-
-        <div class="chart-bar" style="height: 87%">
-
-          <div class="score">87</div>
-
-          <div class="day">4d</div>
-
-        </div>
-
-        <div class="chart-bar" style="height: 90%">
-
-          <div class="score">90</div>
-
-          <div class="day">3d</div>
-
-        </div>
-
-        <div class="chart-bar orange" style="height: 70%">
-
-          <div class="score">70</div>
-
-          <div class="day">2d</div>
-
-        </div>
-
-        <div class="chart-bar" style="height: 85%">
-
-          <div class="score">85</div>
-
-          <div class="day">1d</div>
-
-        </div>
-
-        <div class="chart-bar orange" style="height: 71%">
-
-          <div class="score">71</div>
-
-          <div class="day">Today</div>
-
-        </div>
-
-      </div>
-
-    </div>
-    
     <!-- At a Glance Section -->
     <div class="glance-section">
       <div class="glance-title">At a Glance:</div>
@@ -733,9 +674,12 @@ export function generateDailyReportEmail(data: DailyReportData): string {
       
       <div class="section">
         <h3>💡 Daily Insights</h3>
-        ${Array.isArray(data.insights) 
-          ? data.insights.map((insight) => `<div class="insight-item">${insight}</div>`).join("")
-          : `<div class="insight-item">Great job maintaining consistent activity levels today!</div>
+        ${
+          Array.isArray(data.insights)
+            ? data.insights
+                .map((insight) => `<div class="insight-item">${insight}</div>`)
+                .join("")
+            : `<div class="insight-item">Great job maintaining consistent activity levels today!</div>
              <div class="insight-item">Your sleep quality has improved compared to yesterday.</div>
              <div class="insight-item">Consider taking a short walk during your lunch break for better energy.</div>`
         }

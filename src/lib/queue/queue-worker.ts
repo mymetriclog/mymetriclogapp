@@ -4,7 +4,6 @@ import { userReportQueue, UserReportJobData } from "./queue-service";
 async function processJobs() {
   console.log("🚀 ===== QUEUE WORKER STARTED =====");
   console.log("👷 Worker is ready to process jobs from Redis");
-  console.log("⏰ Started at:", new Date().toISOString());
 
   while (true) {
     try {
@@ -86,11 +85,6 @@ async function processUserReportJob(job: any) {
 
     // Step 3: Send email to user
     console.log(`\n📧 STEP 3: Sending email to user...`);
-    console.log(
-      `⚠️ NOTE: Email will fail if report wasn't saved due to RLS policies`
-    );
-    console.log(`🔧 Fix RLS policies first to enable email sending`);
-
     try {
       // Calculate report date based on report type
       let reportDate: Date;
@@ -255,7 +249,7 @@ async function checkUserIntegrations(userId: string): Promise<boolean> {
       return false;
     }
 
-    console.log("📊 Raw integration data:", data);
+    // console.log("📊 Raw integration data:", data);
 
     const hasIntegrations = data && data.length > 0;
     console.log(
@@ -308,8 +302,6 @@ async function generateUserReport(
     }
 
     const result = await response.json();
-    console.log(`✅ Report generation API response:`, result);
-
     return {
       status: "completed",
       reportId: result.data?.reportId || `report-${Date.now()}`,
