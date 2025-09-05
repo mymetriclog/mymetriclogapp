@@ -115,7 +115,7 @@ export class EmailLogger {
         throw new Error(`Failed to update message ID: ${error.message}`);
       }
 
-      console.log(`✅ Message ID updated successfully: ${messageId}`);
+      // console.log(`✅ Message ID updated successfully: ${messageId}`);
       return {
         success: true,
         message: "Message ID updated successfully",

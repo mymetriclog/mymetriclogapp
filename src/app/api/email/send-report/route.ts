@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
         ? await getDailyReportData(userId, date)
         : await getWeeklyReportData(userId, dateRange || date);
 
-    console.log("🔍 Report data:", reportData);
+    // console.log("🔍 Report data:", reportData);
     if (!reportData) {
       // Update log status to failed
       if (logResult.success) {
