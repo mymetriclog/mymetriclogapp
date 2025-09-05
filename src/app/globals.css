@@ -761,9 +761,11 @@
 }
 
 /* Responsive Design */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .sidebar-smooth {
     width: 280px !important;
+    height: 100%;
+    top: 0;
   }
 }
 
