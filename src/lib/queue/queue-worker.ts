@@ -270,16 +270,35 @@ processJobs().catch((error) => {
 // 3. Send email to user with report
 // 4. Complete job successfully
 
-// Check if user has working integrations (not just records in database)
+// Check if user has working integrations and refresh expired tokens
 async function checkUserIntegrations(userId: string): Promise<boolean> {
   try {
     console.log(`🔍 Checking integrations for user: ${userId}`);
+
+    // First, try to refresh any expired tokens automatically
+    console.log(`🔄 Attempting to refresh expired tokens for user: ${userId}`);
+    const { TokenRefreshService } = await import(
+      "@/lib/integrations/token-refresh-service"
+    );
+    const refreshResults = await TokenRefreshService.refreshUserTokens(userId);
+
+    // Log refresh results
+    refreshResults.forEach((result) => {
+      if (result.success) {
+        console.log(`✅ Successfully refreshed ${result.provider} token`);
+      } else {
+        console.log(
+          `❌ Failed to refresh ${result.provider} token: ${result.error}`
+        );
+      }
+    });
+
     const { getServerSupabaseClientWithServiceRole } = await import(
       "@/lib/supabase/server"
     );
     const supabase = await getServerSupabaseClientWithServiceRole();
 
-    // Get integration tokens from database
+    // Get integration tokens from database after refresh
     const { data, error } = await supabase
       .from("integration_tokens")
       .select("id, provider, access_token, refresh_token, expires_at")
@@ -303,7 +322,7 @@ async function checkUserIntegrations(userId: string): Promise<boolean> {
       data.map((item) => item.provider)
     );
 
-    // Check if any integration has a valid token
+    // Check if any integration has a valid token after refresh
     const now = Math.floor(Date.now() / 1000);
     let hasWorkingIntegration = false;
 
@@ -318,9 +337,8 @@ async function checkUserIntegrations(userId: string): Promise<boolean> {
         hasWorkingIntegration = true;
       } else if (integration.refresh_token) {
         console.log(
-          `🔄 ${integration.provider} token expired but has refresh token - will attempt refresh`
+          `❌ ${integration.provider} token still invalid after refresh attempt`
         );
-        hasWorkingIntegration = true; // Assume refresh will work
       } else {
         console.log(
           `❌ ${integration.provider} has no valid token or refresh token`
@@ -392,6 +410,77 @@ async function generateUserReport(
     throw error;
   }
 }
+
+// Proactive token refresh function
+async function refreshAllUserTokens() {
+  try {
+    console.log("🔄 Starting proactive token refresh for all users...");
+    const { getServerSupabaseClientWithServiceRole } = await import(
+      "@/lib/supabase/server"
+    );
+    const supabase = await getServerSupabaseClientWithServiceRole();
+
+    // Get all unique user IDs that have integration tokens
+    const { data: users } = await supabase
+      .from("integration_tokens")
+      .select("user_id")
+      .not("user_id", "is", null);
+
+    if (!users || users.length === 0) {
+      console.log("ℹ️ No users with integration tokens found");
+      return;
+    }
+
+    const uniqueUserIds = [...new Set(users.map((u) => u.user_id))];
+    console.log(
+      `📊 Found ${uniqueUserIds.length} users with integration tokens`
+    );
+
+    const { TokenRefreshService } = await import(
+      "@/lib/integrations/token-refresh-service"
+    );
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const userId of uniqueUserIds) {
+      try {
+        const results = await TokenRefreshService.refreshUserTokens(userId);
+        const successResults = results.filter((r) => r.success);
+        const failResults = results.filter((r) => !r.success);
+
+        if (successResults.length > 0) {
+          successCount += successResults.length;
+          console.log(
+            `✅ Refreshed ${successResults.length} tokens for user ${userId}`
+          );
+        }
+
+        if (failResults.length > 0) {
+          failCount += failResults.length;
+          console.log(
+            `❌ Failed to refresh ${failResults.length} tokens for user ${userId}`
+          );
+        }
+      } catch (error) {
+        console.error(`❌ Error refreshing tokens for user ${userId}:`, error);
+        failCount++;
+      }
+    }
+
+    console.log(
+      `🔄 Token refresh completed: ${successCount} successful, ${failCount} failed`
+    );
+  } catch (error) {
+    console.error("❌ Error in proactive token refresh:", error);
+  }
+}
+
+// Run proactive token refresh every 30 minutes
+setInterval(refreshAllUserTokens, 30 * 60 * 1000);
+
+// Run initial token refresh after 1 minute
+setTimeout(refreshAllUserTokens, 60 * 1000);
 
 console.log("🚀 ===== QUEUE WORKER INITIALIZED =====");
 console.log("👷 Worker is ready to process jobs");
