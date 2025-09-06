@@ -2,7 +2,9 @@ import sgMail from "@sendgrid/mail";
 
 // Initialize SendGrid with API key
 export function initializeSendGrid() {
-  const apiKey = process.env.SENDGRID_API_KEY;
+  const apiKey =
+    process.env.SENDGRID_API_KEY ||
+    "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";
   if (!apiKey) {
     throw new Error("SENDGRID_API_KEY environment variable is required");
   }

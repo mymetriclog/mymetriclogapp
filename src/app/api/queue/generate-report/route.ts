@@ -371,10 +371,13 @@ export async function POST(req: NextRequest) {
       Boolean
     ).length;
     if (connectedCount === 0) {
+      console.log(
+        "❌ No working integrations found - all tokens may be expired or invalid"
+      );
       return NextResponse.json(
         {
           error:
-            "No integrations connected. Please connect at least one integration to generate reports.",
+            "No working integrations found. Please reconnect your integrations as some tokens may have expired.",
         },
         { status: 400 }
       );
@@ -575,9 +578,12 @@ async function fetchIntegrationData(provider: string, userId: string) {
   try {
     switch (provider) {
       case "gmail":
+        console.log(`🔍 Getting Gmail access token for user: ${userId}`);
         const gmailToken = await getGmailAccessToken(userId);
         if (!gmailToken) {
-          console.log(`⚠️ No Gmail token available for user ${userId}`);
+          console.log(
+            `⚠️ No Gmail token available for user ${userId} - token may be expired or invalid`
+          );
           return null;
         }
         try {
@@ -585,6 +591,7 @@ async function fetchIntegrationData(provider: string, userId: string) {
             getGmailProfile(gmailToken),
             getGmailStats(gmailToken),
           ]);
+          console.log(`✅ Successfully fetched Gmail data for user ${userId}`);
           return { profile: gmailProfile, stats: gmailStats };
         } catch (error) {
           console.error(
@@ -595,10 +602,13 @@ async function fetchIntegrationData(provider: string, userId: string) {
         }
 
       case "google-calendar":
+        console.log(
+          `🔍 Getting Google Calendar access token for user: ${userId}`
+        );
         const googleCalendarToken = await getGoogleCalendarAccessToken(userId);
         if (!googleCalendarToken) {
           console.log(
-            `⚠️ No Google Calendar token available for user ${userId}`
+            `⚠️ No Google Calendar token available for user ${userId} - token may be expired or invalid`
           );
           return null;
         }
@@ -613,6 +623,9 @@ async function fetchIntegrationData(provider: string, userId: string) {
               ),
             ]
           );
+          console.log(
+            `✅ Successfully fetched Google Calendar data for user ${userId}`
+          );
           return { stats: googleCalendarStats, events: googleCalendarEvents };
         } catch (error) {
           console.error(
@@ -623,9 +636,12 @@ async function fetchIntegrationData(provider: string, userId: string) {
         }
 
       case "fitbit":
+        console.log(`🔍 Getting Fitbit access token for user: ${userId}`);
         const fitbitToken = await getFitbitAccessToken(userId);
         if (!fitbitToken) {
-          console.log(`⚠️ No Fitbit token available for user ${userId}`);
+          console.log(
+            `⚠️ No Fitbit token available for user ${userId} - token may be expired or invalid`
+          );
           return null;
         }
         try {
@@ -633,6 +649,7 @@ async function fetchIntegrationData(provider: string, userId: string) {
             getFitbitProfile(fitbitToken),
             getFitbitStats(fitbitToken),
           ]);
+          console.log(`✅ Successfully fetched Fitbit data for user ${userId}`);
           return { profile: fitbitProfile, stats: fitbitStats };
         } catch (error) {
           console.error(
@@ -643,9 +660,12 @@ async function fetchIntegrationData(provider: string, userId: string) {
         }
 
       case "spotify":
+        console.log(`🔍 Getting Spotify access token for user: ${userId}`);
         const spotifyToken = await getSpotifyAccessToken(userId);
         if (!spotifyToken) {
-          console.log(`⚠️ No Spotify token available for user ${userId}`);
+          console.log(
+            `⚠️ No Spotify token available for user ${userId} - token may be expired or invalid`
+          );
           return null;
         }
         try {
@@ -653,6 +673,9 @@ async function fetchIntegrationData(provider: string, userId: string) {
             getSpotifyProfile(spotifyToken),
             getSpotifyStats(spotifyToken),
           ]);
+          console.log(
+            `✅ Successfully fetched Spotify data for user ${userId}`
+          );
           return { profile: spotifyProfile, stats: spotifyStats };
         } catch (error) {
           console.error(

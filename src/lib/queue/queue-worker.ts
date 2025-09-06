@@ -270,7 +270,7 @@ processJobs().catch((error) => {
 // 3. Send email to user with report
 // 4. Complete job successfully
 
-// Check if user has integrations
+// Check if user has working integrations (not just records in database)
 async function checkUserIntegrations(userId: string): Promise<boolean> {
   try {
     console.log(`🔍 Checking integrations for user: ${userId}`);
@@ -279,50 +279,59 @@ async function checkUserIntegrations(userId: string): Promise<boolean> {
     );
     const supabase = await getServerSupabaseClientWithServiceRole();
 
-    // Try to find the correct table for integration tokens
-    let data, error;
-
-    // First try integration_tokens table
-    const result1 = await supabase
+    // Get integration tokens from database
+    const { data, error } = await supabase
       .from("integration_tokens")
-      .select("id, provider")
+      .select("id, provider, access_token, refresh_token, expires_at")
       .eq("user_id", userId);
-
-    if (result1.error) {
-      console.log("❌ integration_tokens table error:", result1.error.message);
-      data = null;
-      error = result1.error;
-    } else {
-      console.log("✅ integration_tokens table found and queried successfully");
-      data = result1.data;
-      error = null;
-    }
 
     if (error) {
       console.error(`❌ Error checking user integrations:`, error);
       return false;
     }
 
-    if (!data) {
-      console.log("❌ No data returned from database");
+    if (!data || data.length === 0) {
+      console.log("❌ No integration records found for user");
       return false;
     }
 
-    // console.log("📊 Raw integration data:", data);
-
-    const hasIntegrations = data && data.length > 0;
     console.log(
-      `📊 Found ${data?.length || 0} integrations for user ${userId}`
+      `📊 Found ${data.length} integration records for user ${userId}`
+    );
+    console.log(
+      "🔗 Integration providers:",
+      data.map((item) => item.provider)
     );
 
-    if (hasIntegrations) {
-      console.log(
-        "🔗 Integration providers:",
-        data.map((item) => item.provider)
-      );
+    // Check if any integration has a valid token
+    const now = Math.floor(Date.now() / 1000);
+    let hasWorkingIntegration = false;
+
+    for (const integration of data) {
+      const isTokenValid =
+        integration.access_token &&
+        integration.expires_at &&
+        integration.expires_at > now;
+
+      if (isTokenValid) {
+        console.log(`✅ ${integration.provider} has valid token`);
+        hasWorkingIntegration = true;
+      } else if (integration.refresh_token) {
+        console.log(
+          `🔄 ${integration.provider} token expired but has refresh token - will attempt refresh`
+        );
+        hasWorkingIntegration = true; // Assume refresh will work
+      } else {
+        console.log(
+          `❌ ${integration.provider} has no valid token or refresh token`
+        );
+      }
     }
 
-    return hasIntegrations;
+    console.log(
+      `📊 User ${userId} has working integrations: ${hasWorkingIntegration}`
+    );
+    return hasWorkingIntegration;
   } catch (error) {
     console.error(`❌ Error checking user integrations:`, error);
     return false;

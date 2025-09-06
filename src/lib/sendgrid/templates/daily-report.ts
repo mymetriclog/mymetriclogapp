@@ -711,28 +711,45 @@ export function generateDailyReportEmail(data: DailyReportData): string {
             ? `
         <div class="insights">
           <h4 style="color: #1e293b; margin: 15px 0 10px 0; font-size: 1rem;">Hourly Forecast:</h4>
-          <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
-            ${data.weatherStats.hourlyForecast
-              .map(
-                (hour) => `
-                <div style="
-                  background: white; 
-                  padding: 12px; 
-                  border-radius: 8px; 
-                  border: 1px solid #e2e8f0; 
-                  min-width: 120px; 
-                  text-align: center;
-                  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-                ">
-                  <div style="font-weight: 600; color: #1e293b; font-size: 0.9rem;">${hour.hour}</div>
-                  <div style="font-size: 1.2rem; font-weight: 700; color: #3b82f6; margin: 5px 0;">${hour.temp}°C</div>
-                  <div style="font-size: 0.8rem; color: #64748b;">${hour.weather}</div>
-                  <div style="font-size: 0.7rem; color: #64748b; margin-top: 3px;">${hour.activity}</div>
-                </div>
-              `
-              )
-              .join("")}
-          </div>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <tr>
+              ${data.weatherStats.hourlyForecast
+                .map(
+                  (hour) => `
+                  <td style="
+                    background: white; 
+                    padding: 12px; 
+                    border-radius: 8px; 
+                    border: 1px solid #e2e8f0; 
+                    text-align: center;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                    vertical-align: top;
+                    width: ${
+                      100 /
+                      Math.min(
+                        data.weatherStats?.hourlyForecast?.length || 1,
+                        4
+                      )
+                    }%;
+                  ">
+                    <div style="font-weight: 600; color: #1e293b; font-size: 0.9rem;">${
+                      hour.hour
+                    }</div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #3b82f6; margin: 5px 0;">${
+                      hour.temp
+                    }°C</div>
+                    <div style="font-size: 0.8rem; color: #64748b;">${
+                      hour.weather
+                    }</div>
+                    <div style="font-size: 0.7rem; color: #64748b; margin-top: 3px;">${
+                      hour.activity
+                    }</div>
+                  </td>
+                `
+                )
+                .join("")}
+            </tr>
+          </table>
         </div>
         `
             : ""
