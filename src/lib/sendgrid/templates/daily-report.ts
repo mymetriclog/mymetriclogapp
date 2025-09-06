@@ -20,6 +20,25 @@ export interface DailyReportData {
     sleep: string;
     restingHR: number;
   };
+  weatherStats?: {
+    current: string;
+    forecast: string;
+    impact: string;
+    temperature: string;
+    humidity: string;
+    wind: string;
+    uv: string;
+    pressure: string;
+    recommendations: string[];
+    moodInfluence: string;
+    activitySuggestions: string[];
+    hourlyForecast?: Array<{
+      hour: string;
+      temp: number;
+      weather: string;
+      activity: string;
+    }>;
+  };
   insights: string[];
 }
 
@@ -499,6 +518,7 @@ export function generateDailyReportEmail(data: DailyReportData): string {
             <td><div class="icon-circle icon-purple">📅</div></td>
             <td><div class="icon-circle icon-pink">👤</div></td>
             <td><div class="icon-circle icon-yellow">😊</div></td>
+            <td><div class="icon-circle icon-teal">🌤️</div></td>
           </tr>
         </table>
       </div>
@@ -671,6 +691,61 @@ export function generateDailyReportEmail(data: DailyReportData): string {
           } bpm</div>
         </div>
       </div>
+      
+      ${
+        data.weatherStats
+          ? `
+      <div class="section">
+        <h3>🌤️ Weather & Environment</h3>
+        <div class="section-content">
+          <div class="metric-card" style="width: 100%; margin-bottom: 20px;">
+            <h4 class="metric-value" style="font-size: 2rem;">${
+              data.weatherStats.current || "N/A"
+            }</h4>
+            <p class="metric-label">Current Weather</p>
+          </div>
+        </div>
+        ${
+          data.weatherStats.hourlyForecast &&
+          data.weatherStats.hourlyForecast.length > 0
+            ? `
+        <div class="insights">
+          <h4 style="color: #1e293b; margin: 15px 0 10px 0; font-size: 1rem;">Hourly Forecast:</h4>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
+            ${data.weatherStats.hourlyForecast
+              .map(
+                (hour) => `
+                <div style="
+                  background: white; 
+                  padding: 12px; 
+                  border-radius: 8px; 
+                  border: 1px solid #e2e8f0; 
+                  min-width: 120px; 
+                  text-align: center;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                ">
+                  <div style="font-weight: 600; color: #1e293b; font-size: 0.9rem;">${hour.hour}</div>
+                  <div style="font-size: 1.2rem; font-weight: 700; color: #3b82f6; margin: 5px 0;">${hour.temp}°C</div>
+                  <div style="font-size: 0.8rem; color: #64748b;">${hour.weather}</div>
+                  <div style="font-size: 0.7rem; color: #64748b; margin-top: 3px;">${hour.activity}</div>
+                </div>
+              `
+              )
+              .join("")}
+          </div>
+        </div>
+        `
+            : ""
+        }
+        <div class="insights">
+          <div class="insight-item">${
+            data.weatherStats.impact || "Weather data not available"
+          }</div>
+        </div>
+      </div>
+      `
+          : ""
+      }
       
       <div class="section">
         <h3>💡 Daily Insights</h3>

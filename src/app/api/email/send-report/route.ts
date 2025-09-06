@@ -8,13 +8,18 @@ async function getDailyReportData(userId: string, date: string) {
 
   const { data, error } = await supabase
     .from("reports")
-    .select("report_data, scores")
+    .select("report_data, scores, report_date, created_at")
     .eq("user_id", userId)
     .eq("report_date", date)
     .eq("report_type", "daily")
+    .order("created_at", { ascending: false })
+    .limit(1)
     .single();
 
-  if (error || !data) return null;
+  if (error || !data) {
+    return null;
+  }
+
   return data;
 }
 
@@ -38,8 +43,6 @@ async function getWeeklyReportData(userId: string, dateRange: string) {
 export async function POST(request: NextRequest) {
   try {
     const { type, to, userId, date, subject, dateRange } = await request.json();
-
-    console.log("🔍Today date From API: ", date);
 
     // Validation
     if (!to || !type || !userId || !date) {
@@ -113,6 +116,7 @@ export async function POST(request: NextRequest) {
     // Process data
     const fitbit = reportData.report_data?.fitbitData?.stats?.today || {};
     const gmail = reportData.report_data?.gmailData?.stats || {};
+    const weather = reportData.report_data?.weatherData || {};
 
     const processedData = {
       date: new Date(date).toLocaleDateString("en-US", {
@@ -140,6 +144,22 @@ export async function POST(request: NextRequest) {
         distance: fitbit.distance || 0,
         sleep: fitbit.sleep?.duration || "0h 0m",
         restingHR: fitbit.heartRate?.resting || 0,
+      },
+      weatherStats: {
+        current: weather.summary?.current || "N/A",
+        forecast: weather.summary?.forecast || "N/A",
+        impact: weather.summary?.impact || "Weather data not available",
+        temperature:
+          weather.insights?.environmentalFactors?.temperature || "N/A",
+        humidity: weather.insights?.environmentalFactors?.humidity || "N/A",
+        wind: weather.insights?.environmentalFactors?.wind || "N/A",
+        uv: weather.insights?.environmentalFactors?.uv || "N/A",
+        pressure: weather.insights?.environmentalFactors?.pressure || "N/A",
+        recommendations: weather.insights?.recommendations || [],
+        moodInfluence:
+          weather.insights?.moodInfluence || "Weather data not available",
+        activitySuggestions: weather.insights?.activitySuggestions || [],
+        hourlyForecast: weather.hourlyForecast || [],
       },
       insights: ["Keep pushing forward with your wellness goals."],
     };

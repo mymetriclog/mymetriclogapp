@@ -17,9 +17,26 @@ async function processJobs() {
       }
 
       // Process the job
-      await processUserReportJob(job);
+      const result = await processUserReportJob(job);
+
+      // Log the result for this user
+      if (result.status === "completed") {
+        console.log(`✅ User job completed successfully: ${result.message}`);
+      } else if (result.status === "skipped") {
+        console.log(
+          `⏭️ User job skipped: ${
+            (result as any).reason || "No reason provided"
+          }`
+        );
+      } else if (result.status === "failed") {
+        console.log(`❌ User job failed: ${result.message}`);
+      }
+
+      console.log(`🔄 Ready to process next user...`);
+      console.log(`\n${"=".repeat(80)}`);
     } catch (error) {
       console.error("❌ Error in job processing loop:", error);
+      console.log(`⏭️ Continuing with next user despite error...`);
       // Wait before retrying
       await new Promise((resolve) => setTimeout(resolve, 5000));
     }
@@ -34,7 +51,7 @@ async function processUserReportJob(job: any) {
     reportType = "daily",
   } = job.data as UserReportJobData;
 
-  console.log(`\n🚀 ===== STARTING JOB PROCESSING =====`);
+  console.log(`\n🚀 ===== STARTING JOB PROCESSING FOR USER ${userEmail} =====`);
   console.log(`📋 Job ID: ${job.id}`);
   console.log(`📋 Job Type: ${job.type}`);
   console.log(`📊 Report Type: ${reportType}`);
@@ -43,12 +60,17 @@ async function processUserReportJob(job: any) {
 
   try {
     // Step 1: Check if user still has integrations
-    console.log(`\n🔍 STEP 1: Checking user integrations...`);
+    console.log(
+      `\n🔍 STEP 1: Checking user integrations for user: ${userEmail}...`
+    );
     const hasIntegrations = await checkUserIntegrations(userId);
-    console.log(`📊 User has integrations: ${hasIntegrations}`);
+    console.log(`📊 User ${userEmail} has integrations: ${hasIntegrations}`);
 
     if (!hasIntegrations) {
-      console.log(`⏭️ Skipping user - no integrations found`);
+      console.log(`⏭️ Skipping user ${userEmail} - no integrations found`);
+      console.log(
+        `✅ User ${userEmail} job completed (skipped) - moving to next user`
+      );
       await userReportQueue.completeJob(job.id, {
         status: "skipped",
         reason: "No integrations found",
@@ -57,17 +79,19 @@ async function processUserReportJob(job: any) {
     }
 
     console.log(
-      `✅ User has integrations, proceeding with ${reportType} report generation`
+      `✅ User ${userEmail} has integrations, proceeding with ${reportType} report generation`
     );
 
     // Step 2: Generate report using the API endpoint
-    console.log(`\n🌐 STEP 2: Calling report generation API...`);
+    console.log(
+      `\n🌐 STEP 2: Calling report generation API for user: ${userEmail}...`
+    );
     console.log(
       `📡 API URL: ${
         process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
       }/api/queue/generate-report`
     );
-    console.log(`📤 Request payload:`, {
+    console.log(`📤 Request payload for user ${userEmail}:`, {
       userId,
       userEmail,
       reportType,
@@ -79,12 +103,18 @@ async function processUserReportJob(job: any) {
       reportType
     );
 
-    console.log(`✅ Report generated successfully!`);
+    console.log(`✅ Report generated successfully for user ${userEmail}!`);
     console.log(`📄 Report ID: ${reportResult.reportId}`);
     console.log(`📊 Report Status: ${reportResult.status}`);
 
+    // Small delay to ensure report is fully saved to database
+    console.log(
+      `⏳ Waiting 2 seconds to ensure report is saved to database...`
+    );
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
     // Step 3: Send email to user
-    console.log(`\n📧 STEP 3: Sending email to user...`);
+    console.log(`\n📧 STEP 3: Sending email to user: ${userEmail}...`);
     try {
       // Calculate report date based on report type
       let reportDate: Date;
@@ -139,7 +169,7 @@ async function processUserReportJob(job: any) {
               )}`,
       };
 
-      console.log(`📧 Email payload:`, emailPayload);
+      console.log(`📧 Email payload for user ${userEmail}:`, emailPayload);
 
       const emailResponse = await fetch(
         `${
@@ -154,28 +184,47 @@ async function processUserReportJob(job: any) {
         }
       );
 
-      console.log("🔍 Email response:", emailResponse);
+      console.log(`🔍 Email response for user ${userEmail}:`, {
+        status: emailResponse.status,
+        statusText: emailResponse.statusText,
+        ok: emailResponse.ok,
+        headers: Object.fromEntries(emailResponse.headers.entries()),
+      });
 
       if (emailResponse.ok) {
         const emailResult = await emailResponse.json();
-        console.log(`✅ Email sent successfully!`);
+        console.log(`✅ Email sent successfully to user ${userEmail}!`);
+        console.log(
+          `📧 SendGrid Response for ${userEmail}:`,
+          JSON.stringify(emailResult, null, 2)
+        );
         console.log(`📧 Email ID: ${emailResult.data?.emailId || "N/A"}`);
         console.log(`📧 Email Status: ${emailResult.data?.status || "N/A"}`);
+        console.log(`📧 Message ID: ${emailResult.data?.messageId || "N/A"}`);
+        console.log(
+          `📧 SendGrid Status Code: ${emailResult.data?.statusCode || "N/A"}`
+        );
       } else {
         const errorData = await emailResponse.json().catch(() => ({}));
         console.log(
-          `⚠️ Email sending failed: ${emailResponse.status} ${emailResponse.statusText}`
+          `⚠️ Email sending failed for user ${userEmail}: ${emailResponse.status} ${emailResponse.statusText}`
         );
-        console.log(`📧 Error details:`, errorData);
+        console.log(
+          `📧 SendGrid Error Response for ${userEmail}:`,
+          JSON.stringify(errorData, null, 2)
+        );
         console.log(`📧 Full error response:`, errorData);
         // Don't fail the entire job if email fails
       }
     } catch (emailError) {
-      console.log(`⚠️ Email sending error:`, emailError);
+      console.log(`⚠️ Email sending error for user ${userEmail}:`, emailError);
       // Don't fail the entire job if email fails
     }
 
-    console.log(`✅ Job completed successfully!`);
+    console.log(`✅ Job completed successfully for user ${userEmail}!`);
+    console.log(
+      `🎉 User ${userEmail} processing completed - moving to next user`
+    );
 
     const result = {
       status: "completed",
@@ -188,14 +237,24 @@ async function processUserReportJob(job: any) {
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error occurred";
-    console.error(`\n❌ ===== JOB FAILED =====`);
+    console.error(`\n❌ ===== JOB FAILED FOR USER ${userEmail} =====`);
     console.error(`📋 Job ID: ${job.id}`);
     console.error(`👤 User: ${userEmail}`);
     console.error(`🚨 Error: ${errorMessage}`);
     console.error(`⏰ Failed at: ${new Date().toISOString()}`);
+    console.error(
+      `⏭️ Skipping user ${userEmail} due to error - moving to next user`
+    );
 
+    // Mark job as failed and continue with next user
     await userReportQueue.failJob(job.id, errorMessage);
-    throw error;
+
+    // Return error result instead of throwing to prevent stopping the entire process
+    return {
+      status: "failed",
+      error: errorMessage,
+      message: `Job failed for user ${userEmail} - continuing with next user`,
+    };
   }
 }
 
@@ -283,6 +342,10 @@ async function generateUserReport(
       process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
     }/api/queue/generate-report`;
 
+    console.log(
+      `📡 Making API call to generate report for user ${userEmail}...`
+    );
+
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
@@ -295,20 +358,28 @@ async function generateUserReport(
       }),
     });
 
+    console.log(
+      `📊 API response status for user ${userEmail}: ${response.status} ${response.statusText}`
+    );
+
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ API request failed for user ${userEmail}:`, errorText);
       throw new Error(
-        `API request failed: ${response.status} ${response.statusText}`
+        `API request failed for user ${userEmail}: ${response.status} ${response.statusText}`
       );
     }
 
     const result = await response.json();
+    console.log(`✅ Report generation API response for user ${userEmail}:`);
+
     return {
       status: "completed",
       reportId: result.data?.reportId || `report-${Date.now()}`,
       message: "Report generated successfully",
     };
   } catch (error) {
-    console.error(`❌ Error generating report:`, error);
+    console.error(`❌ Error generating report for user ${userEmail}:`, error);
     throw error;
   }
 }

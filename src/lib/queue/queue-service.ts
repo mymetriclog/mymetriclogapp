@@ -46,9 +46,9 @@ const redisClient = createClient({
 });
 
 // Connection event listeners
-redisClient.on("connect", () => {
-  console.log("🔄 Connecting to Upstash Redis...");
-});
+// redisClient.on("connect", () => {
+//   console.log("🔄 Connecting to Upstash Redis...");
+// });
 
 redisClient.on("ready", () => {
   console.log("✅ Redis client is ready and connected to Upstash");
