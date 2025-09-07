@@ -1,12 +1,9 @@
-// Export queue service
-export * from "./queue-service";
-
-// Initialize worker when this module is imported
-// console.log("🚀 ===== INITIALIZING QUEUE SYSTEM =====");
-// console.log("📦 Loading queue service...");
-import "./queue-service";
-// console.log("👷 Loading queue worker...");
-import "./queue-worker";
-// console.log("✅ ===== QUEUE SYSTEM READY =====");
-// console.log("🎯 Worker is ready to process jobs");
-// console.log("⏰ Initialized at:", new Date().toISOString());
+// Export Bull queue service
+export * from "./bull-queue-service";
+// Initialize Bull worker when this module is imported
+console.log("🚀 ===== INITIALIZING BULL QUEUE SYSTEM =====");
+import "./bull-queue-service";
+console.log("👷 Loading Bull queue worker...");
+import "./bull-queue-worker";
+console.log("✅ ===== BULL QUEUE SYSTEM READY =====");
+console.log("⏰ Initialized at:", new Date().toISOString());

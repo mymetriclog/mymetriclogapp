@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/supabase/server";
 import { isUserAdmin } from "@/lib/auth/admin-check";
+import { getQueueStats } from "@/lib/queue/bull-queue-service";
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,15 +20,17 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Since we're not using queue_tracking anymore, return simplified status
+    // Get Bull queue statistics
+    const stats = await getQueueStats();
+
     const summary = {
-      total: 0,
-      pending: 0,
-      processing: 0,
-      completed: 0,
-      failed: 0,
-      skipped: 0,
-      successRate: 0,
+      total: stats.total,
+      pending: stats.waiting,
+      processing: stats.active,
+      completed: stats.completed,
+      failed: stats.failed,
+      skipped: 0, // Bull doesn't track skipped separately
+      successRate: stats.successRate,
     };
 
     return NextResponse.json({
@@ -35,8 +38,8 @@ export async function GET(req: NextRequest) {
       message: "Queue status retrieved successfully",
       data: {
         summary,
-        queueItems: [],
-        recentActivity: [],
+        queueItems: [], // Could be populated with recent jobs if needed
+        recentActivity: [], // Could be populated with recent activity if needed
         timestamp: new Date().toISOString(),
       },
     });
