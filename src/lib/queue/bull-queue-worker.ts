@@ -22,7 +22,7 @@ async function processUserReportJob(job: any): Promise<any> {
     console.log(
       `\n🔍 STEP 1: Checking user integrations for user: ${userEmail}...`
     );
-    const hasIntegrations = await checkUserIntegrations(userId);
+    const hasIntegrations = await checkUserIntegrations(userId, userEmail);
     console.log(`📊 User ${userEmail} has integrations: ${hasIntegrations}`);
 
     if (!hasIntegrations) {
@@ -81,12 +81,16 @@ async function processUserReportJob(job: any): Promise<any> {
 }
 
 // Check if user has working integrations and refresh expired tokens
-async function checkUserIntegrations(userId: string): Promise<boolean> {
+async function checkUserIntegrations(
+  userId: string,
+  userEmail?: string
+): Promise<boolean> {
   try {
-    console.log(`🔍 Checking integrations for user: ${userId}`);
+    const userIdentifier = userEmail || userId;
+    console.log(`🔍 Checking integrations for user: ${userIdentifier}`);
 
     // Check existing tokens without attempting refresh
-    console.log(`🔍 Checking existing tokens for user: ${userId}`);
+    console.log(`🔍 Checking existing tokens for user: ${userIdentifier}`);
 
     const { getServerSupabaseClientWithServiceRole } = await import(
       "@/lib/supabase/server"
@@ -110,7 +114,7 @@ async function checkUserIntegrations(userId: string): Promise<boolean> {
     }
 
     console.log(
-      `📊 Found ${data.length} integration records for user ${userId}`
+      `📊 Found ${data.length} integration records for user ${userIdentifier}`
     );
     console.log(
       "🔗 Integration providers:",
@@ -142,7 +146,7 @@ async function checkUserIntegrations(userId: string): Promise<boolean> {
     }
 
     console.log(
-      `📊 User ${userId} has working integrations: ${hasWorkingIntegration}`
+      `📊 User ${userIdentifier} has working integrations: ${hasWorkingIntegration}`
     );
     return hasWorkingIntegration;
   } catch (error) {
