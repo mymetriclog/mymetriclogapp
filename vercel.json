@@ -10,16 +10,16 @@
     }
   ],
   "functions": {
-    "api/queue/generate-report/route.ts": {
+    "src/app/api/queue/generate-report/route.ts": {
       "maxDuration": 600
     },
-    "api/queue/start/route.ts": {
+    "src/app/api/queue/start/route.ts": {
       "maxDuration": 600
     },
-    "api/email/send-report/route.ts": {
+    "src/app/api/email/send-report/route.ts": {
       "maxDuration": 600
     },
-    "api/cron/weekly/route.ts": {
+    "src/app/api/cron/weekly/route.ts": {
       "maxDuration": 600
     }
   }
