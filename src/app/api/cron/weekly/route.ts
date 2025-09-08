@@ -6,8 +6,26 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
-    // Public cron endpoint - no authentication required
-    console.log("🕐 Public weekly cron job triggered");
+    // Security check: Only allow Vercel cron service
+    const ua = request.headers.get("user-agent") || "";
+    if (!ua.includes("vercel-cron/1.0")) {
+      console.log("❌ Unauthorized weekly cron access attempt:", ua);
+      return NextResponse.json(
+        {
+          error: "Unauthorized Access",
+          message:
+            "This weekly cron endpoint can only be accessed by Vercel's cron service",
+          details:
+            "Only requests with user-agent 'vercel-cron/1.0' are allowed",
+          receivedUserAgent: ua,
+          endpoint: "weekly-cron",
+          timestamp: new Date().toISOString(),
+        },
+        { status: 403 }
+      );
+    }
+
+    console.log("🕐 Vercel weekly cron job triggered");
 
     const now = new Date();
     const today = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
@@ -87,8 +105,26 @@ export async function POST(request: NextRequest) {
 }
 
 // GET endpoint to check weekly cron status
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Security check: Only allow Vercel cron service
+    const ua = request.headers.get("user-agent") || "";
+    if (!ua.includes("vercel-cron/1.0")) {
+      console.log("❌ Unauthorized weekly cron status access attempt:", ua);
+      return NextResponse.json(
+        {
+          error: "Unauthorized Access",
+          message:
+            "This weekly cron status endpoint can only be accessed by Vercel's cron service",
+          details:
+            "Only requests with user-agent 'vercel-cron/1.0' are allowed",
+          receivedUserAgent: ua,
+          endpoint: "weekly-cron-status",
+          timestamp: new Date().toISOString(),
+        },
+        { status: 403 }
+      );
+    }
     const now = new Date();
     const today = now.getDay();
     const isSunday = today === 0;

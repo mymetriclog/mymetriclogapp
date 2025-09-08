@@ -3,9 +3,24 @@ import { NextRequest, NextResponse } from "next/server";
 export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
-  // Public cron endpoint - no authentication required
+  // Security check: Only allow Vercel cron service
+  const ua = request.headers.get("user-agent") || "";
+  if (!ua.includes("vercel-cron/1.0")) {
+    console.log("❌ Unauthorized cron access attempt:", ua);
+    return NextResponse.json(
+      {
+        error: "Unauthorized Access",
+        message: "This endpoint can only be accessed by Vercel's cron service",
+        details: "Only requests with user-agent 'vercel-cron/1.0' are allowed",
+        receivedUserAgent: ua,
+        timestamp: new Date().toISOString(),
+      },
+      { status: 403 }
+    );
+  }
+
   console.log(
-    "🕐 Public cron job triggered at 11 PM - starting queue processing..."
+    "🕐 Vercel cron job triggered at 11 PM - starting queue processing..."
   );
 
   try {
