@@ -1,5 +1,7 @@
 import { userReportQueue, UserReportJobData } from "./bull-queue-service";
 import { getServerSupabaseClientWithServiceRole } from "@/lib/supabase/server";
+import { TokenRefreshService } from "@/lib/integrations/token-refresh-service";
+import { AutoReconnectService } from "@/lib/integrations/auto-reconnect-service";
 
 // Standalone function to process a single job
 export async function processJob(
@@ -7,24 +9,21 @@ export async function processJob(
 ) {
   const { userId, userEmail, queueJobId } = jobData;
 
-  console.log(`\n🚀 ===== PROCESSING JOB MANUALLY =====`);
-  console.log(`📋 Queue Job ID: ${queueJobId}`);
-  console.log(`👤 User: ${userEmail} (${userId})`);
-  console.log(`⏰ Started at: ${new Date().toISOString()}`);
+  console.log(`\n👤 ===== USER: ${userEmail} =====`);
+  console.log(
+    `📋 Job ID: ${queueJobId} | Started: ${new Date().toISOString()}`
+  );
 
   try {
     // Step 1: Update status to processing
-    console.log(`\n📝 STEP 1: Updating job status to 'processing'...`);
     if (queueJobId) await updateJobStatus(queueJobId, "processing");
-    console.log(`✅ Status updated to 'processing'`);
 
     // Step 2: Check if user still has integrations
-    console.log(`\n🔍 STEP 2: Checking user integrations...`);
     const hasIntegrations = await checkUserIntegrations(userId);
-    console.log(`📊 User has integrations: ${hasIntegrations}`);
+    console.log(`🔍 Integrations: ${hasIntegrations ? "Found" : "None"}`);
 
     if (!hasIntegrations) {
-      console.log(`⏭️ Skipping user - no integrations found`);
+      console.log(`⏭️ SKIPPED - No integrations`);
       if (queueJobId)
         await updateJobStatus(
           queueJobId,
@@ -34,31 +33,65 @@ export async function processJob(
       return { status: "skipped", reason: "No integrations found" };
     }
 
-    console.log(`✅ User has integrations, proceeding with report generation`);
+    // Step 3: Automatically refresh expired tokens
+    const refreshResults = await TokenRefreshService.refreshUserTokens(userId);
+    const successfulRefreshes = refreshResults.filter((r) => r.success);
+    const failedRefreshes = refreshResults.filter((r) => !r.success);
 
-    // Step 3: Generate report using the API endpoint
-    console.log(`\n🌐 STEP 3: Calling report generation API...`);
-    console.log(
-      `📡 API URL: ${
-        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-      }/api/reports/generate`
-    );
-    console.log(`📤 Request payload:`, {
-      userId,
-      userEmail,
-      reportType: "daily",
-    });
+    if (successfulRefreshes.length > 0) {
+      console.log(
+        `🔄 Tokens refreshed: ${successfulRefreshes
+          .map((r) => r.provider)
+          .join(", ")}`
+      );
+    }
+    if (failedRefreshes.length > 0) {
+      console.log(
+        `❌ Token refresh failed: ${failedRefreshes
+          .map((r) => r.provider)
+          .join(", ")}`
+      );
 
+      // Mark failed integrations as needing reconnection
+      await markIntegrationsForReconnection(
+        userId,
+        failedRefreshes.map((r) => r.provider)
+      );
+
+      // Send reconnection notification to user
+      try {
+        const userReconnectionData = {
+          userId,
+          userEmail,
+          integrations: failedRefreshes.map((r) => ({
+            provider: r.provider,
+            reconnectUrl: `${
+              process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+            }/api/integrations/${
+              r.provider
+            }/connect?returnTo=/integrations&autoReconnect=true`,
+            requestedAt: new Date().toISOString(),
+          })),
+          totalIntegrations: failedRefreshes.length,
+        };
+
+        await AutoReconnectService.sendReconnectionNotification(
+          userReconnectionData
+        );
+        console.log(`📧 Reconnection notification sent to ${userEmail}`);
+      } catch (error) {
+        console.error(`❌ Failed to send reconnection notification:`, error);
+      }
+    }
+
+    // Step 4: Generate report
+    console.log(`🌐 Generating report...`);
     const reportResult = await generateUserReport(userId, userEmail);
+    console.log(`✅ Report generated: ${reportResult.reportId}`);
 
-    console.log(`✅ Report generated successfully!`);
-    console.log(`📄 Report ID: ${reportResult.reportId}`);
-    console.log(`📊 Report Status: ${reportResult.status}`);
-
-    // Step 4: Update final status
-    console.log(`\n📝 STEP 4: Updating final job status to 'completed'...`);
+    // Step 5: Update final status
     if (queueJobId) await updateJobStatus(queueJobId, "completed");
-    console.log(`✅ Job completed successfully!`);
+    console.log(`✅ COMPLETED - Report ID: ${reportResult.reportId}`);
 
     return {
       status: "completed",
@@ -68,16 +101,10 @@ export async function processJob(
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error occurred";
-    console.error(`\n❌ ===== JOB FAILED =====`);
-    console.error(`📋 Queue Job ID: ${queueJobId}`);
-    console.error(`👤 User: ${userEmail}`);
-    console.error(`🚨 Error: ${errorMessage}`);
-    console.error(`⏰ Failed at: ${new Date().toISOString()}`);
+    console.log(`❌ FAILED - ${errorMessage}`);
 
     // Update status to failed
-    console.log(`\n📝 Updating job status to 'failed'...`);
     if (queueJobId) await updateJobStatus(queueJobId, "failed", errorMessage);
-    console.log(`✅ Status updated to 'failed'`);
 
     throw error;
   }
@@ -86,7 +113,6 @@ export async function processJob(
 // Check if user has integrations
 async function checkUserIntegrations(userId: string): Promise<boolean> {
   try {
-    console.log(`🔍 Checking integrations for user: ${userId}`);
     const supabase = await getServerSupabaseClientWithServiceRole();
 
     const { data, error } = await supabase
@@ -95,19 +121,22 @@ async function checkUserIntegrations(userId: string): Promise<boolean> {
       .eq("user_id", userId);
 
     if (error) {
-      console.error(`❌ Error checking user integrations:`, error);
+      console.error(`❌ Error checking integrations:`, error);
       return false;
     }
 
     const hasIntegrations = data && data.length > 0;
-    console.log(
-      `📊 Found ${data?.length || 0} integrations:`,
-      data?.map((i) => i.provider) || []
-    );
+    if (hasIntegrations) {
+      console.log(
+        `📊 Found ${data.length} integrations: ${data
+          .map((i) => i.provider)
+          .join(", ")}`
+      );
+    }
 
     return hasIntegrations;
   } catch (error) {
-    console.error(`❌ Error checking user integrations:`, error);
+    console.error(`❌ Error checking integrations:`, error);
     return false;
   }
 }
@@ -115,20 +144,16 @@ async function checkUserIntegrations(userId: string): Promise<boolean> {
 // Generate report for a specific user by calling the API endpoint
 async function generateUserReport(userId: string, userEmail: string) {
   try {
-    console.log(`🌐 Making API call to generate report...`);
-
     // Call the queue-specific API endpoint
     const apiUrl = `${
       process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
     }/api/reports/generate`;
-    console.log(`📡 API URL: ${apiUrl}`);
 
     const requestBody = {
       userId,
       userEmail,
       reportType: "daily",
     };
-    console.log(`📤 Request body:`, requestBody);
 
     const response = await fetch(apiUrl, {
       method: "POST",
@@ -137,14 +162,6 @@ async function generateUserReport(userId: string, userEmail: string) {
       },
       body: JSON.stringify(requestBody),
     });
-
-    console.log(
-      `📡 Response status: ${response.status} ${response.statusText}`
-    );
-    console.log(
-      `📡 Response headers:`,
-      Object.fromEntries(response.headers.entries())
-    );
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -155,7 +172,6 @@ async function generateUserReport(userId: string, userEmail: string) {
     }
 
     const result = await response.json();
-    console.log(`✅ API response received:`, result);
 
     return {
       reportId: result.data.reportId,
@@ -167,6 +183,36 @@ async function generateUserReport(userId: string, userEmail: string) {
   }
 }
 
+// Mark integrations as needing reconnection
+async function markIntegrationsForReconnection(
+  userId: string,
+  providers: string[]
+) {
+  try {
+    const supabase = await getServerSupabaseClientWithServiceRole();
+
+    for (const provider of providers) {
+      // Update the integration token record to mark it as needing reconnection
+      const { error } = await supabase
+        .from("integration_tokens")
+        .update({
+          needs_reconnection: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", userId)
+        .eq("provider", provider);
+
+      if (error) {
+        console.error(`❌ Failed to mark ${provider} for reconnection:`, error);
+      } else {
+        console.log(`🔗 Marked ${provider} for reconnection`);
+      }
+    }
+  } catch (error) {
+    console.error(`❌ Error marking integrations for reconnection:`, error);
+  }
+}
+
 // Update job status in the database
 async function updateJobStatus(
   queueJobId: string,
@@ -174,10 +220,6 @@ async function updateJobStatus(
   errorMessage?: string
 ) {
   try {
-    console.log(
-      `📝 Updating job status to '${status}' for queue job ID: ${queueJobId}`
-    );
-
     const supabase = await getServerSupabaseClientWithServiceRole();
 
     const updateData: any = {
@@ -192,10 +234,7 @@ async function updateJobStatus(
 
     if (errorMessage) {
       updateData.error_message = errorMessage;
-      console.log(`📝 Adding error message: ${errorMessage}`);
     }
-
-    console.log(`📝 Update data:`, updateData);
 
     const { error } = await supabase
       .from("queue_tracking")
@@ -204,8 +243,6 @@ async function updateJobStatus(
 
     if (error) {
       console.error(`❌ Failed to update job status:`, error);
-    } else {
-      console.log(`✅ Job status updated successfully to '${status}'`);
     }
   } catch (error) {
     console.error(`❌ Error updating job status:`, error);

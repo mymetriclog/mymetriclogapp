@@ -1,4 +1,5 @@
 import { userReportQueue, UserReportJobData } from "./bull-queue-service";
+import { TokenRefreshService } from "@/lib/integrations/token-refresh-service";
 
 // Process user report job
 async function processUserReportJob(job: any): Promise<any> {
@@ -85,15 +86,12 @@ async function checkUserIntegrations(userId: string): Promise<boolean> {
   try {
     console.log(`🔍 Checking integrations for user: ${userId}`);
 
-    // Check existing tokens without attempting refresh
-    console.log(`🔍 Checking existing tokens for user: ${userId}`);
-
     const { getServerSupabaseClientWithServiceRole } = await import(
       "@/lib/supabase/server"
     );
     const supabase = await getServerSupabaseClientWithServiceRole();
 
-    // Get integration tokens from database after refresh
+    // Get integration tokens from database
     const { data, error } = await supabase
       .from("integration_tokens")
       .select("id, provider, access_token, refresh_token, expires_at")
@@ -117,11 +115,60 @@ async function checkUserIntegrations(userId: string): Promise<boolean> {
       data.map((item) => item.provider)
     );
 
-    // Check if any integration has a valid token after refresh
+    // Check and refresh only expired tokens
+    console.log(`🔍 Checking token status and refreshing if needed...`);
+    const refreshResults = await TokenRefreshService.refreshUserTokens(userId);
+    const successfulRefreshes = refreshResults.filter((r) => r.success);
+    const failedRefreshes = refreshResults.filter((r) => !r.success);
+
+    if (successfulRefreshes.length > 0) {
+      const refreshedTokens = successfulRefreshes.filter(
+        (r) => r.newExpiresAt && r.newExpiresAt > Math.floor(Date.now() / 1000)
+      );
+      const validTokens = successfulRefreshes.filter(
+        (r) =>
+          !r.newExpiresAt || r.newExpiresAt <= Math.floor(Date.now() / 1000)
+      );
+
+      if (refreshedTokens.length > 0) {
+        console.log(
+          `🔄 Tokens refreshed: ${refreshedTokens
+            .map((r) => r.provider)
+            .join(", ")}`
+        );
+      }
+      if (validTokens.length > 0) {
+        console.log(
+          `✅ Tokens still valid: ${validTokens
+            .map((r) => r.provider)
+            .join(", ")}`
+        );
+      }
+    }
+    if (failedRefreshes.length > 0) {
+      console.log(
+        `❌ Token refresh failed: ${failedRefreshes
+          .map((r) => r.provider)
+          .join(", ")}`
+      );
+    }
+
+    // Now check if any integration has a valid token after refresh
+    // We need to fetch fresh data from database after refresh
+    const { data: refreshedData, error: refreshError } = await supabase
+      .from("integration_tokens")
+      .select("id, provider, access_token, refresh_token, expires_at")
+      .eq("user_id", userId);
+
+    if (refreshError) {
+      console.error(`❌ Error fetching refreshed tokens:`, refreshError);
+      return false;
+    }
+
     const now = Math.floor(Date.now() / 1000);
     let hasWorkingIntegration = false;
 
-    for (const integration of data) {
+    for (const integration of refreshedData || []) {
       const isTokenValid =
         integration.access_token &&
         integration.expires_at &&
@@ -130,10 +177,6 @@ async function checkUserIntegrations(userId: string): Promise<boolean> {
       if (isTokenValid) {
         console.log(`✅ ${integration.provider} has valid token`);
         hasWorkingIntegration = true;
-      } else if (integration.refresh_token) {
-        console.log(
-          `❌ ${integration.provider} token still invalid after refresh attempt`
-        );
       } else {
         console.log(
           `❌ ${integration.provider} has no valid token or refresh token`

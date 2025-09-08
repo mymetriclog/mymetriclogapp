@@ -17,7 +17,7 @@ export class TokenRefreshService {
     // Get all tokens that need refresh
     const { data: tokens } = await supabase
       .from("integration_tokens")
-      .select("provider, access_token, refresh_token, expires_at")
+      .select("provider, access_token, refresh_token, expires_at, user_id")
       .eq("user_id", userId);
 
     if (!tokens) return [];
@@ -26,26 +26,74 @@ export class TokenRefreshService {
     const now = Math.floor(Date.now() / 1000);
 
     for (const token of tokens) {
-      // Check if token needs refresh (expired or expiring within 1 hour)
-      const needsRefresh =
-        token.expires_at &&
-        (token.expires_at < now || token.expires_at < now + 3600);
+      // Check if token is actually expired
+      const isExpired = token.expires_at && token.expires_at < now;
 
-      if (needsRefresh && token.refresh_token) {
+      if (isExpired && token.refresh_token) {
+        // Token is expired, try to refresh
+        console.log(
+          `🔄 Token expired for ${token.provider}, attempting refresh...`
+        );
+        console.log(`🔍 Refresh token exists: ${!!token.refresh_token}`);
+        console.log(
+          `⏰ Token expires at: ${token.expires_at}, Current time: ${now}`
+        );
         try {
           const result = await this.refreshToken(
             token.provider,
             token.refresh_token,
             userId
           );
+          console.log(`✅ Refresh successful for ${token.provider}:`, result);
           results.push(result);
         } catch (error) {
+          console.log(
+            `❌ Failed to refresh expired token for ${token.provider}:`,
+            error
+          );
+
+          // Check if it's an invalid_grant error (refresh token expired)
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
+          const isRefreshTokenExpired =
+            errorMessage.includes("invalid_grant") ||
+            errorMessage.includes("unauthorized_client") ||
+            errorMessage.includes("invalid_client");
+
+          if (isRefreshTokenExpired) {
+            console.log(
+              `🔄 Refresh token expired for ${token.provider}, marking for reconnection`
+            );
+            // Mark this integration for reconnection
+            await this.markForReconnection(token.user_id, token.provider);
+          }
+
           results.push({
             success: false,
             provider: token.provider,
-            error: error instanceof Error ? error.message : "Unknown error",
+            error: errorMessage,
           });
         }
+      } else if (isExpired && !token.refresh_token) {
+        // Token is expired but no refresh token available
+        console.log(
+          `❌ Token expired for ${token.provider} but no refresh token available`
+        );
+        results.push({
+          success: false,
+          provider: token.provider,
+          error: "Token expired and no refresh token available",
+        });
+      } else {
+        // Token is still valid, no need to refresh
+        console.log(
+          `✅ Token still valid for ${token.provider}, no refresh needed`
+        );
+        results.push({
+          success: true,
+          provider: token.provider,
+          newExpiresAt: token.expires_at, // Keep original expiration
+        });
       }
     }
 
@@ -101,6 +149,7 @@ export class TokenRefreshService {
    * Refresh Spotify token
    */
   private static async refreshSpotifyToken(refreshToken: string): Promise<any> {
+    console.log(`🔄 Refreshing Spotify token...`);
     const response = await fetch("https://accounts.spotify.com/api/token", {
       method: "POST",
       headers: {
@@ -116,10 +165,15 @@ export class TokenRefreshService {
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.log(
+        `❌ Spotify refresh failed: ${response.status} ${response.statusText} - ${errorText}`
+      );
       throw new Error(`Spotify refresh failed: ${response.statusText}`);
     }
 
     const data = await response.json();
+    console.log(`✅ Spotify token refreshed successfully`);
     return {
       access_token: data.access_token,
       expires_at: Math.floor(Date.now() / 1000) + data.expires_in,
@@ -161,6 +215,7 @@ export class TokenRefreshService {
    * Refresh Gmail token
    */
   private static async refreshGmailToken(refreshToken: string): Promise<any> {
+    console.log(`🔄 Refreshing Gmail token...`);
     const response = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: {
@@ -175,10 +230,15 @@ export class TokenRefreshService {
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.log(
+        `❌ Gmail refresh failed: ${response.status} ${response.statusText} - ${errorText}`
+      );
       throw new Error(`Gmail refresh failed: ${response.statusText}`);
     }
 
     const data = await response.json();
+    console.log(`✅ Gmail token refreshed successfully`);
     return {
       access_token: data.access_token,
       expires_at: Math.floor(Date.now() / 1000) + data.expires_in,
@@ -251,5 +311,36 @@ export class TokenRefreshService {
     }
 
     console.log(`✅ Token updated successfully for ${provider} user ${userId}`);
+  }
+
+  /**
+   * Mark integration for reconnection when refresh token is expired
+   */
+  private static async markForReconnection(
+    userId: string,
+    provider: string
+  ): Promise<void> {
+    try {
+      const supabase = await getServerSupabaseClientWithServiceRole();
+
+      const { error } = await supabase
+        .from("integration_tokens")
+        .update({
+          needs_reconnection: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", userId)
+        .eq("provider", provider);
+
+      if (error) {
+        console.error(`❌ Failed to mark ${provider} for reconnection:`, error);
+      } else {
+        console.log(
+          `✅ Marked ${provider} for reconnection for user ${userId}`
+        );
+      }
+    } catch (error) {
+      console.error(`❌ Error marking ${provider} for reconnection:`, error);
+    }
   }
 }
