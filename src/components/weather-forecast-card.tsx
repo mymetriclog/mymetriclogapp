@@ -279,26 +279,30 @@ export function WeatherForecastCard({ userTimezone }: WeatherForecastCardProps =
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-7 gap-2">
-          {forecast.map((day, index) => (
-            <div key={index} className="text-center p-2 rounded-lg hover:bg-gray-50 transition-colors">
-              <div className="text-sm font-medium text-gray-600 mb-1">
-                {day.day}
+        <div className="overflow-x-auto">
+          <div className="flex gap-2 min-w-fit justify-between">
+            {forecast.map((day, index) => (
+              <div key={index} className="text-center p-2 rounded-lg hover:bg-gray-50 transition-colors min-w-[80px] flex-shrink-0">
+                <div className="flex flex-col items-center">
+                <div className="text-sm font-medium text-gray-600 mb-1">
+                  {day.day}
+                </div>
+                <div className="mb-2">
+                  {getWeatherIcon(day.weather_main)}
+                </div>
+                </div>
+                <div className="text-xs text-gray-500 mb-1">
+                  {day.weather_description}
+                </div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {day.temp_max}°
+                </div>
+                <div className="text-xs text-gray-500">
+                  {day.temp_min}°
+                </div>
               </div>
-              <div className="mb-2">
-                {getWeatherIcon(day.weather_main)}
-              </div>
-              <div className="text-xs text-gray-500 mb-1">
-                {day.weather_description}
-              </div>
-              <div className="text-sm font-semibold text-gray-900">
-                {day.temp_max}°
-              </div>
-              <div className="text-xs text-gray-500">
-                {day.temp_min}°
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </CardContent>
     </Card>
