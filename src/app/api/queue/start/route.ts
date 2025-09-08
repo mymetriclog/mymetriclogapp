@@ -5,8 +5,7 @@ import {
   getAllUsersWithIntegrations,
   addUsersToQueue,
   getQueueStats,
-  userReportQueue,
-} from "@/lib/queue/bull-queue-service";
+} from "@/lib/queue/upstash-queue-service";
 
 export async function POST(request: Request) {
   try {

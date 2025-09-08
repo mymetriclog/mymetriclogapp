@@ -150,7 +150,10 @@ export function QueueDashboard() {
       console.error("Error starting queue:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to start queue processing",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to start queue processing",
         variant: "destructive",
       });
     } finally {
@@ -191,7 +194,10 @@ export function QueueDashboard() {
       console.error("Error processing pending jobs:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to process pending jobs",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to process pending jobs",
         variant: "destructive",
       });
     } finally {
@@ -302,10 +308,10 @@ export function QueueDashboard() {
             <Button
               onClick={startQueue}
               disabled={isStarting}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
             >
               <Play className="h-4 w-4" />
-              {isStarting ? "Starting..." : "Start Queue"}
+              {isStarting ? "Adding Jobs..." : "Add Jobs to Queue"}
             </Button>
             <Button
               onClick={processPendingJobs}
@@ -314,25 +320,7 @@ export function QueueDashboard() {
               className="flex items-center gap-2"
             >
               <RefreshCw className="h-4 w-4" />
-              {isLoading ? "Processing..." : "Process Pending"}
-            </Button>
-            <Button
-              onClick={clearCompletedJobs}
-              disabled={isLoading}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <Trash2 className="h-4 w-4" />
-              Clear Completed
-            </Button>
-            <Button
-              onClick={clearFailedJobs}
-              disabled={isLoading}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <XCircle className="h-4 w-4" />
-              Clear Failed
+              {isLoading ? "Adding Jobs..." : "Add Users to Queue"}
             </Button>
             <Button
               onClick={fetchQueueData}
@@ -341,8 +329,15 @@ export function QueueDashboard() {
               className="flex items-center gap-2"
             >
               <RefreshCw className="h-4 w-4" />
-              Refresh
+              Refresh Status
             </Button>
+          </div>
+          <div className="mt-3 text-sm text-muted-foreground">
+            <p>
+              <strong>Upstash QStash</strong> automatically handles job
+              processing, retries, and scaling. Jobs are processed via webhooks
+              and don't require manual queue management.
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -351,46 +346,41 @@ export function QueueDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Jobs</CardTitle>
+            <CardTitle className="text-sm font-medium">Queue Type</CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{queueStats.summary.total}</div>
+            <div className="text-2xl font-bold text-blue-600">QStash</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Serverless Queue
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">Auto Retries</CardTitle>
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {queueStats.summary.successRate}%
-            </div>
-            <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-              <div
-                className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${queueStats.summary.successRate}%` }}
-              ></div>
+            <div className="text-2xl font-bold text-green-600">2x</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Built-in Retries
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Queue Status</CardTitle>
+            <CardTitle className="text-sm font-medium">Queue System</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {queueInfo?.isActive ? "Active" : "Inactive"}
+            <div className="text-2xl font-bold text-blue-600">
+              Upstash QStash
             </div>
-            <Badge
-              variant={queueInfo?.isActive ? "default" : "secondary"}
-              className="mt-2"
-            >
-              {queueInfo?.isActive ? "Running" : "Stopped"}
+            <Badge variant="default" className="mt-2 bg-blue-600">
+              Serverless & Active
             </Badge>
           </CardContent>
         </Card>
@@ -460,22 +450,38 @@ export function QueueDashboard() {
         </Card>
       )}
 
-      {/* Note about queue tracking removal */}
-      <Card>
+      {/* Upstash QStash Information */}
+      <Card className="border-blue-200 bg-blue-50">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-yellow-600" />
-            Queue Tracking Disabled
+          <CardTitle className="flex items-center gap-2 text-blue-800">
+            <Activity className="h-5 w-5" />
+            Upstash QStash Queue System
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-sm text-muted-foreground">
-            <p>
-              Queue tracking functionality has been removed. Jobs are now
-              processed directly without saving status information to the
-              database. This simplifies the system and reduces database
-              overhead.
+          <div className="text-blue-700">
+            <p className="mb-3">
+              Your queue system has been migrated to{" "}
+              <strong>Upstash QStash</strong> - a serverless, event-driven
+              messaging queue that provides:
             </p>
+            <ul className="space-y-1 text-sm">
+              <li>
+                • <strong>Automatic scaling</strong> - No server management
+                required
+              </li>
+              <li>
+                • <strong>Event-driven processing</strong> - Jobs trigger
+                webhooks instantly
+              </li>
+              <li>
+                • <strong>Built-in retries</strong> - Automatic failure handling
+              </li>
+              <li>
+                • <strong>Global availability</strong> - Processed from multiple
+                regions
+              </li>
+            </ul>
           </div>
         </CardContent>
       </Card>

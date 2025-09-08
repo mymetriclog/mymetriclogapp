@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getAllUsersWithIntegrations,
   addUsersToQueue,
-} from "@/lib/queue/bull-queue-service";
+} from "@/lib/queue/upstash-queue-service";
 
 export async function POST(request: NextRequest) {
   try {

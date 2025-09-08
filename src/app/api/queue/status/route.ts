@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/supabase/server";
 import { isUserAdmin } from "@/lib/auth/admin-check";
-import { getQueueStats } from "@/lib/queue/bull-queue-service";
+import { getQueueStats } from "@/lib/queue/upstash-queue-service";
 
 export async function GET(req: NextRequest) {
   try {

@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/supabase/server";
 import { isUserAdmin } from "@/lib/auth/admin-check";
 import {
-  userReportQueue,
   pauseQueue,
   resumeQueue,
   cleanQueue,
   getQueueStats,
-} from "@/lib/queue/bull-queue-service";
+} from "@/lib/queue/upstash-queue-service";
 
 export async function POST(req: NextRequest) {
   try {
@@ -137,7 +136,8 @@ export async function GET() {
 
     // Get queue information
     const stats = await getQueueStats();
-    const isPaused = await userReportQueue.isPaused();
+    // Upstash QStash doesn't support pause/resume - it's always active
+    const isPaused = false;
 
     return NextResponse.json({
       success: true,
