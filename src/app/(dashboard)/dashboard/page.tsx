@@ -114,7 +114,6 @@ async function fetchReports(): Promise<ReportData[]> {
     return [];
   }
 }
-
 // Fetch token statuses with error handling
 async function fetchTokenStatuses(userId: string) {
   try {
