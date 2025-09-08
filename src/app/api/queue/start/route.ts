@@ -6,7 +6,7 @@ import {
   addUsersToQueue,
   getQueueStats,
   userReportQueue,
-} from "@/lib/queue/queue-service";
+} from "@/lib/queue/bull-queue-service";
 
 export async function POST(request: Request) {
   try {

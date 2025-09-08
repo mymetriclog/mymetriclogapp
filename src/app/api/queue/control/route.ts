@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/supabase/server";
 import { isUserAdmin } from "@/lib/auth/admin-check";
-import { userReportQueue } from "@/lib/queue/queue-service";
+import {
+  userReportQueue,
+  pauseQueue,
+  resumeQueue,
+  cleanQueue,
+  getQueueStats,
+} from "@/lib/queue/bull-queue-service";
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,30 +30,25 @@ export async function POST(req: NextRequest) {
 
     switch (action) {
       case "pause":
-        // Note: Native Redis queue doesn't have pause/resume functionality like Bull
-        // You could implement this by setting a flag in Redis if needed
-        console.log(
-          "⏸️ Queue pause requested (not implemented for native Redis)"
-        );
+        await pauseQueue();
+        console.log("⏸️ Queue paused");
         return NextResponse.json({
           success: true,
-          message: "Queue pause not available with native Redis implementation",
+          message: "Queue paused successfully",
           data: { action: "pause", timestamp: new Date().toISOString() },
         });
 
       case "resume":
-        console.log(
-          "▶️ Queue resume requested (not implemented for native Redis)"
-        );
+        await resumeQueue();
+        console.log("▶️ Queue resumed");
         return NextResponse.json({
           success: true,
-          message:
-            "Queue resume not available with native Redis implementation",
+          message: "Queue resumed successfully",
           data: { action: "resume", timestamp: new Date().toISOString() },
         });
 
       case "clear-completed":
-        await userReportQueue.clearCompleted();
+        await userReportQueue.clean(0, "completed");
         console.log("🧹 Completed jobs cleared");
         return NextResponse.json({
           success: true,
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
         });
 
       case "clear-failed":
-        await userReportQueue.clearFailed();
+        await userReportQueue.clean(0, "failed");
         console.log("🧹 Failed jobs cleared");
         return NextResponse.json({
           success: true,
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
         });
 
       case "clear-all":
-        await userReportQueue.clearAll();
+        await cleanQueue();
         console.log("🧹 All jobs cleared");
         return NextResponse.json({
           success: true,
@@ -77,14 +78,14 @@ export async function POST(req: NextRequest) {
         });
 
       case "get-counts":
-        const stats = await userReportQueue.getStats();
+        const stats = await getQueueStats();
         return NextResponse.json({
           success: true,
           data: {
             action: "get-counts",
             jobCounts: {
-              waiting: stats.pending,
-              active: stats.processing,
+              waiting: stats.waiting,
+              active: stats.active,
               completed: stats.completed,
               failed: stats.failed,
             },
@@ -135,23 +136,23 @@ export async function GET() {
     }
 
     // Get queue information
-    const stats = await userReportQueue.getStats();
-    const isActive = userReportQueue.isActive();
+    const stats = await getQueueStats();
+    const isPaused = await userReportQueue.isPaused();
 
     return NextResponse.json({
       success: true,
       data: {
         queueInfo: {
           name: "user-report-generation",
-          isActive,
-          isPaused: false, // Native Redis doesn't support pause/resume
+          isActive: true, // Bull queue is always active when connected
+          isPaused,
           jobCounts: {
-            waiting: stats.pending,
-            active: stats.processing,
+            waiting: stats.waiting,
+            active: stats.active,
             completed: stats.completed,
             failed: stats.failed,
           },
-          clientStatus: isActive ? "ready" : "disconnected",
+          clientStatus: "ready",
         },
         timestamp: new Date().toISOString(),
       },

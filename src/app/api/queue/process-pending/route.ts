@@ -3,7 +3,7 @@ import {
   userReportQueue,
   getAllUsersWithIntegrations,
   addUsersToQueue,
-} from "@/lib/queue/queue-service";
+} from "@/lib/queue/bull-queue-service";
 import { processJob } from "@/lib/queue/worker-processor";
 
 export async function POST(request: Request) {

@@ -1,9 +1,7 @@
 import { ReportCard } from "@/components/report-card";
 import { RecentReportCard } from "@/components/recent-report-card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Cloud } from "lucide-react";
-import { mockIntegrations } from "@/app/data/mock";
+import { Cloud, TrendingUp, Calendar, Star, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 import { WeatherCard } from "@/components/weather-card";
@@ -13,14 +11,11 @@ import { DashboardClientWrapper } from "@/components/dashboard-client-wrapper";
 import { IntegrationTokenNotifications } from "@/components/integration-token-notifications";
 
 import { getServerSession } from "@/lib/supabase/server";
-import { getServerSupabaseClient } from "@/lib/supabase/server";
-import { getInitialWeatherData } from "@/lib/weather/server-weather-service";
 import {
   validateIntegrationTokens,
   getExpiredTokens,
   getExpiringSoonTokens,
 } from "@/lib/integrations/token-validator";
-import type { IntegrationItem } from "@/app/data/mock";
 import { cookies } from "next/headers";
 
 // Force dynamic rendering since we use cookies for authentication
@@ -41,173 +36,335 @@ type ReportData = {
   created_at?: string;
 };
 
-// Function to get real integration data (same as integrations page)
-async function getIntegrationsData() {
-  const session = await getServerSession();
-  const supabase = await getServerSupabaseClient();
-
-  let connectedProviders: string[] = [];
-  let tokenData: Record<
-    string,
-    { created_at: string; expires_at?: number; refresh_token?: string }
-  > = {};
-  let expiredTokens: string[] = [];
-
-  if (session) {
-    const { data } = await supabase
-      .from("integration_tokens")
-      .select("provider, created_at, expires_at, refresh_token")
-      .eq("user_id", session.user.id);
-
-    if (data) {
-      const now = Math.floor(Date.now() / 1000);
-
-      data.forEach((d) => {
-        const isExpired = d.expires_at && d.expires_at < now;
-        const hasRefreshToken = !!d.refresh_token;
-
-        // Only consider it truly expired if there's no refresh token for auto-refresh
-        if (!isExpired || hasRefreshToken) {
-          connectedProviders.push(d.provider);
-        } else {
-          expiredTokens.push(d.provider);
-        }
-
-        tokenData[d.provider] = {
-          created_at: d.created_at,
-          expires_at: d.expires_at,
-          refresh_token: d.refresh_token,
-        };
-      });
-    }
-  }
-
-  const items: IntegrationItem[] = mockIntegrations.map((it) => {
-    const isConnected = connectedProviders.includes(it.key);
-    const isExpired = expiredTokens.includes(it.key);
-    const realTokenData = tokenData[it.key];
-    const hasRefreshToken = realTokenData?.refresh_token;
-
-    if (
-      it.key === "spotify" ||
-      it.key === "fitbit" ||
-      it.key === "google-calendar" ||
-      it.key === "gmail"
-    ) {
-      // If token is expired but has refresh token, show as connected (will auto-refresh)
-      if (
-        realTokenData?.expires_at &&
-        realTokenData.expires_at < Math.floor(Date.now() / 1000) &&
-        hasRefreshToken
-      ) {
-        return {
-          ...it,
-          status: "connected",
-          lastSync: "Auto-refreshing",
-          created_at: realTokenData.created_at,
-          notes: `Your ${it.name} token will be automatically refreshed.`,
-        };
-      }
-
-      return {
-        ...it,
-        status: isExpired
-          ? "error"
-          : isConnected
-          ? "connected"
-          : "disconnected",
-        lastSync: isExpired ? "Token expired" : isConnected ? "just now" : "—",
-        created_at: realTokenData ? realTokenData.created_at : it.created_at,
-        notes: isExpired
-          ? `Your ${it.name} token has expired. Please reconnect.`
-          : isConnected
-          ? undefined
-          : `Connect your ${it.name} account.`,
-      };
-    }
-    return it;
-  });
-
-  return { items, expiredTokens };
+// Token notification interfaces
+interface TokenStatus {
+  provider: string;
+  daysUntilExpiry?: number;
+  expired?: boolean;
 }
 
-export default async function DashboardPage() {
-  const session = await getServerSession();
-  const user = session?.user;
-  const name =
-    (user?.user_metadata?.full_name as string | undefined) ||
-    user?.email?.split("@")[0] ||
-    "User";
-  const email = user?.email || "user@example.com";
-  const fullName = user?.user_metadata?.full_name as string | undefined;
-  const timezone =
-    (user?.user_metadata?.timezone as string | undefined) || "UTC";
+interface DashboardStats {
+  totalReports: number;
+  bestScore: number;
+  latestScore: number;
+  averageScore: number;
+  reportsThisWeek: number;
+}
 
-  // Get initial weather data for user's timezone
-  let initialWeatherData = null;
-  try {
-    initialWeatherData = await getInitialWeatherData(timezone);
-  } catch (error) {
-    console.error("❌ Dashboard: Error getting initial weather data:", error);
-    // Continue without weather data - it will be fetched client-side
+// Utility functions
+const getGreeting = (): string => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+};
+
+const calculateStats = (reports: ReportData[]): DashboardStats => {
+  if (reports.length === 0) {
+    return {
+      totalReports: 0,
+      bestScore: 0,
+      latestScore: 0,
+      averageScore: 0,
+      reportsThisWeek: 0,
+    };
   }
 
-  // Get token validation data
-  let tokenStatuses: any[] = [];
-  let expiredTokens: string[] = [];
-  let expiringSoonTokens: any[] = [];
+  const scores = reports.map((r) => r.score);
+  const bestScore = Math.max(...scores);
+  const latestScore = reports[0].score;
+  const averageScore = Math.round(
+    scores.reduce((a, b) => a + b, 0) / scores.length
+  );
 
-  try {
-    if (session?.user?.id) {
-      tokenStatuses = await validateIntegrationTokens(session.user.id);
-      expiredTokens = getExpiredTokens(tokenStatuses);
-      expiringSoonTokens = getExpiringSoonTokens(tokenStatuses);
-    }
-  } catch (error) {
-    console.error("❌ Dashboard: Error validating tokens:", error);
-  }
+  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const reportsThisWeek = reports.filter(
+    (r) => new Date(r.created_at || r.date) >= oneWeekAgo
+  ).length;
 
-  // Get real integration data instead of mock data
-  const integrations = await getIntegrationsData();
+  return {
+    totalReports: reports.length,
+    bestScore,
+    latestScore,
+    averageScore,
+    reportsThisWeek,
+  };
+};
 
-  // Fetch real reports data from API (same as reports page)
-  let reports: ReportData[] = [];
-  let totalReports = 0;
-  let bestScore = 0;
-  let latestScore = 0;
-
+// Fetch reports with error handling
+async function fetchReports(): Promise<ReportData[]> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const cookieHeader = (await cookies()).toString();
+
     const response = await fetch(`${baseUrl}/api/reports`, {
       cache: "no-store",
       headers: { Cookie: cookieHeader },
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      reports = data.reports || [];
-      totalReports = reports.length;
-      bestScore =
-        reports.length > 0
-          ? Math.max(...reports.map((r: ReportData) => r.score))
-          : 0;
-      latestScore = reports.length > 0 ? reports[0].score : 0;
-    } else {
-      // No fallback to mock data - show real data or 0
-      reports = [];
-      totalReports = 0;
-      bestScore = 0;
-      latestScore = 0;
+    if (!response.ok) {
+      console.warn(`⚠️ Dashboard: Reports API returned ${response.status}`);
+      return [];
     }
+
+    const data = await response.json();
+    return data.reports || [];
   } catch (error) {
     console.error("❌ Dashboard: Error fetching reports:", error);
-    // No fallback to mock data - show real data or 0
-    reports = [];
-    totalReports = 0;
-    bestScore = 0;
-    latestScore = 0;
+    return [];
   }
+}
+
+// Fetch token statuses with error handling
+async function fetchTokenStatuses(userId: string) {
+  try {
+    const tokenStatuses = await validateIntegrationTokens(userId);
+    return {
+      tokenStatuses,
+      expiredTokens: getExpiredTokens(tokenStatuses),
+      expiringSoonTokens: getExpiringSoonTokens(tokenStatuses),
+    };
+  } catch (error) {
+    console.error("❌ Dashboard: Error validating tokens:", error);
+    return {
+      tokenStatuses: [],
+      expiredTokens: [],
+      expiringSoonTokens: [],
+    };
+  }
+}
+
+// Welcome Header Component
+const WelcomeHeader = ({
+  name,
+  timezone,
+  stats,
+}: {
+  name: string;
+  timezone: string;
+  stats: DashboardStats;
+}) => (
+  <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 rounded-3xl p-8 text-white shadow-2xl">
+    {/* Background decoration */}
+    <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cg%20fill%3D%22%23ffffff%22%20fill-opacity%3D%220.05%22%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%2230%22%20r%3D%222%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-20" />
+
+    <div className="relative z-10">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div className="space-y-4">
+          <div className="inline-flex items-center px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-sm font-medium">
+            <span className="mr-2">✨</span>
+            {getGreeting()}
+          </div>
+
+          <h1 className="text-3xl md:text-5xl font-bold leading-tight">
+            Welcome back,
+            <br />
+            <span className="bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent">
+              {name}
+            </span>
+          </h1>
+
+          <p className="text-blue-100 text-lg max-w-md leading-relaxed">
+            Track your wellness journey with personalized insights and real-time
+            data
+          </p>
+        </div>
+
+        {/* Quick Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-1 gap-4 lg:w-64">
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-blue-200 text-sm">Latest Score</span>
+              <TrendingUp className="h-4 w-4 text-green-300" />
+            </div>
+            <div className="text-2xl font-bold">{stats.latestScore}</div>
+          </div>
+
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-blue-200 text-sm">This Week</span>
+              <Calendar className="h-4 w-4 text-blue-300" />
+            </div>
+            <div className="text-2xl font-bold">{stats.reportsThisWeek}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Timezone info */}
+      <div className="mt-6 pt-6 border-t border-white/20">
+        <div className="flex items-center gap-3 text-blue-100">
+          <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+            🌍
+          </div>
+          <span className="text-sm">
+            Your timezone:{" "}
+            <span className="font-semibold text-white">{timezone}</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+// Token Notification Component
+const TokenNotificationCard = ({
+  type,
+  tokens,
+  expiringSoonTokens,
+}: {
+  type: "expired" | "expiring";
+  tokens: string[] | TokenStatus[];
+  expiringSoonTokens?: TokenStatus[];
+}) => {
+  if (tokens.length === 0) return null;
+
+  const isExpired = type === "expired";
+  const colors = isExpired
+    ? {
+        bg: "from-red-50 to-orange-50",
+        border: "border-red-200",
+        text: "text-red-800",
+        accent: "text-red-600",
+      }
+    : {
+        bg: "from-blue-50 to-indigo-50",
+        border: "border-blue-200",
+        text: "text-blue-800",
+        accent: "text-blue-600",
+      };
+
+  return (
+    <div
+      className={`bg-gradient-to-r ${colors.bg} ${colors.border} border rounded-2xl p-6 shadow-lg`}
+    >
+      <div className="flex items-start gap-4">
+        <div className="p-3 bg-white rounded-xl shadow-sm">
+          <span className="text-2xl">{isExpired ? "🚨" : "⏰"}</span>
+        </div>
+        <div className="flex-1">
+          <h3 className={`font-bold text-lg ${colors.text} mb-2`}>
+            {isExpired ? "Integration Tokens Expired" : "Tokens Expiring Soon"}
+          </h3>
+          <p className={`text-sm ${colors.text} opacity-80 mb-4`}>
+            {isExpired
+              ? `These integrations need reconnection: ${(
+                  tokens as string[]
+                ).join(", ")}`
+              : `These will expire soon: ${(tokens as TokenStatus[])
+                  .map((t) => `${t.provider} (${t.daysUntilExpiry} days)`)
+                  .join(", ")}`}
+          </p>
+          <Button
+            asChild
+            size="sm"
+            className="bg-white shadow-sm hover:shadow-md transition-shadow"
+          >
+            <Link
+              href="/integrations"
+              className={`${colors.accent} flex items-center gap-2`}
+            >
+              Fix Integrations
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Section Header Component
+const SectionHeader = ({
+  icon,
+  title,
+  description,
+  action,
+}: {
+  icon: string;
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+}) => (
+  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <div className="flex items-center gap-4">
+      <div className="relative">
+        <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-lg flex items-center justify-center">
+          <span className="text-3xl">{icon}</span>
+        </div>
+        <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-4 border-white shadow-sm"></div>
+      </div>
+      <div>
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">
+          {title}
+        </h2>
+        <p className="text-gray-600">{description}</p>
+      </div>
+    </div>
+    {action}
+  </div>
+);
+
+// Enhanced Stats Cards
+const StatsGrid = ({ stats }: { stats: DashboardStats }) => (
+  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+    <ReportCard
+      title="Total Reports"
+      value={stats.totalReports.toString()}
+      score={Math.min(stats.totalReports * 10, 100)}
+      spark={[stats.totalReports]}
+    />
+    <ReportCard
+      title="Best Score"
+      value={stats.bestScore.toString()}
+      score={stats.bestScore}
+      spark={[stats.bestScore]}
+    />
+    <ReportCard
+      title="Average Score"
+      value={stats.averageScore.toString()}
+      score={stats.averageScore}
+      spark={[stats.averageScore]}
+    />
+    <ReportCard
+      title="This Week"
+      value={stats.reportsThisWeek.toString()}
+      score={Math.min(stats.reportsThisWeek * 25, 100)}
+      spark={[stats.reportsThisWeek]}
+    />
+  </div>
+);
+
+// Empty State Component
+const EmptyReportsState = () => (
+  <div className="text-center p-8 text-gray-500">
+    <p>No records found</p>
+  </div>
+);
+
+export default async function DashboardPage() {
+  const session = await getServerSession();
+  const user = session?.user;
+
+  // Extract user information
+  const name =
+    user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
+  const email = user?.email || "user@example.com";
+  const fullName = user?.user_metadata?.full_name;
+  const timezone = user?.user_metadata?.timezone || "UTC";
+
+  // Fetch data concurrently for better performance
+  const [reports, tokenData] = await Promise.all([
+    fetchReports(),
+    session?.user?.id
+      ? fetchTokenStatuses(session.user.id)
+      : Promise.resolve({
+          tokenStatuses: [],
+          expiredTokens: [],
+          expiringSoonTokens: [],
+        }),
+  ]);
+
+  const stats = calculateStats(reports);
 
   return (
     <DashboardClientWrapper
@@ -215,285 +372,104 @@ export default async function DashboardPage() {
       userFullName={fullName}
       userTimezone={timezone}
     >
-      {/* Token Notifications Component */}
-      <IntegrationTokenNotifications tokenStatuses={tokenStatuses} />
+      <IntegrationTokenNotifications tokenStatuses={tokenData.tokenStatuses} />
 
-      <div className="p-0 md:p-0 space-y-4">
-        {/* Expired Token Warning */}
-        {expiredTokens.length > 0 && (
-          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-            <div className="flex items-center gap-2">
-              <span className="text-amber-600">⚠️</span>
-              <div>
-                <div className="font-medium text-amber-800">
-                  Integration Tokens Expired
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/40 to-indigo-50/30">
+        <div className="space-y-8 md:space-y-12">
+          {/* Welcome Header */}
+          <WelcomeHeader name={name} timezone={timezone} stats={stats} />
+
+          {/* Token Notifications */}
+          <div className="space-y-4">
+            <TokenNotificationCard
+              type="expired"
+              tokens={tokenData.expiredTokens}
+            />
+            <TokenNotificationCard
+              type="expiring"
+              tokens={tokenData.expiringSoonTokens}
+              expiringSoonTokens={tokenData.expiringSoonTokens}
+            />
+          </div>
+
+          {/* Weather Section */}
+          <section>
+            <SectionHeader
+              icon="🌤️"
+              title="Weather & Environment"
+              description="Stay informed about conditions that affect your wellness"
+              action={
+                <div className="flex items-center gap-3">
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/weathers" className="flex items-center gap-2">
+                      <Cloud className="h-4 w-4" />
+                      View Details
+                    </Link>
+                  </Button>
+                  <WeatherLocationButton />
                 </div>
-                <div className="text-sm text-amber-700">
-                  The following integrations need reconnection:{" "}
-                  {expiredTokens.join(", ")}
-                </div>
-                <div className="mt-2">
-                  <Link
-                    href="/integrations"
-                    className="text-sm text-amber-600 hover:text-amber-700 underline"
-                  >
-                    Go to Integrations →
+              }
+            />
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <WeatherCard userTimezone={timezone} />
+              <WeatherForecastCard userTimezone={timezone} />
+            </div>
+          </section>
+
+          {/* Reports Overview Section */}
+          <section>
+            <SectionHeader
+              icon="📈"
+              title="Wellness Analytics"
+              description="Track your progress with detailed metrics and insights"
+              action={
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/reports" className="flex items-center gap-2">
+                    View All Reports
+                    <ArrowRight className="h-4 w-4" />
                   </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Expiring Soon Warning */}
-        {expiringSoonTokens.length > 0 && (
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-center gap-2">
-              <span className="text-blue-600">⏰</span>
-              <div>
-                <div className="font-medium text-blue-800">
-                  Integration Tokens Expiring Soon
-                </div>
-                <div className="text-sm text-blue-700">
-                  The following integrations will expire soon:{" "}
-                  {expiringSoonTokens
-                    .map((t) => `${t.provider} (${t.daysUntilExpiry} days)`)
-                    .join(", ")}
-                </div>
-                <div className="mt-2">
-                  <Link
-                    href="/integrations"
-                    className="text-sm text-blue-600 hover:text-blue-700 underline"
-                  >
-                    Go to Integrations →
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Quick Weather Summary */}
-        <div className="flex items-center justify-between flex-wrap">
-          <div className="flex items-center gap-4">
-            <div className="text-2xl">🌤️</div>
-            <div>
-              <div className="text-sm text-muted-foreground">
-                Current Weather
-              </div>
-              <div className="text-lg font-semibold">
-                Check your location's weather
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 main-content-custom">
-            <Button
-              asChild
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <Link href="/weathers">
-                <Cloud className="h-4 w-4 md:hidden" />
-                <span className="hidden md:inline">View Weather</span>
-              </Link>
-            </Button>
-            <WeatherLocationButton />
-          </div>
-        </div>
-
-        {/* Weather Section */}
-        <div className="grid gap-4 md:grid-cols-2">
-          <WeatherCard userTimezone={timezone} />
-          <WeatherForecastCard userTimezone={timezone} />
-        </div>
-
-        {/* Trends Section */}
-        {/* <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-semibold">Trends</h2>
-            <span className="text-sm text-muted-foreground">Last 7 days</span>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <TrendCard
-              title="HRV"
-              value="60 ms"
-              change="+4"
-              color="hsl(142 76% 36%)"
-              spark={[48, 52, 54, 55, 58, 60, 62]}
-            />
-            <TrendCard
-              title="Sleep"
-              value="7h 05m"
-              change="+0h 12m"
-              color="hsl(38 92% 50%)"
-              spark={[6.5, 6.7, 7.0, 7.1, 7.2, 7.0, 7.08]}
-            />
-            <TrendCard
-              title="Steps"
-              value="9,450"
-              change="+8%"
-              color="hsl(351 94% 60%)"
-              spark={[7200, 8000, 7600, 8800, 9300, 9450, 10000]}
-            />
-          </div>
-        </div> */}
-
-        {/* Reports Section */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-semibold">Reports</h2>
-            <Button asChild variant="ghost" className="text-emerald-600">
-              <Link href="/reports">View all</Link>
-            </Button>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <ReportCard
-              title="Total Reports"
-              value={totalReports.toString()}
-              score={totalReports > 0 ? 100 : 0} // Show 100 if has reports, 0 if none
-              spark={totalReports > 0 ? [totalReports] : [0]}
-            />
-            <ReportCard
-              title="Best Score"
-              value={bestScore.toString()}
-              score={bestScore} // Use actual best score
-              spark={bestScore > 0 ? [bestScore] : [0]}
-            />
-            <ReportCard
-              title="Latest Score"
-              value={latestScore.toString()}
-              score={latestScore} // Use actual latest score
-              spark={latestScore > 0 ? [latestScore] : [0]}
-            />
-          </div>
-        </div>
-
-        {/* Recent Reports Grid */}
-        {reports.length > 0 ? (
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xl font-semibold">Recent Reports</h2>
-              <Button asChild variant="ghost" className="text-emerald-600">
-                <Link href="/reports">View all</Link>
-              </Button>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {reports.slice(0, 6).map((report) => (
-                <RecentReportCard
-                  key={report.id}
-                  report={report}
-                  userName={name}
-                />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xl font-semibold">Recent Reports</h2>
-            </div>
-            <div className="flex items-center justify-center p-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-              <div className="text-center">
-                <div className="text-4xl mb-4">📊</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  No Reports Found
-                </h3>
-                <p className="text-gray-500 mb-4">
-                  You haven't generated any reports yet. Start tracking your
-                  wellness metrics to see your first report.
-                </p>
-                <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
-                  <Link href="/reports">Generate Your First Report</Link>
                 </Button>
-              </div>
-            </div>
-          </div>
-        )}
+              }
+            />
 
-        {/* Connected services */}
-        {/* <section>
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Connected services</h2>
-            <Button asChild variant="ghost" className="text-emerald-600">
-              <Link href="/integrations">See all</Link>
-            </Button>
-          </div>
-          <div className="grid gap-4 mt-3 md:grid-cols-2 lg:grid-cols-3">
-            {integrations.map((intg) => (
-              <IntegrationCard key={intg.key} integration={intg as any} />
-            ))}
-          </div>
-        </section> */}
+            <StatsGrid stats={stats} />
+          </section>
+
+          {/* Recent Reports Section */}
+          <section>
+            <SectionHeader
+              icon="📋"
+              title="Recent Reports"
+              description="Your latest wellness insights and recommendations"
+              action={
+                reports.length > 0 ? (
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/reports" className="flex items-center gap-2">
+                      View All
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                ) : null
+              }
+            />
+
+            {reports.length > 0 ? (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {reports.slice(0, 6).map((report) => (
+                  <RecentReportCard
+                    key={report.id}
+                    report={report}
+                    userName={name}
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyReportsState />
+            )}
+          </section>
+        </div>
       </div>
     </DashboardClientWrapper>
   );
 }
-
-function SummaryCard({
-  title,
-  value,
-  icon: Icon,
-  color,
-  bgColor,
-}: {
-  title: string;
-  value: string;
-  icon: any;
-  color: string;
-  bgColor: string;
-}) {
-  return (
-    <Card className="hover:shadow-md transition-shadow duration-200">
-      <CardContent className="p-6">
-        <div className="flex items-center gap-4">
-          <div className={`p-3 rounded-xl ${bgColor}`}>
-            <Icon className={`size-6 ${color}`} />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <p className={`text-2xl font-bold ${color}`}>{value}</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function BadgeChip({ label }: { label: string }) {
-  return (
-    <span className="inline-flex items-center rounded-full border bg-background/70 px-3 py-1 text-sm">
-      {label}
-    </span>
-  );
-}
-
-// function TrendCard({
-//   title,
-//   value,
-//   change,
-//   color,
-//   spark,
-// }: {
-//   title: string;
-//   value: string;
-//   change: string;
-//   color: string;
-//   spark: number[];
-// }) {
-//   return (
-//     <Card>
-//       <CardContent className="p-6">
-//         <div className="flex items-start justify-between">
-//           <div>
-//             <div className="text-base text-muted-foreground">{title}</div>
-//             <div className="text-2xl font-semibold mt-1">{value}</div>
-//             <div className="mt-1 text-sm text-emerald-600">
-//               {change} vs. prev
-//             </div>
-//           </div>
-//           <Sparkline values={spark} stroke={color} />
-//         </div>
-//       </CardContent>
-//     </Card>
-//   );
-// }

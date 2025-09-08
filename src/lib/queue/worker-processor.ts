@@ -1,8 +1,10 @@
-import { userReportQueue, UserReportJobData } from "./queue-service";
+import { userReportQueue, UserReportJobData } from "./bull-queue-service";
 import { getServerSupabaseClientWithServiceRole } from "@/lib/supabase/server";
 
 // Standalone function to process a single job
-export async function processJob(jobData: UserReportJobData) {
+export async function processJob(
+  jobData: UserReportJobData & { queueJobId?: string }
+) {
   const { userId, userEmail, queueJobId } = jobData;
 
   console.log(`\n🚀 ===== PROCESSING JOB MANUALLY =====`);
@@ -13,7 +15,7 @@ export async function processJob(jobData: UserReportJobData) {
   try {
     // Step 1: Update status to processing
     console.log(`\n📝 STEP 1: Updating job status to 'processing'...`);
-    await updateJobStatus(queueJobId, "processing");
+    if (queueJobId) await updateJobStatus(queueJobId, "processing");
     console.log(`✅ Status updated to 'processing'`);
 
     // Step 2: Check if user still has integrations
@@ -23,11 +25,12 @@ export async function processJob(jobData: UserReportJobData) {
 
     if (!hasIntegrations) {
       console.log(`⏭️ Skipping user - no integrations found`);
-      await updateJobStatus(
-        queueJobId,
-        "skipped",
-        "User no longer has integrations"
-      );
+      if (queueJobId)
+        await updateJobStatus(
+          queueJobId,
+          "skipped",
+          "User no longer has integrations"
+        );
       return { status: "skipped", reason: "No integrations found" };
     }
 
@@ -54,7 +57,7 @@ export async function processJob(jobData: UserReportJobData) {
 
     // Step 4: Update final status
     console.log(`\n📝 STEP 4: Updating final job status to 'completed'...`);
-    await updateJobStatus(queueJobId, "completed");
+    if (queueJobId) await updateJobStatus(queueJobId, "completed");
     console.log(`✅ Job completed successfully!`);
 
     return {
@@ -73,7 +76,7 @@ export async function processJob(jobData: UserReportJobData) {
 
     // Update status to failed
     console.log(`\n📝 Updating job status to 'failed'...`);
-    await updateJobStatus(queueJobId, "failed", errorMessage);
+    if (queueJobId) await updateJobStatus(queueJobId, "failed", errorMessage);
     console.log(`✅ Status updated to 'failed'`);
 
     throw error;

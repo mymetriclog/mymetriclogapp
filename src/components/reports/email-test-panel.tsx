@@ -54,24 +54,22 @@ export function EmailTestPanel() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            type: "test",
+            type: "daily",
             to: email,
+            userId: "test-user-id",
+            date: new Date().toISOString().split("T")[0],
             testMode: true,
           }),
         });
       } else {
-        const data =
-          reportType === "daily"
-            ? EmailService.generateSampleDailyData()
-            : EmailService.generateSampleWeeklyData();
-
         response = await fetch("/api/email/send-report", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             type: reportType,
             to: email,
-            data,
+            userId: "test-user-id",
+            date: new Date().toISOString().split("T")[0],
             subject: `${
               reportType === "daily" ? "Daily" : "Weekly"
             } Report - ${new Date().toLocaleDateString()}`,
