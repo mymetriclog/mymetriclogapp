@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addUserReportJob } from "@/lib/queue/bull-queue-service";
+import { addUserReportJob } from "@/lib/queue/upstash-queue-service";
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🧪 Testing Bull queue system...");
+    console.log("🧪 Testing Upstash QStash queue system...");
 
     // Add a test job to the queue
     const testJob = await addUserReportJob({
@@ -12,15 +12,14 @@ export async function POST(request: NextRequest) {
       reportType: "daily",
     });
 
-    console.log(`✅ Test job added with ID: ${testJob.id}`);
+    console.log(`✅ Test job added with ID: ${testJob.jobId}`);
 
     return NextResponse.json({
       success: true,
-      message: "Test job added to Bull queue successfully",
+      message: "Test job added to Upstash QStash queue successfully",
       data: {
-        jobId: testJob.id,
-        jobName: testJob.name,
-        jobData: testJob.data,
+        jobId: testJob.jobId,
+        messageId: testJob.messageId,
         timestamp: new Date().toISOString(),
       },
     });
@@ -40,7 +39,7 @@ export async function GET() {
   try {
     return NextResponse.json({
       success: true,
-      message: "Bull queue test endpoint is ready",
+      message: "Upstash QStash queue test endpoint is ready",
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

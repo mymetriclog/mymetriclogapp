@@ -1,25 +1,53 @@
-import { userReportQueue, UserReportJobData } from "./bull-queue-service";
+import { NextRequest, NextResponse } from "next/server";
 import { TokenRefreshService } from "@/lib/integrations/token-refresh-service";
+import { Receiver } from "@upstash/qstash";
 
-// Process user report job
-async function processUserReportJob(job: any): Promise<any> {
-  const {
-    userId,
-    userEmail,
-    reportType = "daily",
-  } = job.data as UserReportJobData;
-
-  console.log(
-    `\n🚀 Processing ${reportType} report for ${userEmail} (Job ${job.id})`
-  );
-
+// Process user report job from Upstash QStash
+export async function POST(request: NextRequest) {
+  let jobData: any = null; // Declare outside try block
   try {
+    // Verify webhook signature for security
+    const receiver = new Receiver({
+      currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY!,
+      nextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY!,
+    });
+
+    const body = await request.text();
+    const signature = request.headers.get("upstash-signature");
+
+    if (signature) {
+      const isValid = await receiver.verify({
+        signature,
+        body,
+      });
+
+      if (!isValid) {
+        console.error("❌ Invalid webhook signature");
+        return NextResponse.json(
+          { error: "Invalid signature" },
+          { status: 401 }
+        );
+      }
+    }
+
+    jobData = JSON.parse(body);
+    const { userId, userEmail, reportType = "daily", jobId } = jobData;
+
+    console.log(
+      `\n🚀 Processing ${reportType} report for ${userEmail} (Job ${jobId})`
+    );
+
     // Step 1: Check if user still has integrations and refresh tokens
     const hasIntegrations = await checkUserIntegrations(userId, userEmail);
 
     if (!hasIntegrations) {
       console.log(`⏭️ Skipping ${userEmail} - no integrations`);
-      return { status: "skipped", reason: "No integrations found" };
+      return NextResponse.json({
+        status: "skipped",
+        reason: "No integrations found",
+        jobId,
+        userEmail,
+      });
     }
 
     // Step 2: Generate report using the API endpoint
@@ -34,20 +62,32 @@ async function processUserReportJob(job: any): Promise<any> {
 
     console.log(`✅ Completed ${reportType} report for ${userEmail}`);
 
-    return {
+    return NextResponse.json({
       status: "completed",
       reportId: reportResult.reportId,
       message: "Report generated and email sent successfully",
-    };
+      jobId,
+      userEmail,
+    });
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error occurred";
     console.error(
-      `❌ Failed ${reportType} report for ${userEmail}: ${errorMessage}`
+      `❌ Failed ${jobData?.reportType || "unknown"} report for ${
+        jobData?.userEmail || "unknown"
+      }: ${errorMessage}`
     );
 
-    // Bull will automatically handle retries based on the configuration
-    throw error; // Let Bull handle the retry logic
+    // Return error response - QStash will handle retries based on configuration
+    return NextResponse.json(
+      {
+        status: "failed",
+        error: errorMessage,
+        jobId: jobData?.jobId,
+        userEmail: jobData?.userEmail,
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -115,7 +155,6 @@ async function checkUserIntegrations(
     }
 
     // Now check if any integration has a valid token after refresh
-    // We need to fetch fresh data from database after refresh
     const { data: refreshedData, error: refreshError } = await supabase
       .from("integration_tokens")
       .select("id, provider, access_token, refresh_token, expires_at")
@@ -232,15 +271,3 @@ async function sendEmailToUser(
     // Don't fail the entire job if email fails
   }
 }
-
-// Set up job processor
-userReportQueue.process("generate-user-report", 5, async (job) => {
-  try {
-    const result = await processUserReportJob(job);
-    return result;
-  } catch (error) {
-    throw error; // Let Bull handle retries
-  }
-});
-
-console.log("🚀 Bull queue worker initialized");
