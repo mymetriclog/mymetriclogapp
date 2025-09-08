@@ -41,11 +41,28 @@ async function getWeeklyReportData(userId: string, dateRange: string) {
 }
 
 export async function POST(request: NextRequest) {
+  let to = "Unknown";
   try {
-    const { type, to, userId, date, subject, dateRange } = await request.json();
+    const {
+      type,
+      to: emailTo,
+      userId,
+      date,
+      subject,
+      dateRange,
+    } = await request.json();
+    to = emailTo;
+
+    console.log(`\n📧 ===== EMAIL SENDING REQUEST =====`);
+    console.log(`📧 To: ${to}`);
+    console.log(`📧 Type: ${type}`);
+    console.log(`📧 User ID: ${userId}`);
+    console.log(`📧 Date: ${date}`);
+    console.log(`📧 Subject: ${subject || "Auto-generated"}`);
 
     // Validation
     if (!to || !type || !userId || !date) {
+      console.log(`❌ Email validation failed - missing required fields`);
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -56,6 +73,9 @@ export async function POST(request: NextRequest) {
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to) ||
       !["daily", "weekly"].includes(type)
     ) {
+      console.log(
+        `❌ Email validation failed - invalid email format or report type`
+      );
       return NextResponse.json(
         { error: "Invalid email or report type" },
         { status: 400 }
@@ -86,18 +106,22 @@ export async function POST(request: NextRequest) {
     };
 
     // Insert initial log
+    console.log(`📝 Logging email attempt to database...`);
     const logResult = await EmailLogger.logEmail(logData);
     if (!logResult.success) {
-      console.error("Failed to log email:", logResult.error);
+      console.error("❌ Failed to log email:", logResult.error);
+    } else {
+      console.log(`✅ Email logged to database with ID: ${logResult.logId}`);
     }
 
+    console.log(`🔍 Fetching ${type} report data for user ${userId}...`);
     const reportData =
       type === "daily"
         ? await getDailyReportData(userId, date)
         : await getWeeklyReportData(userId, dateRange || date);
 
-    // console.log("🔍 Report data:", reportData);
     if (!reportData) {
+      console.log(`❌ No report data found for user ${userId} on ${date}`);
       // Update log status to failed
       if (logResult.success) {
         await EmailLogger.updateEmailStatus(
@@ -112,6 +136,7 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+    console.log(`✅ Report data found for user ${userId}`);
 
     // Process data
     const fitbit = reportData.report_data?.fitbitData?.stats?.today || {};
@@ -164,6 +189,7 @@ export async function POST(request: NextRequest) {
       insights: ["Keep pushing forward with your wellness goals."],
     };
 
+    console.log(`📤 Sending email to ${to} via SendGrid...`);
     const result = await EmailService.sendDailyReport(
       to,
       processedData,
@@ -171,6 +197,8 @@ export async function POST(request: NextRequest) {
     );
 
     if (result.success && result.messageId) {
+      console.log(`✅ Email sent successfully to ${to}`);
+      console.log(`📧 Message ID: ${result.messageId}`);
       // Update log with success status
       await EmailLogger.updateEmailStatus(logResult.logId!, "sent");
 
@@ -180,6 +208,8 @@ export async function POST(request: NextRequest) {
         result.messageId
       );
     } else {
+      console.log(`❌ Email sending failed to ${to}`);
+      console.log(`🚨 Error: ${result.error || "Unknown error"}`);
       // Update log with failure status
       await EmailLogger.updateEmailStatus(
         logResult.logId!,
@@ -187,6 +217,11 @@ export async function POST(request: NextRequest) {
         result.error || "Unknown error"
       );
     }
+
+    console.log(`📧 ===== EMAIL REQUEST COMPLETED =====`);
+    console.log(`📧 Status: ${result.success ? "SUCCESS" : "FAILED"}`);
+    console.log(`📧 To: ${to}`);
+    console.log(`📧 Message ID: ${result.messageId || "N/A"}`);
 
     return NextResponse.json(
       result.success
@@ -200,7 +235,9 @@ export async function POST(request: NextRequest) {
       { status: result.success ? 200 : 500 }
     );
   } catch (error) {
-    console.error("Email API error:", error);
+    console.error(`❌ ===== EMAIL API ERROR =====`);
+    console.error(`🚨 Error:`, error);
+    console.error(`📧 To: ${to}`);
     return NextResponse.json(
       { success: false, error: "Internal server error" },
       { status: 500 }
