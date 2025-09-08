@@ -8,5 +8,19 @@
       "path": "/api/cron/weekly",
       "schedule": "0 23 * * 0"
     }
-  ]
+  ],
+  "functions": {
+    "src/app/api/queue/generate-report/route.ts": {
+      "maxDuration": 600
+    },
+    "src/app/api/queue/start/route.ts": {
+      "maxDuration": 600
+    },
+    "src/app/api/email/send-report/route.ts": {
+      "maxDuration": 600
+    },
+    "src/app/api/cron/weekly/route.ts": {
+      "maxDuration": 600
+    }
+  }
 }
