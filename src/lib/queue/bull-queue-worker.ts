@@ -10,54 +10,29 @@ async function processUserReportJob(job: any): Promise<any> {
   } = job.data as UserReportJobData;
 
   console.log(
-    `\n🚀 ===== STARTING BULL JOB PROCESSING FOR USER ${userEmail} =====`
+    `\n🚀 Processing ${reportType} report for ${userEmail} (Job ${job.id})`
   );
-  console.log(`📋 Job ID: ${job.id}`);
-  console.log(`📋 Job Type: ${job.name}`);
-  console.log(`📊 Report Type: ${reportType}`);
-  console.log(`👤 User: ${userEmail} (${userId})`);
-  console.log(`⏰ Started at: ${new Date().toISOString()}`);
 
   try {
     // Step 1: Check if user still has integrations and refresh tokens
-    console.log(
-      `\n🔍 STEP 1: Checking user integrations for user: ${userEmail}...`
-    );
-    const hasIntegrations = await checkUserIntegrations(userId);
-    console.log(`📊 User ${userEmail} has integrations: ${hasIntegrations}`);
+    const hasIntegrations = await checkUserIntegrations(userId, userEmail);
 
     if (!hasIntegrations) {
-      console.log(`⏭️ Skipping user ${userEmail} - no integrations found`);
-      console.log(
-        `✅ User ${userEmail} job completed (skipped) - moving to next user`
-      );
+      console.log(`⏭️ Skipping ${userEmail} - no integrations`);
       return { status: "skipped", reason: "No integrations found" };
     }
 
-    console.log(
-      `✅ User ${userEmail} has integrations, proceeding with ${reportType} report generation`
-    );
-
     // Step 2: Generate report using the API endpoint
-    console.log(
-      `\n🌐 STEP 2: Calling report generation API for user: ${userEmail}...`
-    );
     const reportResult = await generateUserReport(
       userId,
       userEmail,
       reportType
     );
-    console.log(`✅ Report generation completed for user ${userEmail}`);
 
     // Step 3: Send email to user
-    console.log(`\n📧 STEP 3: Sending email to user: ${userEmail}...`);
     await sendEmailToUser(userEmail, reportResult, reportType, userId);
-    console.log(`✅ Email sent successfully to user ${userEmail}`);
 
-    console.log(`✅ Job completed successfully for user ${userEmail}!`);
-    console.log(
-      `🎉 User ${userEmail} processing completed - moving to next user`
-    );
+    console.log(`✅ Completed ${reportType} report for ${userEmail}`);
 
     return {
       status: "completed",
@@ -67,13 +42,8 @@ async function processUserReportJob(job: any): Promise<any> {
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error occurred";
-    console.error(`\n❌ ===== BULL JOB FAILED FOR USER ${userEmail} =====`);
-    console.error(`📋 Job ID: ${job.id}`);
-    console.error(`👤 User: ${userEmail}`);
-    console.error(`🚨 Error: ${errorMessage}`);
-    console.error(`⏰ Failed at: ${new Date().toISOString()}`);
     console.error(
-      `⏭️ Skipping user ${userEmail} due to error - moving to next user`
+      `❌ Failed ${reportType} report for ${userEmail}: ${errorMessage}`
     );
 
     // Bull will automatically handle retries based on the configuration
@@ -82,9 +52,13 @@ async function processUserReportJob(job: any): Promise<any> {
 }
 
 // Check if user has working integrations and refresh expired tokens
-async function checkUserIntegrations(userId: string): Promise<boolean> {
+async function checkUserIntegrations(
+  userId: string,
+  userEmail?: string
+): Promise<boolean> {
   try {
-    console.log(`🔍 Checking integrations for user: ${userId}`);
+    const userIdentifier = userEmail || userId;
+    console.log(`🔍 Checking integrations for user: ${userIdentifier}`);
 
     const { getServerSupabaseClientWithServiceRole } = await import(
       "@/lib/supabase/server"
@@ -108,7 +82,7 @@ async function checkUserIntegrations(userId: string): Promise<boolean> {
     }
 
     console.log(
-      `📊 Found ${data.length} integration records for user ${userId}`
+      `📊 Found ${data.length} integration records for user ${userIdentifier}`
     );
     console.log(
       "🔗 Integration providers:",
@@ -116,7 +90,6 @@ async function checkUserIntegrations(userId: string): Promise<boolean> {
     );
 
     // Check and refresh only expired tokens
-    console.log(`🔍 Checking token status and refreshing if needed...`);
     const refreshResults = await TokenRefreshService.refreshUserTokens(userId);
     const successfulRefreshes = refreshResults.filter((r) => r.success);
     const failedRefreshes = refreshResults.filter((r) => !r.success);
@@ -125,21 +98,9 @@ async function checkUserIntegrations(userId: string): Promise<boolean> {
       const refreshedTokens = successfulRefreshes.filter(
         (r) => r.newExpiresAt && r.newExpiresAt > Math.floor(Date.now() / 1000)
       );
-      const validTokens = successfulRefreshes.filter(
-        (r) =>
-          !r.newExpiresAt || r.newExpiresAt <= Math.floor(Date.now() / 1000)
-      );
-
       if (refreshedTokens.length > 0) {
         console.log(
           `🔄 Tokens refreshed: ${refreshedTokens
-            .map((r) => r.provider)
-            .join(", ")}`
-        );
-      }
-      if (validTokens.length > 0) {
-        console.log(
-          `✅ Tokens still valid: ${validTokens
             .map((r) => r.provider)
             .join(", ")}`
         );
@@ -175,17 +136,12 @@ async function checkUserIntegrations(userId: string): Promise<boolean> {
         integration.expires_at > now;
 
       if (isTokenValid) {
-        console.log(`✅ ${integration.provider} has valid token`);
         hasWorkingIntegration = true;
-      } else {
-        console.log(
-          `❌ ${integration.provider} has no valid token or refresh token`
-        );
       }
     }
 
     console.log(
-      `📊 User ${userId} has working integrations: ${hasWorkingIntegration}`
+      `📊 User ${userIdentifier} has working integrations: ${hasWorkingIntegration}`
     );
     return hasWorkingIntegration;
   } catch (error) {
@@ -201,15 +157,9 @@ async function generateUserReport(
   reportType: string
 ) {
   try {
-    console.log(`🌐 Generating report for user: ${userEmail}`);
-
     const apiUrl = `${
       process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
     }/api/queue/generate-report`;
-
-    console.log(
-      `📡 Making API call to generate report for user ${userEmail}...`
-    );
 
     const response = await fetch(apiUrl, {
       method: "POST",
@@ -223,20 +173,15 @@ async function generateUserReport(
       }),
     });
 
-    console.log(
-      `📊 API response status for user ${userEmail}: ${response.status} ${response.statusText}`
-    );
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`❌ API request failed for user ${userEmail}:`, errorText);
+      console.error(`❌ Report generation failed for ${userEmail}:`, errorText);
       throw new Error(
         `API request failed for user ${userEmail}: ${response.status} ${response.statusText}`
       );
     }
 
     const result = await response.json();
-    console.log(`✅ Report generation API response for user ${userEmail}:`);
 
     return {
       status: "completed",
@@ -257,8 +202,6 @@ async function sendEmailToUser(
   userId: string
 ) {
   try {
-    console.log(`📧 Sending email to user: ${userEmail}`);
-
     const emailUrl = `${
       process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
     }/api/email/send-report`;
@@ -279,43 +222,25 @@ async function sendEmailToUser(
       }),
     });
 
-    if (emailResponse.ok) {
-      await emailResponse.json();
-      console.log(`📧 Email sent successfully to user ${userEmail}`);
-    } else {
+    if (!emailResponse.ok) {
       const errorData = await emailResponse.json().catch(() => ({}));
-      console.log(
-        `⚠️ Email sending failed for user ${userEmail}: ${emailResponse.status} ${emailResponse.statusText}`
-      );
-      console.log(
-        `📧 SendGrid Error Response for ${userEmail}:`,
-        JSON.stringify(errorData, null, 2)
-      );
+      console.log(`⚠️ Email failed for ${userEmail}: ${emailResponse.status}`);
       // Don't fail the entire job if email fails
     }
   } catch (emailError) {
-    console.log(`⚠️ Email sending error for user ${userEmail}:`, emailError);
+    console.log(`⚠️ Email error for ${userEmail}:`, emailError);
     // Don't fail the entire job if email fails
   }
 }
 
 // Set up job processor
 userReportQueue.process("generate-user-report", 5, async (job) => {
-  console.log(`\n🚀 ===== BULL PROCESSING JOB ${job.id} =====`);
-  console.log(`📋 Job Data:`, job.data);
-  console.log(`⏰ Started at: ${new Date().toISOString()}`);
-
   try {
     const result = await processUserReportJob(job);
-    console.log(`✅ ===== BULL JOB ${job.id} COMPLETED =====`);
     return result;
   } catch (error) {
-    console.error(`❌ ===== BULL JOB ${job.id} FAILED =====`);
-    console.error(`🚨 Error:`, error);
     throw error; // Let Bull handle retries
   }
 });
 
-console.log("🚀 ===== BULL QUEUE WORKER INITIALIZED =====");
-console.log("👷 Bull worker is ready to process jobs");
-console.log("⏰ Initialized at:", new Date().toISOString());
+console.log("🚀 Bull queue worker initialized");
