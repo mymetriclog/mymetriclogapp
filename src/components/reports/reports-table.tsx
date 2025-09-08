@@ -235,8 +235,8 @@ export function ReportsTable({ isLoading, reports }: ReportsTableProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="size-5" />
+          <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+            <FileText className="size-4 sm:size-5" />
             All Reports ({reports.length})
           </CardTitle>
         </CardHeader>
@@ -245,15 +245,18 @@ export function ReportsTable({ isLoading, reports }: ReportsTableProps) {
             {Array.from({ length: 5 }).map((_, i) => (
               <div
                 key={i}
-                className="flex items-center space-x-4 p-3 animate-pulse"
+                className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 animate-pulse"
               >
-                <div className="h-6 bg-gray-200 rounded w-24"></div>
-                <div className="h-6 bg-gray-200 rounded w-16"></div>
-                <div className="h-6 bg-gray-200 rounded w-20"></div>
-                <div className="h-6 bg-gray-200 rounded w-28"></div>
-                <div className="h-6 bg-gray-200 rounded w-16"></div>
-                <div className="h-6 bg-gray-200 rounded w-24"></div>
-                <div className="h-8 bg-gray-200 rounded w-32"></div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-32"></div>
+                  <div className="h-3 bg-gray-200 rounded w-24"></div>
+                </div>
+                <div className="flex gap-2 sm:gap-4">
+                  <div className="h-6 bg-gray-200 rounded w-16"></div>
+                  <div className="h-6 bg-gray-200 rounded w-20"></div>
+                  <div className="h-6 bg-gray-200 rounded w-16"></div>
+                </div>
+                <div className="h-8 bg-gray-200 rounded w-24 sm:w-32"></div>
               </div>
             ))}
           </div>
@@ -266,17 +269,17 @@ export function ReportsTable({ isLoading, reports }: ReportsTableProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="size-5" />
+          <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+            <FileText className="size-4 sm:size-5" />
             All Reports (0)
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-12">
-            <div className="text-lg font-medium text-muted-foreground">
+          <div className="text-center py-8 sm:py-12">
+            <div className="text-base sm:text-lg font-medium text-muted-foreground">
               No reports available yet
             </div>
-            <p className="text-sm text-muted-foreground mt-2">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-2 px-4">
               No reports have been generated yet. Use the form above to create
               your first report.
             </p>
@@ -290,13 +293,14 @@ export function ReportsTable({ isLoading, reports }: ReportsTableProps) {
     <>
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="size-5" />
+          <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+            <FileText className="size-4 sm:size-5" />
             All Reports ({reports.length})
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
+        <CardContent className="p-0">
+          {/* Desktop Table View */}
+          <div className="hidden lg:block overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b">
@@ -334,7 +338,7 @@ export function ReportsTable({ isLoading, reports }: ReportsTableProps) {
                         </div>
                       </div>
                     </td>
-                    <td className="p-3 text-sm font-mono ">
+                    <td className="p-3 text-sm font-mono">
                       {report.user_id.substring(0, 8)}...
                     </td>
                     <td className="p-3">
@@ -424,6 +428,121 @@ export function ReportsTable({ isLoading, reports }: ReportsTableProps) {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile/Tablet Card View */}
+          <div className="lg:hidden">
+            <div className="space-y-3 p-4">
+              {reports.map((report) => (
+                <div
+                  key={report.id}
+                  className="border rounded-lg p-4 space-y-3 hover:bg-gray-50 transition-colors"
+                >
+                  {/* Header with user info and type */}
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-sm truncate">
+                        {report.user_name}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {report.user_email}
+                      </div>
+                      <div className="text-xs font-mono text-muted-foreground mt-1">
+                        {report.user_id.substring(0, 8)}...
+                      </div>
+                    </div>
+                    <Badge
+                      variant="secondary"
+                      className={`text-xs ${
+                        report.kind === "daily"
+                          ? "bg-blue-50 text-blue-700"
+                          : "bg-purple-50 text-purple-700"
+                      }`}
+                    >
+                      {report.kind.toUpperCase()}
+                    </Badge>
+                  </div>
+
+                  {/* Date and Score */}
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      {report.date}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-lg font-semibold ${
+                          report.score >= 80
+                            ? "text-green-600"
+                            : report.score >= 70
+                            ? "text-blue-600"
+                            : report.score >= 60
+                            ? "text-yellow-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {report.score}
+                      </span>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full border ${
+                          report.score >= 80
+                            ? "text-green-600 bg-green-50 border-green-200"
+                            : report.score >= 70
+                            ? "text-blue-600 bg-blue-50 border-blue-200"
+                            : report.score >= 60
+                            ? "text-yellow-600 bg-yellow-50 border-yellow-200"
+                            : "text-red-600 bg-red-50 border-red-200"
+                        }`}
+                      >
+                        {report.score >= 80
+                          ? "Excellent"
+                          : report.score >= 70
+                          ? "Good"
+                          : report.score >= 60
+                          ? "Fair"
+                          : "Poor"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Status and Actions */}
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      Completed
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleViewReport(report)}
+                        className="text-xs h-7 px-2"
+                      >
+                        <Eye className="size-3 mr-1" />
+                        View
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownloadReport(report)}
+                        className="text-xs h-7 px-2"
+                      >
+                        <Download className="size-3 mr-1" />
+                        <span className="hidden sm:inline">Download</span>
+                        <span className="sm:hidden">DL</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleViewJson(report)}
+                        className="text-xs h-7 px-2"
+                      >
+                        <Code className="size-3 mr-1" />
+                        JSON
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -436,9 +555,9 @@ export function ReportsTable({ isLoading, reports }: ReportsTableProps) {
 
       {/* JSON Viewer Modal */}
       <Dialog open={isJsonModalOpen} onOpenChange={handleCloseJsonModal}>
-        <DialogContent className="w-[90vw] max-w-4xl h-[80vh] p-0 flex flex-col">
-          <DialogHeader className="flex flex-row items-center justify-between space-y-0 p-4 bg-white border-b flex-shrink-0">
-            <DialogTitle className="font-semibold">
+        <DialogContent className="w-[95vw] sm:w-[90vw] max-w-4xl h-[85vh] sm:h-[80vh] p-0 flex flex-col">
+          <DialogHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 p-3 sm:p-4 bg-white border-b flex-shrink-0">
+            <DialogTitle className="font-semibold text-sm sm:text-base truncate">
               JSON Data -{" "}
               {selectedJsonReport?.kind === "daily" ? "Daily" : "Weekly"} Report
               - {selectedJsonReport?.date}
@@ -448,32 +567,27 @@ export function ReportsTable({ isLoading, reports }: ReportsTableProps) {
                 size="sm"
                 variant="outline"
                 onClick={handleCopyJson}
-                className={
-                  isCopied
-                    ? "bg-green-50 text-green-700 border-green-200"
-                    : "mr-10"
-                }
+                className={`text-xs sm:text-sm ${
+                  isCopied ? "bg-green-50 text-green-700 border-green-200" : ""
+                }`}
               >
                 {isCopied ? (
                   <>
-                    <Check className="size-4 mr-1" />
+                    <Check className="size-3 sm:size-4 mr-1" />
                     Copied!
                   </>
                 ) : (
                   <>
-                    <Copy className="size-4 mr-1 " />
+                    <Copy className="size-3 sm:size-4 mr-1" />
                     Copy
                   </>
                 )}
               </Button>
-              {/* <Button size="sm" variant="ghost" onClick={handleCloseJsonModal}>
-                <X className="size-4" />
-              </Button> */}
             </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
-            <pre className="bg-white p-4 rounded-lg border text-sm overflow-x-auto whitespace-pre-wrap">
+          <div className="flex-1 overflow-y-auto p-2 sm:p-4 bg-gray-50">
+            <pre className="bg-white p-2 sm:p-4 rounded-lg border text-xs sm:text-sm overflow-x-auto whitespace-pre-wrap">
               <code>
                 {selectedJsonReport
                   ? JSON.stringify(selectedJsonReport, null, 2)

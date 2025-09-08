@@ -237,14 +237,8 @@ async function sendEmailToUser(
     });
 
     if (emailResponse.ok) {
-      const emailResult = await emailResponse.json();
+      await emailResponse.json();
       console.log(`📧 Email sent successfully to user ${userEmail}`);
-      console.log(`📧 Email ID: ${emailResult.data?.emailId || "N/A"}`);
-      console.log(`📧 Email Status: ${emailResult.data?.status || "N/A"}`);
-      console.log(`📧 Message ID: ${emailResult.data?.messageId || "N/A"}`);
-      console.log(
-        `📧 SendGrid Status Code: ${emailResult.data?.statusCode || "N/A"}`
-      );
     } else {
       const errorData = await emailResponse.json().catch(() => ({}));
       console.log(

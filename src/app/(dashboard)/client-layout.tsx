@@ -380,7 +380,7 @@ function DashboardContent({
         {/* Main content area */}
         <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 pt-20">
           <BackgroundDecor />
-          <div className="z-10 p-4 sm:p-6 lg:p-8 xl:p-10 px-4 lg:px-0">
+          <div className="z-10 p-2 sm:p-6 lg:p-8 xl:p-10 px-4 lg:px-0">
             <div className="space-y-4">{children}</div>
           </div>
         </main>

@@ -199,7 +199,7 @@ export default function ReportsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="p-6 space-y-6">
+      <div className=" md:p-3 space-y-4 sm:space-y-6">
         {/* Header */}
         <ReportsHeader isLoading={isLoading} onRefresh={fetchReports} />
 

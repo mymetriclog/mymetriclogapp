@@ -48,21 +48,21 @@ export function ReportsHeader({ isLoading, onRefresh }: ReportsHeaderProps) {
   };
 
   return (
-    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
-      <div className="flex items-center justify-between reports-header-section flex-wrap">
-        <div className="flex items-start gap-4 reports-header-section">
-          <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg">
-            <FileText className="size-8 text-white" />
+    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-blue-100">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-start gap-3 sm:gap-4">
+          <div className="p-2 sm:p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl sm:rounded-2xl shadow-lg flex-shrink-0">
+            <FileText className="size-6 sm:size-8 text-white" />
           </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">
               Reports & Analytics
             </h1>
 
             {/* Timezone Information */}
-            <div className="flex items-center gap-2 mt-2 text-sm text-blue-700">
-              <Clock className="size-4" />
-              <span>
+            <div className="flex items-center gap-2 mt-1 sm:mt-2 text-xs sm:text-sm text-blue-700">
+              <Clock className="size-3 sm:size-4 flex-shrink-0" />
+              <span className="truncate">
                 Reports will be generated in timezone:{" "}
                 <strong>{userTimezone}</strong>
               </span>
@@ -70,21 +70,23 @@ export function ReportsHeader({ isLoading, onRefresh }: ReportsHeaderProps) {
 
             {/* Integration Status */}
             {!isCheckingIntegrations && (
-              <div className="flex items-center gap-2 mt-2 text-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-1 sm:mt-2 text-xs sm:text-sm">
                 {hasIntegrations ? (
                   <div className="flex items-center gap-2 text-green-700">
-                    <Link className="size-4" />
+                    <Link className="size-3 sm:size-4 flex-shrink-0" />
                     <span>✅ Integrations connected</span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 text-red-700">
-                    <AlertCircle className="size-4" />
-                    <span>⚠️ No integrations connected</span>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-red-700">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="size-3 sm:size-4 flex-shrink-0" />
+                      <span>⚠️ No integrations connected</span>
+                    </div>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => (window.location.href = "/integrations")}
-                      className="text-xs h-6 px-2"
+                      className="text-xs h-6 px-2 w-fit"
                     >
                       Connect Now
                     </Button>
@@ -98,14 +100,15 @@ export function ReportsHeader({ isLoading, onRefresh }: ReportsHeaderProps) {
           onClick={onRefresh}
           disabled={isLoading}
           variant="outline"
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-start"
         >
           {isLoading ? (
             <Loader2 className="size-4 animate-spin" />
           ) : (
             <TrendingUp className="size-4" />
           )}
-          Refresh
+          <span className="hidden sm:inline">Refresh</span>
+          <span className="sm:hidden">Refresh Data</span>
         </Button>
       </div>
     </div>

@@ -295,29 +295,27 @@ export function ReportViewerModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-[95vw] max-w-4xl h-[90vh] max-h-[1000px] overflow-hidden p-0 mx-auto">
-        <DialogHeader className="flex flex-row items-center justify-between space-y-0 p-4 bg-white">
-          <DialogTitle className="font-semibold">
+      <DialogContent className="w-[98vw] sm:w-[95vw] max-w-4xl h-[95vh] sm:h-[90vh] max-h-[1000px] overflow-hidden p-0 mx-auto">
+        <DialogHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 p-3 sm:p-4 bg-white">
+          <DialogTitle className="font-semibold text-sm sm:text-base truncate">
             {report.kind === "daily" ? "Daily" : "Weekly"} Report -{" "}
             {report.date}
           </DialogTitle>
           <div className="flex items-center gap-2">
             <Button
-              className="mr-10"
               size="sm"
               variant="outline"
               onClick={handleDownloadReport}
+              className="text-xs sm:text-sm"
             >
-              <Download className="size-4 mr-1" />
-              Download
+              <Download className="size-3 sm:size-4 mr-1" />
+              <span className="hidden sm:inline">Download</span>
+              <span className="sm:hidden">DL</span>
             </Button>
-            {/* <Button size="sm" variant="ghost" onClick={onClose}>
-              <X className="size-4" />
-            </Button> */}
           </div>
         </DialogHeader>
 
-        <div className="overflow-y-auto h-full p-4">
+        <div className="overflow-y-auto h-full p-2 sm:p-4">
           <div
             className="report-content"
             dangerouslySetInnerHTML={{ __html: generateReportHTML(report) }}
