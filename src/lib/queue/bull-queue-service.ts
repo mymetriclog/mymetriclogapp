@@ -55,14 +55,18 @@ export const userReportQueue = new Bull("user-report-generation", REDIS_URL, {
     }),
   },
   defaultJobOptions: {
-    removeOnComplete: 100, // Keep last 100 completed jobs
-    removeOnFail: 50, // Keep last 50 failed jobs
-    attempts: 3, // Retry up to 3 times
+    removeOnComplete: 10, // Keep only last 10 completed jobs (reduced from 100)
+    removeOnFail: 5, // Keep only last 5 failed jobs (reduced from 50)
+    attempts: 2, // Retry only 2 times (reduced from 3)
     backoff: {
       type: "exponential", // Exponential backoff
-      delay: 2000, // Start with 2 seconds
+      delay: 5000, // Start with 5 seconds (increased to reduce retries)
     },
     delay: 0, // No initial delay
+  },
+  settings: {
+    stalledInterval: 30000, // Check for stalled jobs every 30 seconds (increased from default)
+    maxStalledCount: 1, // Max stalled count before giving up
   },
 });
 
@@ -94,6 +98,26 @@ userReportQueue.on("failed", (job, err) => {
 userReportQueue.on("stalled", (job) => {
   console.log(`⚠️ Job ${job.id} stalled`);
 });
+
+// Clean up old jobs to reduce Redis usage
+export async function cleanupOldJobs(): Promise<void> {
+  try {
+    console.log("🧹 Cleaning up old jobs to reduce Redis usage...");
+
+    // Clean completed jobs older than 1 hour
+    await userReportQueue.clean(3600000, "completed");
+
+    // Clean failed jobs older than 1 hour
+    await userReportQueue.clean(3600000, "failed");
+
+    // Clean active jobs older than 30 minutes (stalled jobs)
+    await userReportQueue.clean(1800000, "active");
+
+    console.log("✅ Old jobs cleaned up successfully");
+  } catch (error) {
+    console.error("❌ Error cleaning up old jobs:", error);
+  }
+}
 
 // Add a job to the queue
 export async function addUserReportJob(
