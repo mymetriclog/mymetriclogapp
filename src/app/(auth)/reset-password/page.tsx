@@ -566,20 +566,20 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-        <Card className="w-full max-w-md shadow-xl border-0 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-            </div>
-            <p className="text-center text-gray-600 mt-4">
-              Loading...
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+          <Card className="w-full max-w-md shadow-xl border-0 backdrop-blur-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+              </div>
+              <p className="text-center text-gray-600 mt-4">Loading...</p>
+            </CardContent>
+          </Card>
+        </div>
+      }
+    >
       <ResetPasswordForm />
     </Suspense>
   );
