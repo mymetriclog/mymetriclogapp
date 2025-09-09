@@ -117,14 +117,21 @@ export function QueueDashboard() {
     }
   };
 
-  // Start queue processing
-  const startQueue = async () => {
+  // Schedule daily reports manually
+  const scheduleDailyReports = async () => {
+    if (isStarting) {
+      console.log("⚠️ Already processing, ignoring duplicate click");
+      return;
+    }
+
     try {
       setIsStarting(true);
-      const response = await fetch("/api/queue/start", {
-        method: "POST",
+      console.log("🚀 Starting daily report scheduling...");
+
+      const response = await fetch("/api/queue/schedule", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ limit: 5 }),
+        body: JSON.stringify({ reportType: "daily" }),
       });
 
       if (response.status === 403) {
@@ -137,23 +144,28 @@ export function QueueDashboard() {
       }
 
       if (response.ok) {
+        const result = await response.json();
         toast({
           title: "Success",
-          description: "Queue processing started",
+          description: `Daily reports scheduled for ${
+            result.scheduledJobs?.length || 0
+          } users`,
         });
         fetchQueueData(); // Refresh data
       } else {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to start queue");
+        throw new Error(
+          errorData.message || "Failed to schedule daily reports"
+        );
       }
     } catch (error) {
-      console.error("Error starting queue:", error);
+      console.error("Error scheduling daily reports:", error);
       toast({
         title: "Error",
         description:
           error instanceof Error
             ? error.message
-            : "Failed to start queue processing",
+            : "Failed to schedule daily reports",
         variant: "destructive",
       });
     } finally {
@@ -304,43 +316,71 @@ export function QueueDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-4">
-            <Button
-              onClick={startQueue}
-              disabled={isStarting}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
-            >
-              <Play className="h-4 w-4" />
-              {isStarting ? "Adding Jobs..." : "Add Jobs to Queue"}
-            </Button>
-            <Button
-              onClick={processPendingJobs}
-              disabled={isLoading}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className="h-4 w-4" />
-              {isLoading ? "Adding Jobs..." : "Add Users to Queue"}
-            </Button>
-            <Button
-              onClick={fetchQueueData}
-              disabled={isLoading}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Refresh Status
-            </Button>
-          </div>
-          <div className="mt-3 text-sm text-muted-foreground">
-            <p>
-              <strong>Upstash QStash</strong> automatically handles job
-              processing, retries, and scaling. Jobs are processed via webhooks
-              and don't require manual queue management.
-            </p>
+          <div className="space-y-4">
+            {/* Manual Daily Report Scheduling */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">
+                Manual Daily Report Scheduling
+              </h3>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  onClick={scheduleDailyReports}
+                  disabled={isStarting}
+                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+                >
+                  <Play className="h-4 w-4" />
+                  {isStarting ? "Scheduling..." : "Schedule Daily Reports"}
+                </Button>
+              </div>
+            </div>
+
+            {/* Queue Management */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Queue Management</h3>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  onClick={processPendingJobs}
+                  disabled={isLoading}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  {isLoading ? "Processing..." : "Process Pending Jobs"}
+                </Button>
+                <Button
+                  onClick={fetchQueueData}
+                  disabled={isLoading}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh Status
+                </Button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Information Cards */}
+      <div className="space-y-2 text-sm text-muted-foreground">
+        <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="font-medium text-blue-800 mb-1">Manual Scheduling</p>
+          <p>
+            Use the buttons above to manually schedule daily reports for all
+            users with integrations. This bypasses the automatic cron schedule
+            and immediately adds jobs to the Upstash QStash queue.
+          </p>
+        </div>
+        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="font-medium text-gray-800 mb-1">Automatic Processing</p>
+          <p>
+            <strong>Upstash QStash</strong> automatically handles job
+            processing, retries, and scaling. Jobs are processed via webhooks
+            and don't require manual queue management.
+          </p>
+        </div>
+      </div>
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -449,6 +489,52 @@ export function QueueDashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* Cron Schedule Information */}
+      <Card className="border-green-200 bg-green-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-green-800">
+            <Clock className="h-5 w-5" />
+            Automatic Cron Schedule
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-green-700">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-3 bg-white rounded-lg border border-green-200">
+                <h4 className="font-semibold text-green-800 mb-2">
+                  Daily Reports
+                </h4>
+                <p className="text-sm">
+                  <strong>Schedule:</strong> Every day at 11:00 PM
+                  <br />
+                  <strong>Endpoint:</strong> /api/cron
+                  <br />
+                  <strong>Status:</strong>{" "}
+                  <span className="text-green-600">Active</span>
+                </p>
+              </div>
+              <div className="p-3 bg-white rounded-lg border border-green-200">
+                <h4 className="font-semibold text-green-800 mb-2">
+                  Weekly Reports
+                </h4>
+                <p className="text-sm">
+                  <strong>Schedule:</strong> Every Sunday at 11:00 PM
+                  <br />
+                  <strong>Endpoint:</strong> /api/cron/weekly
+                  <br />
+                  <strong>Status:</strong>{" "}
+                  <span className="text-green-600">Active</span>
+                </p>
+              </div>
+            </div>
+            <p className="mt-3 text-sm">
+              Both cron jobs automatically schedule reports for all users with
+              active integrations.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Upstash QStash Information */}
       <Card className="border-blue-200 bg-blue-50">

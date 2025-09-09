@@ -3,6 +3,25 @@ import { getServerSession } from "@/lib/supabase/server";
 import { isUserAdmin } from "@/lib/auth/admin-check";
 import { getQueueStats } from "@/lib/queue/upstash-queue-service";
 
+// Simple in-memory tracking for development mode
+let directProcessingStats = {
+  total: 0,
+  completed: 0,
+  failed: 0,
+  lastProcessed: null as string | null,
+};
+
+// Function to update direct processing stats
+export function updateDirectProcessingStats(success: boolean) {
+  directProcessingStats.total++;
+  if (success) {
+    directProcessingStats.completed++;
+  } else {
+    directProcessingStats.failed++;
+  }
+  directProcessingStats.lastProcessed = new Date().toISOString();
+}
+
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession();
@@ -23,15 +42,38 @@ export async function GET(req: NextRequest) {
     // Get Bull queue statistics
     const stats = await getQueueStats();
 
-    const summary = {
-      total: stats.total,
-      pending: stats.waiting,
-      processing: stats.active,
-      completed: stats.completed,
-      failed: stats.failed,
-      skipped: 0, // Bull doesn't track skipped separately
-      successRate: stats.successRate,
-    };
+    // Check if we're in development mode with direct processing
+    const isLocalhost =
+      process.env.NEXT_PUBLIC_APP_URL?.includes("localhost") ||
+      process.env.NEXT_PUBLIC_APP_URL?.includes("127.0.0.1");
+
+    let summary;
+    if (isLocalhost && directProcessingStats.total > 0) {
+      // In development mode, show direct processing stats
+      summary = {
+        total: directProcessingStats.total,
+        pending: 0,
+        processing: 0,
+        completed: directProcessingStats.completed,
+        failed: directProcessingStats.failed,
+        skipped: 0,
+        successRate:
+          directProcessingStats.total > 0
+            ? (directProcessingStats.completed / directProcessingStats.total) *
+              100
+            : 0,
+      };
+    } else {
+      summary = {
+        total: stats.total,
+        pending: stats.waiting,
+        processing: stats.active,
+        completed: stats.completed,
+        failed: stats.failed,
+        skipped: 0, // Bull doesn't track skipped separately
+        successRate: stats.successRate,
+      };
+    }
 
     return NextResponse.json({
       success: true,

@@ -31,16 +31,14 @@ export async function GET(request: NextRequest) {
     // Get the base URL for the internal API call
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-    // Call your queue start endpoint
-    const response = await fetch(`${baseUrl}/api/queue/start`, {
-      method: "POST",
+    // Call the new Upstash queue schedule endpoint for daily reports
+    const response = await fetch(`${baseUrl}/api/queue/schedule`, {
+      method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        source: "cron",
-        timestamp: new Date().toISOString(),
-        scheduledTime: "11:00 PM Daily",
+        reportType: "daily",
       }),
     });
 
@@ -49,9 +47,10 @@ export async function GET(request: NextRequest) {
       console.log("✅ Cron job successfully triggered queue start:", result);
       return NextResponse.json({
         success: true,
-        message: "Queue processing started via cron job",
+        message: "Daily reports scheduled via cron job",
         timestamp: new Date().toISOString(),
         scheduledTime: "11:00 PM Daily",
+        scheduledJobs: result.scheduledJobs?.length || 0,
         result,
       });
     } else {

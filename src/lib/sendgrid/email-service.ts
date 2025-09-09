@@ -3,10 +3,13 @@ import {
   initializeSendGrid,
   testSendGridConnection,
 } from "./client";
+
+// Re-export sendEmail for direct use
+export { sendEmail };
 import {
   generateDailyReportEmail,
   DailyReportData,
-} from "./templates/daily-report";
+} from "./templates/daily-email-template";
 
 // Initialize SendGrid when this module is imported
 try {

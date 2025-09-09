@@ -1,4 +1,12 @@
 import { getServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  analyzeAdvancedAudioFeatures,
+  generateAudioAnalysisInsights,
+  analyzeIndividualTracks,
+  AdvancedAudioFeatures,
+  AudioAnalysisInsights,
+  TrackAnalysis,
+} from "../spotify/advanced-audio-analysis";
 
 type TokenResponse = {
   access_token: string;
@@ -37,6 +45,11 @@ type SpotifyStats = {
     tempo: number;
     danceability: number;
   };
+  // Enhanced audio analysis
+  advancedFeatures: AdvancedAudioFeatures;
+  audioInsights: AudioAnalysisInsights;
+  trackAnalysis: TrackAnalysis[];
+  summary: string;
 };
 
 export async function upsertSpotifyTokens(userId: string, tok: TokenResponse) {
@@ -235,6 +248,42 @@ export async function getSpotifyStats(
           tempo: 0,
           danceability: 0,
         },
+        advancedFeatures: {
+          energy: 0,
+          valence: 0,
+          tempo: 0,
+          danceability: 0,
+          acousticness: 0,
+          instrumentalness: 0,
+          liveness: 0,
+          speechiness: 0,
+          loudness: 0,
+          key: 0,
+          mode: 0,
+          timeSignature: 0,
+          duration: 0,
+          mood: "Unknown",
+          energyLevel: "Unknown",
+          tempoCategory: "Unknown",
+          genre: "Unknown",
+          listeningPattern: "Unknown",
+          focusScore: 0,
+          relaxationScore: 0,
+          motivationScore: 0,
+          creativityScore: 0,
+        },
+        audioInsights: {
+          overallMood: "No data available",
+          energyProfile: "No data available",
+          listeningHabits: "No data available",
+          focusPattern: "No data available",
+          stressIndicators: [],
+          wellnessCorrelations: [],
+          recommendations: [],
+          audioSummary: "No Spotify data available",
+        },
+        trackAnalysis: [],
+        summary: "No Spotify data available",
       };
     }
 
@@ -306,10 +355,21 @@ export async function getSpotifyStats(
     // Calculate listening time (estimated)
     const listeningTime = tracksPlayed * 3.5; // Average 3.5 minutes per track
 
+    // Perform advanced audio analysis
+    const advancedFeatures = analyzeAdvancedAudioFeatures(
+      tracks,
+      audioFeatures
+    );
+    const audioInsights = generateAudioAnalysisInsights(
+      advancedFeatures,
+      tracks
+    );
+    const trackAnalysis = analyzeIndividualTracks(tracks, audioFeatures);
+
     return {
       tracksPlayed,
-      topGenre,
-      mood,
+      topGenre: advancedFeatures.genre,
+      mood: advancedFeatures.mood,
       topArtists,
       topTracks,
       listeningTime,
@@ -319,6 +379,10 @@ export async function getSpotifyStats(
         tempo: avgTempo,
         danceability: avgDanceability,
       },
+      advancedFeatures,
+      audioInsights,
+      trackAnalysis,
+      summary: audioInsights.audioSummary,
     };
   } catch (error) {
     return null;

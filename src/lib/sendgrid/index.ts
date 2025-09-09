@@ -8,12 +8,12 @@ export { EmailService } from "./email-service";
 export {
   generateDailyReportEmail,
   type DailyReportData,
-} from "./templates/daily-report";
+} from "./templates/daily-email-template";
 
 export {
   generateWeeklyReportEmail,
   type WeeklyReportData,
-} from "./templates/weekly-report";
+} from "./templates/weekly-email-template";
 
 // Test Panel Component
 export { EmailTestPanel } from "../../components/reports/email-test-panel";

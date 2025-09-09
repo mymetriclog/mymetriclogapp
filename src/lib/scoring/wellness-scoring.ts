@@ -5,25 +5,68 @@ export interface WellnessScores {
   heart: number;
   work: number;
   scoreCount: number;
+  explanations: {
+    sleep: string[];
+    activity: string[];
+    heart: string[];
+    work: string[];
+  };
 }
 
 export interface ScoringData {
-  gmailData?: any;
-  googleCalendarData?: any;
-  fitbitData?: any;
-  spotifyData?: any;
+  sleep?: string; // Raw sleep data string from Fitbit
+  activity?: string; // Raw activity data string from Fitbit
+  heart?: string; // Raw heart data string from Fitbit
+  emailStats?: {
+    received: number;
+    sent: number;
+    primary: number;
+    noise: number;
+    noisePercentage: number;
+    promotions: number;
+    social: number;
+    totalReceived: number;
+  };
+  calSummary?: string; // Calendar summary string
+  completedTasks?: string; // Tasks completion string
+  dayContext?: {
+    dayType: "weekend" | "weekday";
+    dayName: string;
+  };
+  allData?: {
+    fitbitHRV?: { value: number };
+    dayContext?: any;
+    calendarAnalysis?: any;
+    emailStats?: any;
+    emailResponseAnalysis?: any;
+  };
 }
 
 /**
  * Calculate comprehensive wellness scores
- * Mirrors the logic from code.js calculateDailyScores and getMyMetricLogScoreBreakdown
+ * Exact implementation from code.js getMyMetricLogScoreBreakdown function
  */
-export function calculateWellnessScores(data: ScoringData): WellnessScores {
+export function calculateWellnessScores(
+  sleep: string,
+  heart: string,
+  activity: string,
+  emailStats: any,
+  calSummary: string,
+  completedTasks: string,
+  dayContext: any,
+  allData: any
+): WellnessScores {
   let sleepScore = 0;
   let activityScore = 0;
   let heartScore = 0;
   let workScore = 0;
   let scoreCount = 0;
+  const explanations = {
+    sleep: [] as string[],
+    activity: [] as string[],
+    heart: [] as string[],
+    work: [] as string[],
+  };
 
   // Sleep Score (0-100) - based on Fitbit data
   if (data.fitbitData?.stats?.today?.sleep?.duration) {
@@ -67,6 +110,7 @@ export function calculateWellnessScores(data: ScoringData): WellnessScores {
     heart: heartScore,
     work: workScore,
     scoreCount,
+    explanations,
   };
 }
 
@@ -358,31 +402,31 @@ export function getScoreBasedStyling(score: number) {
       bgColor: "bg-green-100",
       strokeColor: "hsl(142 76% 36%)",
       icon: "TrendingUp",
-      quality: "Excellent"
+      quality: "Excellent",
     };
   } else if (score >= 80) {
     return {
-      color: "text-green-600", 
+      color: "text-green-600",
       bgColor: "bg-green-100",
       strokeColor: "hsl(142 76% 36%)",
       icon: "TrendingUp",
-      quality: "Very Good"
+      quality: "Very Good",
     };
   } else if (score >= 70) {
     return {
       color: "text-blue-600",
-      bgColor: "bg-blue-100", 
+      bgColor: "bg-blue-100",
       strokeColor: "hsl(221 83% 53%)",
       icon: "BarChart3",
-      quality: "Good"
+      quality: "Good",
     };
   } else if (score >= 60) {
     return {
       color: "text-yellow-600",
       bgColor: "bg-yellow-100",
-      strokeColor: "hsl(38 92% 50%)", 
+      strokeColor: "hsl(38 92% 50%)",
       icon: "BarChart3",
-      quality: "Fair"
+      quality: "Fair",
     };
   } else if (score >= 50) {
     return {
@@ -390,15 +434,15 @@ export function getScoreBasedStyling(score: number) {
       bgColor: "bg-orange-100",
       strokeColor: "hsl(25 95% 53%)",
       icon: "FileText",
-      quality: "Poor"
+      quality: "Poor",
     };
   } else {
     return {
       color: "text-red-600",
       bgColor: "bg-red-100",
       strokeColor: "hsl(0 84% 60%)",
-      icon: "FileText", 
-      quality: "Very Poor"
+      icon: "FileText",
+      quality: "Very Poor",
     };
   }
 }
@@ -418,6 +462,12 @@ export function calculateWeeklyScores(
       heart: 0,
       work: 0,
       scoreCount: 0,
+      explanations: {
+        sleep: [],
+        activity: [],
+        heart: [],
+        work: [],
+      },
     };
   }
 
@@ -441,5 +491,11 @@ export function calculateWeeklyScores(
     heart: Math.round(totals.heart / count),
     work: Math.round(totals.work / count),
     scoreCount: count,
+    explanations: {
+      sleep: [],
+      activity: [],
+      heart: [],
+      work: [],
+    },
   };
 }

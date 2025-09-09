@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { TokenRefreshService } from "@/lib/integrations/token-refresh-service";
 import { Receiver } from "@upstash/qstash";
 
+// Simple in-memory cache to prevent duplicate job processing
+const processedJobs = new Set<string>();
+
 // Process user report job from Upstash QStash
 export async function POST(request: NextRequest) {
   let jobData: any = null; // Declare outside try block
@@ -32,6 +35,20 @@ export async function POST(request: NextRequest) {
 
     jobData = JSON.parse(body);
     const { userId, userEmail, reportType = "daily", jobId } = jobData;
+
+    // Check if this job has already been processed
+    if (processedJobs.has(jobId)) {
+      console.log(`⚠️ Job ${jobId} already processed, skipping duplicate`);
+      return NextResponse.json({
+        status: "skipped",
+        reason: "Job already processed",
+        jobId,
+        userEmail,
+      });
+    }
+
+    // Mark job as being processed
+    processedJobs.add(jobId);
 
     console.log(
       `\n🚀 Processing ${reportType} report for ${userEmail} (Job ${jobId})`
@@ -198,7 +215,7 @@ async function generateUserReport(
   try {
     const apiUrl = `${
       process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-    }/api/queue/generate-report`;
+    }/api/queue/generate-${reportType}`;
 
     const response = await fetch(apiUrl, {
       method: "POST",
@@ -224,8 +241,12 @@ async function generateUserReport(
 
     return {
       status: "completed",
-      reportId: result.data?.reportId || `report-${Date.now()}`,
+      reportId:
+        result.reportData?.date ||
+        result.reportData?.startDate ||
+        `report-${Date.now()}`,
       message: "Report generated successfully",
+      reportData: result.reportData,
     };
   } catch (error) {
     console.error(`❌ Error generating report for user ${userEmail}:`, error);
@@ -240,34 +261,97 @@ async function sendEmailToUser(
   reportType: string,
   userId: string
 ) {
+  let logId: string | null = null;
+
   try {
-    const emailUrl = `${
-      process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-    }/api/email/send-report`;
+    // Import email functions and logger
+    const { sendEmail } = await import("@/lib/sendgrid/email-service");
+    const { EmailLogger } = await import("@/lib/email-logging/email-logger");
 
-    // Get today's date in YYYY-MM-DD format
-    const today = new Date().toISOString().split("T")[0];
+    // Log email before sending
+    const logData = {
+      user_id: userId,
+      recipient_email: userEmail,
+      sender_email:
+        process.env.SENDER_VERIFICATION_EMAIL || "asad@devstitch.com",
+      email_type: (reportType === "daily"
+        ? "daily_report"
+        : "weekly_report") as "daily_report" | "weekly_report",
+      subject:
+        reportType === "daily"
+          ? `Your Daily MyMetricLog Report - ${reportResult.reportData.fullDateStr}`
+          : `Your Weekly MyMetricLog Report - ${reportResult.reportData.startDate} to ${reportResult.reportData.endDate}`,
+      status: "pending" as const,
+      report_date:
+        reportType === "daily"
+          ? reportResult.reportData.fullDateStr
+          : reportResult.reportData.startDate,
+      report_type: reportType as "daily" | "weekly",
+    };
 
-    const emailResponse = await fetch(emailUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        to: userEmail,
-        type: reportType,
-        userId: userId,
-        date: today,
-      }),
-    });
-
-    if (!emailResponse.ok) {
-      const errorData = await emailResponse.json().catch(() => ({}));
-      console.log(`⚠️ Email failed for ${userEmail}: ${emailResponse.status}`);
-      // Don't fail the entire job if email fails
+    const logResult = await EmailLogger.logEmail(logData);
+    if (logResult.success) {
+      logId = logResult.logId;
+      console.log(`📝 Email logged with ID: ${logId}`);
+    } else {
+      console.warn(`⚠️ Failed to log email: ${logResult.error}`);
     }
+
+    // Send the email
+    if (reportType === "daily") {
+      const { generateDailyReportEmail } = await import(
+        "@/lib/sendgrid/templates/daily-email-template"
+      );
+      const emailHTML = generateDailyReportEmail(reportResult.reportData);
+
+      const result = await sendEmail(
+        userEmail,
+        `Your Daily MyMetricLog Report - ${reportResult.reportData.fullDateStr}`,
+        emailHTML
+      );
+
+      // Update email log with success
+      if (logId) {
+        await EmailLogger.updateEmailStatus(logId, "sent");
+        if (result.messageId) {
+          await EmailLogger.updateEmailMessageId(logId, result.messageId);
+        }
+      }
+    } else if (reportType === "weekly") {
+      const { generateWeeklyReportEmail } = await import(
+        "@/lib/sendgrid/templates/weekly-email-template"
+      );
+      const emailHTML = generateWeeklyReportEmail(reportResult.reportData);
+
+      const result = await sendEmail(
+        userEmail,
+        `Your Weekly MyMetricLog Report - ${reportResult.reportData.startDate} to ${reportResult.reportData.endDate}`,
+        emailHTML
+      );
+
+      // Update email log with success
+      if (logId) {
+        await EmailLogger.updateEmailStatus(logId, "sent");
+        if (result.messageId) {
+          await EmailLogger.updateEmailMessageId(logId, result.messageId);
+        }
+      }
+    }
+
+    console.log(`📧 Email sent successfully to ${userEmail}`);
   } catch (emailError) {
     console.log(`⚠️ Email error for ${userEmail}:`, emailError);
+
+    // Update email log with failure
+    if (logId) {
+      const { EmailLogger } = await import("@/lib/email-logging/email-logger");
+      await EmailLogger.updateEmailStatus(
+        logId,
+        "failed",
+        emailError instanceof Error ? emailError.message : "Unknown error"
+      );
+    }
+
     // Don't fail the entire job if email fails
   }
 }

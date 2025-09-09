@@ -1,8 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getAllUsersWithIntegrations,
-  addUsersToQueue,
-} from "@/lib/queue/upstash-queue-service";
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,44 +48,37 @@ export async function POST(request: NextRequest) {
     console.log("🕐 Weekly cron triggered at:", now.toISOString());
     console.log("📅 Today is Sunday - starting weekly report generation");
 
-    // Get all users with integrations
-    const users = await getAllUsersWithIntegrations();
-    const usersWithIntegrations = users.filter((user) => user.hasIntegrations);
-    const usersWithoutIntegrations = users.filter(
-      (user) => !user.hasIntegrations
-    );
+    // Schedule weekly reports using Upstash QStash
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const response = await fetch(`${baseUrl}/api/queue/schedule`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        reportType: "weekly",
+      }),
+    });
 
-    if (usersWithIntegrations.length === 0) {
-      console.log("⚠️ No users with integrations found for weekly reports");
-      return NextResponse.json({
-        success: false,
-        message: "No users with integrations found",
-        totalUsers: users.length,
-        usersWithIntegrations: 0,
-        usersWithoutIntegrations: usersWithoutIntegrations.length,
-      });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to schedule weekly reports: ${errorText}`);
     }
 
-    // Add users to queue for weekly reports
-    const jobs = await addUsersToQueue(usersWithIntegrations, "weekly");
+    const result = await response.json();
+    const jobs = result.scheduledJobs || [];
 
     console.log(`✅ Weekly report queue started with ${jobs.length} jobs`);
-    console.log(`📊 Total users: ${users.length}`);
-    console.log(`🔗 Users with integrations: ${usersWithIntegrations.length}`);
-    console.log(
-      `❌ Users without integrations: ${usersWithoutIntegrations.length}`
-    );
 
     return NextResponse.json({
       success: true,
       message: `Weekly report queue started with ${jobs.length} jobs`,
       jobsAdded: jobs.length,
-      totalUsers: users.length,
-      usersWithIntegrations: usersWithIntegrations.length,
-      usersWithoutIntegrations: usersWithoutIntegrations.length,
+      scheduledJobs: result.scheduledJobs?.length || 0,
       cronType: "weekly",
       triggeredAt: now.toISOString(),
       dayOfWeek: "Sunday",
+      result,
     });
   } catch (error) {
     console.error("❌ Weekly cron error:", error);

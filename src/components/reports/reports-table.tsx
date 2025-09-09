@@ -10,7 +10,7 @@ import {
 import { FileText, Eye, Download, Code, X, Copy, Check } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ReportViewerModal } from "./report-viewer-modal";
-import { generateDailyReportEmail } from "@/lib/sendgrid/templates/daily-report";
+import { generateDailyReportEmail } from "@/lib/sendgrid/templates/daily-email-template";
 
 interface ReportData {
   id: string;

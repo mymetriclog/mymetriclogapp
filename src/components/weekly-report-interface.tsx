@@ -53,15 +53,13 @@ export function WeeklyReportInterface() {
     }));
 
     try {
-      const response = await fetch("/api/queue/start", {
-        method: "POST",
+      const response = await fetch("/api/queue/schedule", {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          source: "manual",
           reportType: "weekly",
-          batchSize: 50,
           testingMode: testingMode, // Add testing mode flag
         }),
       });
@@ -71,17 +69,17 @@ export function WeeklyReportInterface() {
       if (response.ok) {
         setStatus({
           isProcessing: false,
-          jobsAdded: data.jobsAdded,
-          totalUsers: data.totalUsers,
-          usersWithIntegrations: data.usersWithIntegrations,
-          usersWithoutIntegrations: data.usersWithoutIntegrations,
+          jobsAdded: data.scheduledJobs?.length || 0,
+          totalUsers: data.totalUsers || 0,
+          usersWithIntegrations: data.usersWithIntegrations || 0,
+          usersWithoutIntegrations: data.usersWithoutIntegrations || 0,
           success: true,
         });
       } else {
         setStatus((prev) => ({
           ...prev,
           isProcessing: false,
-          error: data.error || "Failed to start weekly report generation",
+          error: data.error || "Failed to schedule weekly report generation",
         }));
       }
     } catch (error) {

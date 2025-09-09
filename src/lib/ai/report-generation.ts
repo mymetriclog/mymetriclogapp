@@ -1,4 +1,9 @@
 import OpenAI from "openai";
+import {
+  generateEnhancedDailyReport,
+  generateGPTInsightPrompt,
+  generateDailyMantra,
+} from "../reports/enhanced-report-generator";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -17,6 +22,7 @@ export interface AIReportData {
   fitbitData?: any;
   spotifyData?: any;
   weatherData?: any;
+  completedTasks?: string;
   date: string;
   reportType: "daily" | "weekly";
 }
@@ -38,32 +44,85 @@ export async function generateDailyAIInsights(
   data: AIReportData
 ): Promise<AIInsight> {
   try {
-    const prompt = buildDailyPrompt(data);
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a wellness and productivity AI coach. Analyze the user's data and provide personalized insights, motivational mantras, and actionable recommendations. Be encouraging but realistic. Use the exact format requested.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 1000,
-    });
+    // Generate enhanced report data
+    const enhancedReport = await generateEnhancedDailyReport(
+      data.fitbitData?.sleep || "",
+      data.fitbitData?.activity || "",
+      data.fitbitData?.heart || "",
+      data.fitbitData?.hrv,
+      data.gmailData || {},
+      data.googleCalendarData || {},
+      data.spotifyData || {},
+      data.weatherData || {},
+      data.completedTasks || "",
+      new Date(data.date)
+    );
+
+    // Generate GPT insight prompt
+    const prompt = generateGPTInsightPrompt(enhancedReport);
+
+    let completion;
+    try {
+      completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 800,
+      });
+    } catch (modelError: any) {
+      // Fallbacks for model issues or quota limits
+      if (
+        modelError.code === "model_not_found" ||
+        modelError.code === "insufficient_quota"
+      ) {
+        console.log(
+          "⚠️ GPT-4o-mini unavailable or quota exceeded, falling back to gpt-3.5-turbo"
+        );
+        try {
+          completion = await openai.chat.completions.create({
+            model: "gpt-3.5-turbo",
+            messages: [
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+            temperature: 0.7,
+            max_tokens: 800,
+          });
+        } catch (fallbackErr: any) {
+          if (fallbackErr.code === "insufficient_quota") {
+            console.log(
+              "⚠️ Quota exceeded for all models. Using fallback insights."
+            );
+            return generateFallbackInsights(data);
+          }
+          throw fallbackErr;
+        }
+      } else {
+        throw modelError;
+      }
+    }
 
     const response = completion.choices[0]?.message?.content || "";
+    const parsed = parseAIResponse(response, data);
 
-    const parsedInsights = parseAIResponse(response, data);
-
-    return parsedInsights;
+    return {
+      insight: parsed.insight,
+      mantra: generateDailyMantra(parsed.insight),
+      moodInsight: parsed.moodInsight,
+      recommendations: parsed.recommendations,
+      trends: enhancedReport.scores,
+      patterns: enhancedReport.badges,
+    };
   } catch (error) {
-    const fallbackInsights = generateFallbackInsights(data);
-    return fallbackInsights;
+    console.error("Error generating AI insights:", error);
+    return generateFallbackInsights(data);
   }
 }
 
@@ -77,22 +136,63 @@ export async function generateWeeklyAIInsights(
   try {
     const prompt = buildWeeklyPrompt(data);
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a wellness and productivity AI coach specializing in weekly analysis. Provide comprehensive insights, identify patterns, and give actionable recommendations for the week ahead. Use the exact format requested.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 1500,
-    });
+    let completion;
+    try {
+      completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a wellness and productivity AI coach specializing in weekly analysis. Provide comprehensive insights, identify patterns, and give actionable recommendations for the week ahead. Use the exact format requested.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 1500,
+      });
+    } catch (modelError: any) {
+      // Fallbacks for model issues or quota limits
+      if (
+        modelError.code === "model_not_found" ||
+        modelError.code === "insufficient_quota"
+      ) {
+        console.log(
+          "⚠️ GPT-4o-mini unavailable or quota exceeded, falling back to gpt-3.5-turbo"
+        );
+        try {
+          completion = await openai.chat.completions.create({
+            model: "gpt-3.5-turbo",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are a wellness and productivity AI coach specializing in weekly analysis. Provide comprehensive insights, identify patterns, and give actionable recommendations for the week ahead. Use the exact format requested.",
+              },
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+            temperature: 0.7,
+            max_tokens: 1500,
+          });
+        } catch (fallbackErr: any) {
+          if (fallbackErr.code === "insufficient_quota") {
+            console.log(
+              "⚠️ Quota exceeded for all models (weekly). Using fallback insights."
+            );
+            return generateWeeklyFallbackInsights(data);
+          }
+          throw fallbackErr;
+        }
+      } else {
+        throw modelError;
+      }
+    }
 
     const response = completion.choices[0]?.message?.content || "";
 
@@ -109,7 +209,7 @@ export async function generateWeeklyAIInsights(
  * Build comprehensive prompt for daily insights
  * Mirrors the context building from code.js buildComprehensiveContext
  */
-function buildDailyPrompt(data: AIReportData): string {
+export function buildDailyPrompt(data: AIReportData): string {
   const {
     scores,
     gmailData,
@@ -195,7 +295,7 @@ function buildDailyPrompt(data: AIReportData): string {
  * Build comprehensive prompt for weekly insights
  * Mirrors the weekly analysis from code.js
  */
-function buildWeeklyPrompt(data: AIReportData): string {
+export function buildWeeklyPrompt(data: AIReportData): string {
   const {
     scores,
     gmailData,
@@ -255,6 +355,229 @@ function buildWeeklyPrompt(data: AIReportData): string {
   prompt += `PATTERNS:\n- [pattern 1]\n- [pattern 2]\n- [pattern 3]`;
 
   return prompt;
+}
+
+/**
+ * Additional prompt builders (kept here to centralize all AI prompts)
+ * These mirror specialized prompts used in code.js for deeper analysis.
+ */
+/**
+ * EXACT code.js-style DAILY prompt (getGPTInsight)
+ * Usage: pass the prebuilt summary string used as the user message.
+ */
+export function buildCodeJsDailySimplePrompt(summary: string): {
+  system: string;
+  user: string;
+} {
+  const system =
+    "You are a reflective personal coach for productivity and emotional well-being.";
+  return { system, user: summary };
+}
+
+/**
+ * EXACT code.js-style WEEKLY/ENHANCED prompt (getEnhancedGPTInsight)
+ * Mirrors system and user prompts; caller should provide allData fields similar to code.js.
+ */
+export function buildCodeJsWeeklyEnhancedPrompt(input: {
+  summary: string;
+  allData: {
+    scores: {
+      total: number;
+      sleep: number;
+      activity: number;
+      heart: number;
+      work: number;
+      explanations?: {
+        sleep?: string[];
+        activity?: string[];
+        heart?: string[];
+        work?: string[];
+      };
+    };
+    enhancedContext?: string;
+    behavioralPatterns?: string;
+    criticalFactors?: string;
+  };
+}): { system: string; user: string } {
+  const { summary, allData } = input;
+  const system =
+    "You are an elite wellness analyst and behavioral scientist with expertise in:\n" +
+    "- Circadian biology and sleep science\n" +
+    "- Exercise physiology and recovery\n" +
+    "- Behavioral psychology and habit formation\n" +
+    "- Stress psychophysiology\n" +
+    "- Nutritional biochemistry\n" +
+    "- Performance optimization\n\n" +
+    "Your role is to provide profound, actionable insights that go beyond surface-level observations. " +
+    "You identify hidden patterns, explain causation (not just correlation), and provide specific, personalized recommendations.\n\n" +
+    'IMPORTANT: Always use "you" and "your" when addressing the user. Never use third person.';
+
+  const ctx = allData.enhancedContext ?? "";
+  const patterns = allData.behavioralPatterns ?? "";
+  const factors = allData.criticalFactors ?? "";
+  const ex = allData.scores.explanations ?? {};
+
+  const user =
+    "Analyze this comprehensive wellness data and provide a world-class insight:\n\n" +
+    "==== CONTEXTUAL INTELLIGENCE ====\n" +
+    ctx +
+    "\n\n" +
+    "==== SCORE BREAKDOWNS (MUST REFERENCE) ====\n" +
+    "Overall: " +
+    allData.scores.total +
+    "/100\n" +
+    "Sleep: " +
+    allData.scores.sleep +
+    "/100\n" +
+    "  - " +
+    (ex.sleep?.join("\n  - ") ?? "") +
+    "\n" +
+    "Activity: " +
+    allData.scores.activity +
+    "/100\n" +
+    "  - " +
+    (ex.activity?.join("\n  - ") ?? "") +
+    "\n" +
+    "Heart: " +
+    allData.scores.heart +
+    "/100\n" +
+    "  - " +
+    (ex.heart?.join("\n  - ") ?? "") +
+    "\n" +
+    "Work: " +
+    allData.scores.work +
+    "/100\n" +
+    "  - " +
+    (ex.work?.join("\n  - ") ?? "") +
+    "\n\n" +
+    "==== BEHAVIORAL PATTERNS DETECTED ====\n" +
+    patterns +
+    "\n\n" +
+    "==== CRITICAL PERFORMANCE FACTORS ====\n" +
+    factors +
+    "\n\n" +
+    "==== YESTERDAY'S RAW DATA ====\n" +
+    summary +
+    "\n\n" +
+    "==== YOUR ANALYSIS MUST FOLLOW THESE RULES ====\n\n" +
+    "1. ACCURATE SCORING REFERENCES:\n" +
+    "   - State the EXACT scores from the breakdowns above\n" +
+    "   - Explain WHY each score is what it is using the breakdown explanations\n" +
+    "   - If work score is 65, don't say 80. Be precise.\n\n" +
+    "2. EMAIL CONTEXT:\n" +
+    "   - 91% promotional emails means only 9% were real work emails\n" +
+    "   - This is an INBOX MANAGEMENT issue, not a work performance issue\n" +
+    "   - Focus on the fact they had 77 primary emails but only 7 were actually work-related\n\n" +
+    "3. POSITIVE FRAMING:\n" +
+    "   - Having 0 meetings = EXCELLENT focus opportunity (not a negative)\n" +
+    "   - Full day of uninterrupted work = RARE and valuable\n" +
+    "   - Low stress despite high activity = OPTIMAL state\n\n" +
+    "4. ROOT CAUSE ANALYSIS:\n" +
+    "   - Identify the PRIMARY driver affecting each score\n" +
+    "   - For work score: explain each component (email, calendar, focus, tasks)\n" +
+    "   - Connect the dots between different metrics\n\n" +
+    "5. SPECIFIC RECOMMENDATIONS:\n" +
+    "   - For email noise: recommend UNSUBSCRIBE actions, not generic 'manage emails'\n" +
+    "   - Include exact times and measurable actions\n" +
+    "   - Address the LOWEST scoring component with highest impact potential\n\n" +
+    "FORMAT YOUR RESPONSE EXACTLY AS:\n\n" +
+    "[First paragraph: State exact scores and explain WHY each scored what it did, referencing the specific point breakdowns]\n" +
+    "[PARAGRAPH BREAK]\n" +
+    "[Second paragraph: Connect the patterns - how did sleep affect activity? How did 0 meetings create opportunity? Why is 91% promotional emails significant?]\n" +
+    "[PARAGRAPH BREAK]\n" +
+    "[Third paragraph: ONE specific action targeting the biggest opportunity for improvement, with exact timing and expected outcome]\n\n" +
+    "Use **bold** for all metrics, times, and key recommendations.\n" +
+    "Be specific: 'your work score of **65/100** reflects excellent focus time (25/25) but was reduced by task tracking gaps (15/25)' not generic statements.\n";
+
+  return { system, user };
+}
+export function buildStressAnalysisPrompt(input: {
+  scores: AIReportData["scores"];
+  stressRadar?: any;
+  date: string;
+}): string {
+  const { scores, stressRadar, date } = input;
+  return `Analyze stress for ${date} with:
+SCORES: overall=${scores.total}, sleep=${scores.sleep}, activity=${
+    scores.activity
+  }, heart=${scores.heart}, work=${scores.work}
+STRESS_RADAR: ${JSON.stringify(stressRadar ?? {})}
+
+Provide 2-3 sentences on likely stressors and 3 targeted actions.`;
+}
+
+export function buildRecoveryPrompt(input: {
+  scores: AIReportData["scores"];
+  recoveryQuotient?: any;
+  date: string;
+}): string {
+  const { scores, recoveryQuotient, date } = input;
+  return `Assess recovery for ${date}:
+SCORES: overall=${scores.total}, sleep=${scores.sleep}, activity=${
+    scores.activity
+  }, heart=${scores.heart}
+RECOVERY: ${JSON.stringify(recoveryQuotient ?? {})}
+
+Give a 2-sentence readiness summary and 3 prioritized recovery actions.`;
+}
+
+export function buildCalendarIntelligencePrompt(input: {
+  calendarStats?: any;
+  events?: any[];
+  date: string;
+}): string {
+  const { calendarStats, events = [], date } = input;
+  return `Analyze calendar for ${date}:
+STATS: ${JSON.stringify(calendarStats ?? {})}
+EVENTS_SAMPLE: ${JSON.stringify(events.slice(0, 10))}
+
+Identify meeting load, context switching, and suggest 3 schedule optimizations.`;
+}
+
+export function buildBadgeNarrativePrompt(input: {
+  badges?: any[];
+  streakBadges?: any[];
+  scores: AIReportData["scores"];
+  dayContext?: any;
+  date: string;
+}): string {
+  const { badges = [], streakBadges = [], scores, dayContext, date } = input;
+  return `Create a short narrative for achievements on ${date}:
+SCORES: ${JSON.stringify(scores)}
+BADGES: ${JSON.stringify(badges)}
+STREAKS: ${JSON.stringify(streakBadges)}
+CONTEXT: ${JSON.stringify(dayContext ?? {})}
+
+Narrative: 2-3 motivational sentences referencing notable badges.`;
+}
+
+export function buildDeepInsightsPrompt(input: {
+  scores: AIReportData["scores"];
+  trends?: any;
+  anomalies?: any;
+  calendarIntelligence?: any;
+  spotifyStats?: any;
+  weatherSummary?: string;
+  date: string;
+}): string {
+  const {
+    scores,
+    trends,
+    anomalies,
+    calendarIntelligence,
+    spotifyStats,
+    weatherSummary,
+    date,
+  } = input;
+  return `Derive cross-domain insights for ${date} using:
+SCORES: ${JSON.stringify(scores)}
+TRENDS: ${JSON.stringify(trends ?? {})}
+ANOMALIES: ${JSON.stringify(anomalies ?? {})}
+CALENDAR_INTEL: ${JSON.stringify(calendarIntelligence ?? {})}
+SPOTIFY: ${JSON.stringify(spotifyStats ?? {})}
+WEATHER: ${weatherSummary ?? "n/a"}
+
+Return 3 concise insights linking correlations and 2 actionable next steps.`;
 }
 
 /**
