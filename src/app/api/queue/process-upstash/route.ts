@@ -279,8 +279,16 @@ async function sendEmailToUser(
         : "weekly_report") as "daily_report" | "weekly_report",
       subject:
         reportType === "daily"
-          ? `Your Daily MyMetricLog Report - ${reportResult.reportData.fullDateStr}`
-          : `Your Weekly MyMetricLog Report - ${reportResult.reportData.startDate} to ${reportResult.reportData.endDate}`,
+          ? `🦊 MyMetricLog Daily Report: ${
+              reportResult.reportData.fullDateStr ||
+              new Date().toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })
+            }`
+          : `🦊 MyMetricLog Weekly Report: ${reportResult.reportData.startDate} to ${reportResult.reportData.endDate}`,
       status: "pending" as const,
       report_date:
         reportType === "daily"
@@ -312,7 +320,15 @@ async function sendEmailToUser(
 
       const result = await sendEmail(
         userEmail,
-        `Your Daily MyMetricLog Report - ${reportResult.reportData.fullDateStr}`,
+        `🦊 MyMetricLog Daily Report: ${
+          reportResult.reportData.fullDateStr ||
+          new Date().toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        }`,
         emailHTML,
         undefined,
         ccEmails
@@ -339,7 +355,7 @@ async function sendEmailToUser(
 
       const result = await sendEmail(
         userEmail,
-        `Your Weekly MyMetricLog Report - ${reportResult.reportData.startDate} to ${reportResult.reportData.endDate}`,
+        `🦊 MyMetricLog Weekly Report: ${reportResult.reportData.startDate} to ${reportResult.reportData.endDate}`,
         emailHTML,
         undefined,
         ccEmails
