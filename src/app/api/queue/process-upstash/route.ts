@@ -239,6 +239,12 @@ async function generateUserReport(
 
     const result = await response.json();
 
+    // Log the complete report data to ensure it's being passed correctly
+    // console.log(
+    //   "📊 Complete report data received:",
+    //   JSON.stringify(result, null, 2)
+    // );
+
     return {
       status: "completed",
       reportId:
@@ -310,6 +316,13 @@ async function sendEmailToUser(
       const { generateDailyReportEmail } = await import(
         "@/lib/sendgrid/templates/daily-email-template"
       );
+
+      // Ensure we have the complete report data
+      // console.log(
+      //   "📧 Sending email with report data:",
+      //   JSON.stringify(reportResult.reportData, null, 2)
+      // );
+
       const emailHTML = generateDailyReportEmail(reportResult.reportData);
 
       // Add CC for specific user

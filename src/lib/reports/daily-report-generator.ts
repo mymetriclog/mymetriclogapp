@@ -80,6 +80,10 @@ export async function generateDailyReport(
   const dateStr = yesterday.toISOString().split("T")[0];
   const fullDateStr = formatDate(yesterday);
 
+  console.log(
+    `🚀 Generating daily report for user ${userId} for date: ${yesterday.toISOString()}`
+  );
+
   // Get user data
   const supabase = await getServerSupabaseClient();
   const { data: user } = await supabase.auth.admin.getUserById(userId);
@@ -418,7 +422,8 @@ export async function generateDailyReport(
     historicalData: historicalDataForAnomalies,
   });
 
-  return {
+  // Build complete report data object
+  const completeReportData = {
     date: dateStr,
     fullDateStr,
     scores,
@@ -457,6 +462,8 @@ export async function generateDailyReport(
     trends,
     historicalData: historicalDataForAnomalies,
   };
+
+  return completeReportData;
 }
 
 // Helper functions - using comprehensive-integration-service
@@ -1077,22 +1084,23 @@ async function getHistoricalData(userId: string, days: number): Promise<any[]> {
 async function saveDailyReport(userId: string, data: any): Promise<void> {
   const supabase = await getServerSupabaseClient();
 
-  await supabase.from("reports").insert({
-    user_id: userId,
-    report_type: "daily",
-    report_date: data.date,
-    report_data: data,
-    scores: {
-      total: data.scores.total,
-      sleep: data.scores.sleep,
-      activity: data.scores.activity,
-      heart: data.scores.heart,
-      work: data.scores.work,
-    },
-    ai_insights: {
-      insight: data.insight,
-      mantra: data.mantra,
-      moodInsight: data.moodInsight,
-    },
-  });
+  try {
+    const { error } = await supabase.from("reports").insert({
+      user_id: userId,
+      report_type: "daily",
+      report_date: data.date,
+      report_data: data, // Complete JSON data - sab kuch yahan
+      created_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      console.error("❌ Error saving report to database:", error);
+      throw error;
+    } else {
+      console.log("✅ Complete report data saved to database successfully");
+    }
+  } catch (error) {
+    console.error("❌ Error saving report to database:", error);
+    throw error;
+  }
 }

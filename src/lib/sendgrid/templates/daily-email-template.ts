@@ -139,7 +139,12 @@ export function composeEnhancedMyMetricLogEmail(
   hourlyWeather: any,
   emailResponseAnalysis: any,
   fitbitActivityLog: any,
-  audioFeatures: any
+  audioFeatures: any,
+  anomalies?: any,
+  environmentalFactors?: any,
+  deepInsights?: any,
+  trends?: any,
+  historicalData?: any[]
 ): string {
   // Parse sleep efficiency at the start
   const sleepEfficiencyMatch = (fitbitSleep || "").match(
@@ -151,24 +156,24 @@ export function composeEnhancedMyMetricLogEmail(
 
   // Get all the data parsing (keep existing)
   const calEvents = dayContext?.calendarData || [];
-  const trends = getScoreTrends();
+  const trendsData = trends || getScoreTrends();
   const yesterday = new Date(dateStr);
-  const environmentalFactors = getSocialEnvironmentalFactors(
-    yesterday,
-    weatherSummary,
-    dayContext
-  );
-  const historicalData = [];
-  if (trends && trends.overall && trends.overall.sparkline) {
-    historicalData.push(
-      ...trends.overall.sparkline.map((score: number) => ({ score }))
+  const environmentalFactorsData =
+    environmentalFactors ||
+    getSocialEnvironmentalFactors(yesterday, weatherSummary, dayContext);
+  const historicalDataArray = historicalData || [];
+  if (trendsData && trendsData.overall && trendsData.overall.sparkline) {
+    historicalDataArray.push(
+      ...trendsData.overall.sparkline.map((score: number) => ({ score }))
     );
   }
 
-  const anomalies = detectBiometricAnomalies(
-    { heart: fitbitHeart, sleep: fitbitSleep },
-    historicalData
-  );
+  const anomaliesData =
+    anomalies ||
+    detectBiometricAnomalies(
+      { heart: fitbitHeart, sleep: fitbitSleep },
+      historicalDataArray
+    );
 
   const intradayViz = generateIntradayVisualization(
     fitbitActivity,
@@ -177,19 +182,21 @@ export function composeEnhancedMyMetricLogEmail(
     dayContext
   );
 
-  const deepInsights = generateDeepAIInsights({
-    scores: scores,
-    stressRadar: stressRadar,
-    recoveryQuotient: recoveryQuotient,
-    calendarIntelligence: calendarIntelligence,
-  });
+  const deepInsightsData =
+    deepInsights ||
+    generateDeepAIInsights({
+      scores: scores,
+      stressRadar: stressRadar,
+      recoveryQuotient: recoveryQuotient,
+      calendarIntelligence: calendarIntelligence,
+    });
 
   const moodCard = generateMoodCard(moodInsight, scores);
   const quickWinBox = generateQuickWinBox(
     scores,
     stressRadar,
     recoveryQuotient,
-    environmentalFactors,
+    environmentalFactorsData,
     calendarIntelligence
   );
   const insightHeadline = generateInsightHeadline(
@@ -211,17 +218,17 @@ export function composeEnhancedMyMetricLogEmail(
   // Score trends
   let scoreTrend = "";
   if (
-    trends &&
-    trends.overall &&
-    trends.overall.trend !== undefined &&
-    trends.overall.trend !== 0
+    trendsData &&
+    trendsData.overall &&
+    trendsData.overall.trend !== undefined &&
+    trendsData.overall.trend !== 0
   ) {
     scoreTrend =
       " " +
-      getTrendArrow(trends.overall.trend) +
+      getTrendArrow(trendsData.overall.trend) +
       " " +
-      (trends.overall.trend > 0 ? "+" : "") +
-      trends.overall.trend;
+      (trendsData.overall.trend > 0 ? "+" : "") +
+      trendsData.overall.trend;
   }
 
   const historicalDataForComparison = getHistoricalDayAverage(
@@ -297,12 +304,12 @@ export function composeEnhancedMyMetricLogEmail(
     
     <!-- Sparkline chart -->
     ${
-      trends &&
-      trends.overall &&
-      trends.overall.sparkline &&
-      trends.overall.sparkline.length > 0
+      trendsData &&
+      trendsData.overall &&
+      trendsData.overall.sparkline &&
+      trendsData.overall.sparkline.length > 0
         ? `<div style='margin-top:15px; padding: 10px; background: rgba(0,0,0,0.03); border-radius: 6px;'>
-          ${generateSparkline(trends.overall.sparkline, scoreColor)}
+          ${generateSparkline(trendsData.overall.sparkline, scoreColor)}
         </div>`
         : ""
     }
@@ -310,13 +317,13 @@ export function composeEnhancedMyMetricLogEmail(
   
   <!-- Anomalies Alert -->
   ${
-    anomalies.detected.length > 0
+    anomaliesData.detected.length > 0
       ? `<div style='background:#fef2f2; padding:16px; border-radius:8px; margin:20px 0; border-left: 4px solid #fecaca;'>
         <div style='display: flex; align-items: center;'>
           <span style='font-size:24px; margin-right:10px;'>🚨</span>
           <div>
             <strong style='font-size:16px; color:#d33;'>Biometric Anomalies Detected</strong><br>
-            ${anomalies.detected
+            ${anomaliesData.detected
               .map(
                 (a: any) => `
               <div style='margin-top:8px;'>
@@ -431,10 +438,11 @@ export function composeEnhancedMyMetricLogEmail(
   
   <!-- AI Deep Insights -->
   ${
-    deepInsights.patterns.length > 0 || deepInsights.prescriptions.length > 0
+    (deepInsightsData.patterns?.length || 0) > 0 ||
+    (deepInsightsData.prescriptions?.length || 0) > 0
       ? `<div style='background: #f0f4ff; padding:16px; border-radius:8px; margin:20px 0; border-left: 4px solid #b8ccff;'>
         <h4 style='font-size:18px; font-weight:600; color:#1a1a1a; margin:0 0 12px 0;'>🤖 AI Pattern Recognition</h4>
-        ${deepInsights.patterns
+        ${(deepInsightsData.patterns || [])
           .map(
             (p: any) => `
           <div style='margin-bottom:10px;'>
@@ -447,10 +455,10 @@ export function composeEnhancedMyMetricLogEmail(
           )
           .join("")}
         ${
-          deepInsights.prescriptions.length > 0
+          (deepInsightsData.prescriptions?.length || 0) > 0
             ? `<div style='margin-top:15px; padding-top:15px; border-top:1px solid rgba(0,0,0,0.1);'>
               <strong style='color:#4a148c;'>Recommended Actions:</strong>
-              ${deepInsights.prescriptions
+              ${(deepInsightsData.prescriptions || [])
                 .map(
                   (p: any) => `
                 <div style='margin-top:8px; padding:8px; background:rgba(255,255,255,0.7); border-radius:4px;'>
@@ -605,10 +613,18 @@ export function composeEnhancedMyMetricLogEmail(
       </table>
       <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
         ${
-          fitbitActivityLog
+          fitbitActivityLog &&
+          Array.isArray(fitbitActivityLog) &&
+          fitbitActivityLog.length > 0
             ? `<div style='background:#e3f2fd; padding:10px; border-radius:4px; margin-bottom:10px;'>
               <strong>📋 Logged Activities:</strong><br>
-              ${(fitbitActivityLog || "").replace(/\n/g, "<br>")}
+              ${fitbitActivityLog
+                .map((activity) =>
+                  typeof activity === "string"
+                    ? activity
+                    : JSON.stringify(activity)
+                )
+                .join("<br>")}
             </div>`
             : ""
         }
@@ -696,21 +712,26 @@ export function composeEnhancedMyMetricLogEmail(
             ${(weatherSummary || "").replace(/\n/g, "<br>")}
           </div>
           ${
-            hourlyWeather && hourlyWeather.summary
+            hourlyWeather &&
+            Array.isArray(hourlyWeather) &&
+            hourlyWeather.length > 0
               ? `<div style='background:#e3f2fd; padding:10px; border-radius:4px;'>
                 <strong>Today's Forecast:</strong><br>
-                <span style='font-size:13px;'>${(
-                  hourlyWeather.summary || ""
-                ).replace(/\n/g, "<br>")}</span>
+                <span style='font-size:13px;'>${hourlyWeather
+                  .map(
+                    (weather) =>
+                      `${weather.hour}: ${weather.temp}°C, ${weather.weather}`
+                  )
+                  .join("<br>")}</span>
                 ${
-                  environmentalFactors.seasonal?.daylight
-                    ? `<br><br>☀️ <strong>Daylight:</strong> ${environmentalFactors.seasonal.daylight} hours`
+                  environmentalFactorsData.seasonal?.daylight
+                    ? `<br><br>☀️ <strong>Daylight:</strong> ${environmentalFactorsData.seasonal.daylight} hours`
                     : ""
                 }
                 ${
-                  environmentalFactors.seasonal?.sunrise &&
-                  environmentalFactors.seasonal?.sunset
-                    ? `<br>🌅 <strong>Sunrise:</strong> ${environmentalFactors.seasonal.sunrise} | 🌇 <strong>Sunset:</strong> ${environmentalFactors.seasonal.sunset}`
+                  environmentalFactorsData.seasonal?.sunrise &&
+                  environmentalFactorsData.seasonal?.sunset
+                    ? `<br>🌅 <strong>Sunrise:</strong> ${environmentalFactorsData.seasonal.sunrise} | 🌇 <strong>Sunset:</strong> ${environmentalFactorsData.seasonal.sunset}`
                     : ""
                 }
               </div>`
@@ -761,8 +782,6 @@ export function composeEnhancedMyMetricLogEmail(
 
 // Updated function to use composeEnhancedMyMetricLogEmail
 export function generateDailyReportEmail(data: DailyReportData): string {
-  console.log("report data", data);
-
   // Extract data from the actual structure
   const fullDateStr =
     data.fullDateStr ||
@@ -835,6 +854,25 @@ export function generateDailyReportEmail(data: DailyReportData): string {
   const fitbitActivityLog = data.fitbitActivityLog || null;
   const audioFeatures = data.audioFeatures || null;
 
+  // Map additional data from the complete report
+  const anomalies = data.anomalies || { detected: [], insights: [] };
+  const environmentalFactors = data.environmentalFactors || {
+    weather: { impact: "neutral", insight: "Weather data not available" },
+    social: {
+      weekendEffect: "Workday intensity",
+      socialEngagement: "Low social engagement",
+    },
+    environmental: { season: "autumn", daylight: "Long daylight hours" },
+  };
+  const deepInsights = data.deepInsights || {
+    insights: [],
+    patterns: [],
+    predictions: [],
+    correlations: [],
+  };
+  const trends = data.trends || { overall: { trend: 0, sparkline: [] } };
+  const historicalData = data.historicalData || [];
+
   // Convert DailyReportData to the format expected by composeEnhancedMyMetricLogEmail
   return composeEnhancedMyMetricLogEmail(
     fullDateStr,
@@ -865,7 +903,12 @@ export function generateDailyReportEmail(data: DailyReportData): string {
     hourlyWeather,
     emailResponseAnalysis,
     fitbitActivityLog,
-    audioFeatures
+    audioFeatures,
+    anomalies,
+    environmentalFactors,
+    deepInsights,
+    trends,
+    historicalData
   );
 }
 

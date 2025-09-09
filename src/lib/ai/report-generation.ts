@@ -1,9 +1,5 @@
 import OpenAI from "openai";
-import {
-  generateEnhancedDailyReport,
-  generateGPTInsightPrompt,
-  generateDailyMantra,
-} from "../reports/enhanced-report-generator";
+import { generateDailyMantra } from "../reports/enhanced-report-generator";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -44,22 +40,18 @@ export async function generateDailyAIInsights(
   data: AIReportData
 ): Promise<AIInsight> {
   try {
-    // Generate enhanced report data
-    const enhancedReport = await generateEnhancedDailyReport(
-      data.fitbitData?.sleep || "",
-      data.fitbitData?.activity || "",
-      data.fitbitData?.heart || "",
-      data.fitbitData?.hrv,
-      data.gmailData || {},
-      data.googleCalendarData || {},
-      data.spotifyData || {},
-      data.weatherData || {},
-      data.completedTasks || "",
-      new Date(data.date)
-    );
+    // Avoid recursion - use direct AI call instead of enhanced report
+    console.log("🤖 Generating AI insights directly...");
 
-    // Generate GPT insight prompt
-    const prompt = generateGPTInsightPrompt(enhancedReport);
+    // Generate simple prompt to avoid recursion
+    const prompt = `Generate a daily wellness insight for a user with the following data:
+    - Total Score: ${data.scores?.total || 0}
+    - Sleep Score: ${data.scores?.sleep || 0}
+    - Activity Score: ${data.scores?.activity || 0}
+    - Heart Score: ${data.scores?.heart || 0}
+    - Work Score: ${data.scores?.work || 0}
+    
+    Please provide a brief, encouraging insight about their wellness performance.`;
 
     let completion;
     try {
@@ -134,8 +126,8 @@ export async function generateDailyAIInsights(
       mantra: generateDailyMantra(parsed.insight),
       moodInsight: parsed.moodInsight,
       recommendations: parsed.recommendations,
-      trends: enhancedReport.scores,
-      patterns: enhancedReport.badges,
+      trends: data.scores,
+      patterns: [],
     };
   } catch (error) {
     console.error("Error generating AI insights:", error);
@@ -269,79 +261,243 @@ export function buildDailyPrompt(data: AIReportData): string {
     googleCalendarData,
     fitbitData,
     spotifyData,
+    weatherData,
+    completedTasks,
     date,
   } = data;
 
-  let prompt = `Generate a daily wellness report for ${date} with the following data:\n\n`;
+  // Extract additional data for the enhanced prompt
+  const dayContext = (data as any).dayContext || {
+    dayType: "weekday",
+    dayName: "day",
+  };
+  const stressRadar = (data as any).stressRadar || { level: "Low", score: 50 };
+  const recoveryQuotient = (data as any).recoveryQuotient || {
+    readiness: "Good",
+    score: 70,
+  };
+  const anomalies = (data as any).anomalies || { detected: [] };
+  const emailStats = (data as any).emailStats || { noisePercentage: 0 };
 
-  // Scores section
-  prompt += `SCORES:\n`;
-  prompt += `- Overall: ${scores.total}/100\n`;
-  prompt += `- Sleep: ${scores.sleep}/100\n`;
-  prompt += `- Activity: ${scores.activity}/100\n`;
-  prompt += `- Heart: ${scores.heart}/100\n`;
-  prompt += `- Work: ${scores.work}/100\n\n`;
+  // Build the comprehensive GPT input like in code.js
+  const gptInput = `Yesterday's (${dayContext.dayName}) mood: ${
+    (data as any).previousMood || "Not available"
+  }
+Note: Sleep data reflects last night's rest (affecting today's energy)
 
-  // Gmail data
-  if (gmailData?.stats) {
-    prompt += `EMAIL DATA:\n`;
-    prompt += `- Total emails: ${gmailData.stats.totalEmails}\n`;
-    prompt += `- Unread: ${gmailData.stats.unreadCount}\n`;
-    prompt += `- Response rate: ${
-      gmailData.stats.totalEmails > 0
-        ? Math.round(
-            ((gmailData.stats.totalEmails - gmailData.stats.unreadCount) /
-              gmailData.stats.totalEmails) *
-              100
-          )
-        : 0
-    }%\n\n`;
+SCORE BREAKDOWN:
+Overall: ${scores.total}/100
+Sleep: ${scores.sleep}/100 - ${
+    (scores as any).explanations?.sleep?.join("; ") ||
+    "No explanations available"
+  }
+Activity: ${scores.activity}/100 - ${
+    (scores as any).explanations?.activity?.join("; ") ||
+    "No explanations available"
+  }
+Heart: ${scores.heart}/100 - ${
+    (scores as any).explanations?.heart?.join("; ") ||
+    "No explanations available"
+  }
+Work: ${scores.work}/100 - ${
+    (scores as any).explanations?.work?.join("; ") ||
+    "No explanations available"
   }
 
-  // Fitbit data
-  if (fitbitData?.stats?.today) {
-    const today = fitbitData.stats.today;
-    prompt += `FITNESS DATA:\n`;
-    prompt += `- Steps: ${today.steps?.toLocaleString() || 0}\n`;
-    prompt += `- Sleep: ${Math.floor((today.sleep?.duration || 0) / 60)}h ${
-      (today.sleep?.duration || 0) % 60
-    }m\n`;
-    prompt += `- Calories: ${today.calories?.toLocaleString() || 0}\n`;
-    prompt += `- Resting HR: ${today.heartRate?.resting || 0} bpm\n\n`;
-  }
+Calendar:
+${(data as any).calSummary || "No calendar data available"}
 
-  // Spotify data
-  if (spotifyData?.stats) {
-    prompt += `MUSIC DATA:\n`;
-    prompt += `- Tracks played: ${spotifyData.stats.tracksPlayed}\n`;
-    prompt += `- Mood: ${spotifyData.stats.mood}\n`;
-    prompt += `- Top genre: ${spotifyData.stats.topGenre}\n\n`;
-  }
+Calendar Intelligence Score: ${
+    (data as any).calendarIntelligence?.score || 0
+  }/100
+${
+  (data as any).calendarIntelligence?.insights?.length > 0
+    ? `Calendar Issues: ${(data as any).calendarIntelligence.insights.join(
+        ", "
+      )}`
+    : ""
+}
 
-  // Google Calendar data
-  if (googleCalendarData?.stats) {
-    prompt += `CALENDAR DATA:\n`;
-    prompt += `- Total events: ${googleCalendarData.stats.totalEvents}\n`;
-    prompt += `- Events today: ${googleCalendarData.stats.eventsToday}\n`;
-    prompt += `- Upcoming events: ${googleCalendarData.stats.upcomingEvents}\n`;
-    prompt += `- Average events per day: ${googleCalendarData.stats.avgEventsPerDay}\n`;
-    prompt += `- Busy hours: ${
-      googleCalendarData.stats.busyHours || "Not available"
-    }\n\n`;
-  }
+Emails:
+${(data as any).emailSummary || "No email data available"}
 
-  prompt += `Please provide:\n`;
-  prompt += `1. A personalized daily insight (2-3 sentences)\n`;
-  prompt += `2. A motivational daily mantra (1 sentence)\n`;
-  prompt += `3. Mood analysis based on the data (2-3 sentences)\n`;
-  prompt += `4. 3-4 specific, actionable recommendations\n\n`;
-  prompt += `Format your response exactly like this:\n`;
-  prompt += `INSIGHT: [your insight]\n`;
-  prompt += `MANTRA: [your mantra]\n`;
-  prompt += `MOOD: [your mood analysis]\n`;
-  prompt += `RECOMMENDATIONS:\n- [recommendation 1]\n- [recommendation 2]\n- [recommendation 3]\n- [recommendation 4]`;
+${
+  emailStats.noisePercentage > 70
+    ? `Note: ${emailStats.noisePercentage}% of emails were promotional/social noise`
+    : ""
+}
 
-  return prompt;
+${completedTasks ? `Tasks:\n${completedTasks}` : ""}
+
+Spotify:
+${(data as any).spotifySummary || "No Spotify data available"}
+
+Activity:
+${fitbitData?.activity || "No activity data available"}
+
+Sleep:
+${fitbitData?.sleep || "No sleep data available"}
+
+Heart:
+${fitbitData?.heart || "No heart data available"}
+
+Weather:
+${weatherData || "No weather data available"}
+
+Stress Level:
+${(data as any).stressRadar?.formatted || "No stress data available"}
+
+Recovery:
+${(data as any).recoveryQuotient?.formatted || "No recovery data available"}
+
+${
+  anomalies.detected.length > 0
+    ? `Biometric Anomalies: ${anomalies.detected
+        .map((a: any) => `${a.type} - ${a.insight}`)
+        .join("; ")}`
+    : ""
+}
+
+${
+  (data as any).environmentalFactors?.weather?.impact !== "neutral"
+    ? `Environmental Impact: ${
+        (data as any).environmentalFactors.weather.insight
+      }`
+    : ""
+}
+
+${
+  (data as any).deepInsights?.patterns?.length > 0
+    ? `AI Pattern Detected: ${(data as any).deepInsights.patterns[0].type} - ${
+        (data as any).deepInsights.patterns[0].detail
+      }`
+    : ""
+}`;
+
+  return `You are Sage, a wise and insightful fox who serves as a personal wellness analyst. You're knowledgeable, supportive, and focus on integrated analysis rather than criticism. You combine ancient wisdom with modern wellness science, speaking with warmth and genuine care.
+
+SAGE'S PERSONALITY:
+• You're an expert analyst who sees patterns others miss
+• You provide integrated insights, not just observations
+• You're encouraging and constructive, never scolding
+• You connect the dots between different metrics
+• Balance expertise with warmth and support
+• You're that friend who helps you understand yourself better
+
+IMPORTANT CONTEXT - Yesterday's EXACT scores and explanations:
+• Overall Score: ${scores.total}/100
+• Sleep: ${scores.sleep}/100 (${
+    (scores as any).explanations?.sleep?.join("; ") ||
+    "No explanations available"
+  })
+• Activity: ${scores.activity}/100 (${
+    (scores as any).explanations?.activity?.join("; ") ||
+    "No explanations available"
+  })
+• Heart: ${scores.heart}/100 (${
+    (scores as any).explanations?.heart?.join("; ") ||
+    "No explanations available"
+  })
+• Work: ${scores.work}/100 (${
+    (scores as any).explanations?.work?.join("; ") ||
+    "No explanations available"
+  })
+• Stress: ${stressRadar.level} (${stressRadar.score}/100)
+• Recovery: ${recoveryQuotient.readiness} (${recoveryQuotient.score}/100)
+
+KEY INSIGHTS TO INCORPORATE:
+- If 0 meetings: This is POSITIVE - highlight the rare focus opportunity
+- If high email noise %: This is about inbox filtering, not work performance
+- Reference the EXACT scores above, don't make up numbers
+- Explain WHY each score is what it is based on the breakdowns provided
+- Match headlines to actual data (don't say 'work intensity stealing sleep' if work score is 100)
+
+Yesterday was a ${dayContext.dayType} (${dayContext.dayName}).
+
+Write your response in EXACTLY this format with [PARAGRAPH BREAK] markers:
+
+[Paragraph 1: Metrics overview]
+[PARAGRAPH BREAK]
+[Paragraph 2: Integrated analysis]
+[PARAGRAPH BREAK]
+[Paragraph 3: Recommendation]
+
+PARAGRAPH 1 (Metrics Overview - 60-80 words): Present yesterday's scores conversationally but precisely. Start with: 'Your ${
+    dayContext.dayName
+  } delivered a [adjective] **${
+    scores.total
+  }/100**.' Then cover each subscore with its main driver. Example: 'Sleep hit **85/100** with **7h 42m** of quality rest, though efficiency at **65%** suggests some restlessness. Activity reached **90/100** powered by **12,415 steps** and **60+ active minutes**.' Include all 4 subscores. Be factual here - save analysis for paragraph 2.
+
+PARAGRAPH 2 (Integrated Analysis - 60-80 words): NOW connect the dots. Show how metrics influenced each other. Examples: 'That stellar activity score despite poor sleep efficiency? Classic compensation pattern - your body pushed through fatigue with movement.' or 'With **0 meetings** and perfect work score, you capitalized on rare deep focus time.' Include:
+• How sleep affected other metrics
+• Email/meeting patterns and their impact
+• Any notable patterns or mismatches
+• Recovery vs activity balance
+
+PARAGRAPH 3 (Today's Action - 40-60 words): ONE specific recommendation targeting the biggest opportunity. Format: '**[Action] at [time]** - [why it matters].' Example: '**Set bedroom to 65°F at 9:30 PM tonight** - your **49% sleep efficiency** screams environmental issues. Cool, dark, quiet wins every time.' End with brief encouragement.
+
+CRITICAL STYLE RULES:
+• NO EXTENDED METAPHORS - Max 2-3 light comparisons total
+• NO THEMED RESPONSES (no symphony, recipe, journey, etc. throughout)
+• Be conversational but not cutesy
+• Use specific numbers, not vague descriptions
+• If you mention 'Chef's kiss' or similar, use it ONCE max
+
+ADDITIONAL GUIDELINES:
+• If task data is unavailable or shows no tasks, DO NOT penalize or mention as negative
+• When work score includes 'Task tracking not configured = 25/25 points', don't treat as an issue
+• For sedentary time, be real but not harsh: 'typical for desk warriors' not 'terrible inactivity'
+• Weekend context: lower activity/work is GOOD, not concerning
+
+FORMATTING RULES:
+• YOU MUST include [PARAGRAPH BREAK] between each paragraph
+• Use **bold** for ALL numbers and key actions
+• No greetings or headers - jump right in
+• Always use 'you/your' - you're talking TO them
+• Keep it 180-220 words total (NOT 250)
+
+TONE GUIDELINES:
+• Sound like their smartest, most caring friend
+• Add personality through word choice, not gimmicks
+• If something's off, say it kindly but directly
+• Make insights clear first, clever second
+• End with motivation, not just instructions
+
+${
+  dayContext.dayType === "weekend"
+    ? "WEEKEND CONTEXT: Lower activity is recovery, not laziness. Zero meetings is perfect. Different rhythm, different goals."
+    : ""
+}
+${
+  stressRadar.level === "High"
+    ? "Address the high stress levels with compassion. "
+    : ""
+}
+${
+  recoveryQuotient.score < 60
+    ? "Emphasize recovery - they need rest, not pushing. "
+    : ""
+}
+${
+  anomalies.detected.length > 0
+    ? "Mention the biometric anomaly but don't alarm them. "
+    : ""
+}
+${
+  emailStats.noisePercentage > 70
+    ? `The ${emailStats.noisePercentage}% email noise is inbox pollution, not their fault. `
+    : ""
+}
+
+FINAL REMINDERS:
+• Paragraph 1: State facts with personality
+• Paragraph 2: Reveal insights they might miss
+• Paragraph 3: Give one clear action
+• Avoid metaphor themes - be direct and warm
+
+DATA:
+
+${gptInput}`;
 }
 
 /**
@@ -884,4 +1040,288 @@ function generateWeeklyFallbackPatterns(data: AIReportData): string[] {
     "Sleep quality improves on weekends",
     "Activity peaks mid-week",
   ];
+}
+
+// ===== CODE.JS getMyMetricLogDaily() FUNCTION ADAPTED FOR NEXT.JS =====
+
+export interface MyMetricLogDailyData {
+  // Date information
+  dateStr: string;
+  fullDateStr: string;
+  yesterday: Date;
+  twoDaysAgo: Date;
+
+  // Calendar data
+  calEvents: any[];
+  calendarAnalysis: any;
+  calSummary: string;
+  calendarIntelligence: any;
+
+  // Email data
+  emailStats: {
+    received: number;
+    sent: number;
+    primary: number;
+    noise: number;
+    noisePercentage: number;
+    promotions: number;
+    social: number;
+    totalReceived: number;
+  };
+  emailSummary: string;
+  emailResponseAnalysis: any;
+
+  // Tasks
+  completedTasks: string;
+
+  // Spotify data
+  spotifyData: any;
+  spotifySummary: string;
+  audioFeatures: any;
+
+  // Fitbit data
+  fitbitActivity: string;
+  fitbitActivityLog: any;
+  fitbitSleep: string;
+  fitbitHeart: string;
+  fitbitHRV: string;
+  peakHR: number | string;
+
+  // Weather data
+  weatherSummary: string;
+  hourlyWeather: any;
+
+  // Mood and context
+  previousMood: string;
+  moodInsight: string;
+  dayContext: any;
+
+  // Scores and analysis
+  scores: any;
+  stressRadar: any;
+  recoveryQuotient: any;
+  environmentalFactors: any;
+
+  // Trends and anomalies
+  trends: any;
+  historicalData: any[];
+  anomalies: any;
+  deepInsights: any;
+
+  // Badges
+  badges: any[];
+  streakBadges: any[];
+  badgeNarrative: string;
+  nearMisses: any[];
+
+  // AI insights
+  insight: string;
+  mantra: string;
+
+  // All data object
+  allData: any;
+}
+
+export async function getMyMetricLogDaily(): Promise<MyMetricLogDailyData> {
+  console.log("🧠 [MyMetricLog] Starting daily summary...");
+
+  // Clean up old mood properties (if needed)
+  // cleanupOldMoodProperties();
+
+  const now = new Date();
+
+  // IMPORTANT: Adjust all date ranges to be for yesterday
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const twoDaysAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+
+  const dateStr = yesterday.toISOString().split("T")[0]; // yyyy-MM-dd format
+  const fullDateStr = yesterday.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  // Calendar Summary - for yesterday
+  // Note: This would need to be implemented with Google Calendar API
+  const calEvents: any[] = []; // Placeholder - implement with Google Calendar API
+  const calendarAnalysis = {}; // Placeholder - implement getAdvancedCalendarAnalysis
+  const calSummary = ""; // Placeholder - implement formatCalendarAnalysis
+
+  // NEW: Calendar Intelligence
+  const calendarIntelligence = {}; // Placeholder - implement analyzeCalendarIntelligence
+
+  // Email Summary - for yesterday with category breakdown
+  // Note: This would need to be implemented with Gmail API
+  const emailStats = {
+    received: 0,
+    sent: 0,
+    primary: 0,
+    noise: 0,
+    noisePercentage: 0,
+    promotions: 0,
+    social: 0,
+    totalReceived: 0,
+  };
+  const emailSummary = ""; // Placeholder - implement Gmail API integration
+  const emailResponseAnalysis = {}; // Placeholder - implement analyzeEmailResponseTimes
+
+  // Tasks - completed yesterday
+  const completedTasks = ""; // Placeholder - implement getCompletedTasksForDate
+
+  // Spotify - yesterday's listening
+  const spotifyData = {}; // Placeholder - implement getSpotifyHistoryForYesterday
+  const spotifySummary = "No Spotify listening data found."; // Placeholder
+  const audioFeatures = null; // Placeholder - implement getSpotifyAudioFeatures
+
+  // Fitbit - yesterday's data
+  const fitbitActivity = ""; // Placeholder - implement getFitbitActivitySummaryForDate
+  const fitbitActivityLog = {}; // Placeholder - implement getFitbitActivityLogForDate
+  const fitbitSleep = ""; // Placeholder - implement getFitbitSleepSummaryForDate
+  const fitbitHeart = ""; // Placeholder - implement getFitbitHeartSummaryForDate
+  const fitbitHRV = ""; // Placeholder - implement getFitbitHRVForDate
+  const peakHR = "N/A"; // Placeholder
+
+  // Weather - yesterday's weather
+  const weatherSummary = ""; // Placeholder - implement getWeatherSummary
+  const hourlyWeather = {}; // Placeholder - implement getHourlyWeatherForecast
+
+  // Mood from day before yesterday
+  const previousMood = ""; // Placeholder - implement getMoodFromDayBefore
+  const moodInsight = ""; // Placeholder - implement getPredictedMood
+
+  // Get day context for yesterday
+  const dayContext: any = {}; // Placeholder - implement getContextualDayAnalysis
+
+  // Create allData object with all the data needed for weekend detection
+  const allData = {
+    fitbitHRV: fitbitHRV,
+    dayContext: dayContext,
+    calendarAnalysis: calendarAnalysis,
+    emailStats: emailStats,
+    emailResponseAnalysis: emailResponseAnalysis,
+  };
+
+  // Get scores using weighted system
+  const scores = {}; // Placeholder - implement getMyMetricLogScoreBreakdown
+
+  // ADD: Store calendar events in dayContext for later use
+  dayContext.calendarData = calEvents;
+
+  // Stress Detection
+  const stressRadar = {}; // Placeholder - implement getStressRadar
+
+  // Recovery Score
+  const recoveryQuotient = {}; // Placeholder - implement getRecoveryQuotient
+
+  // NEW: Environmental Factors
+  const environmentalFactors = {}; // Placeholder - implement getSocialEnvironmentalFactors
+
+  // NEW: Get historical data for anomaly detection
+  const trends = {}; // Placeholder - implement getScoreTrends
+  const historicalData: any[] = [];
+
+  // NEW: Biometric Anomaly Detection
+  const anomalies = { detected: [] }; // Placeholder - implement detectBiometricAnomalies
+
+  // NEW: Deep AI Insights
+  const deepInsights = { patterns: [] }; // Placeholder - implement generateDeepAIInsights
+
+  // Calculate badges
+  const badges: any[] = []; // Placeholder - implement calculateDailyBadges
+  const streakBadges: any[] = []; // Placeholder - implement calculateStreakBadges
+
+  // Check for combo badges
+  const comboBadges: any[] = []; // Placeholder - implement checkComboBadges
+  badges.push(...comboBadges);
+
+  // Re-sort after adding combos
+  const rarityOrder = ["legendary", "epic", "rare", "uncommon", "common"];
+  badges.sort(
+    (a, b) => rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity)
+  );
+
+  // Check for personal records
+  const recordBadges: any[] = []; // Placeholder - implement checkPersonalRecords
+  badges.push(...recordBadges);
+
+  // Check for milestones
+  const milestoneBadges: any[] = []; // Placeholder - implement checkMilestoneBadges
+  badges.push(...milestoneBadges);
+
+  // Re-sort all badges
+  badges.sort(
+    (a, b) => rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity)
+  );
+
+  // Generate narrative
+  const badgeNarrative = ""; // Placeholder - implement generateBadgeNarrative
+
+  // Get near misses
+  const nearMisses: any[] = []; // Placeholder - implement getNearMissBadges
+
+  // Generate AI insights using existing function
+  const aiInsights = await generateDailyAIInsights({
+    scores: scores as any,
+    gmailData: emailStats,
+    googleCalendarData: calEvents,
+    fitbitData: {
+      activity: fitbitActivity,
+      sleep: fitbitSleep,
+      heart: fitbitHeart,
+    },
+    spotifyData: spotifyData,
+    weatherData: weatherSummary,
+    completedTasks: completedTasks,
+    date: dateStr,
+    reportType: "daily",
+  });
+
+  const insight = aiInsights.insight;
+  const mantra = aiInsights.mantra;
+
+  // Return all data
+  return {
+    dateStr,
+    fullDateStr,
+    yesterday,
+    twoDaysAgo,
+    calEvents,
+    calendarAnalysis,
+    calSummary,
+    calendarIntelligence,
+    emailStats,
+    emailSummary,
+    emailResponseAnalysis,
+    completedTasks,
+    spotifyData,
+    spotifySummary,
+    audioFeatures,
+    fitbitActivity,
+    fitbitActivityLog,
+    fitbitSleep,
+    fitbitHeart,
+    fitbitHRV,
+    peakHR,
+    weatherSummary,
+    hourlyWeather,
+    previousMood,
+    moodInsight,
+    dayContext,
+    scores,
+    stressRadar,
+    recoveryQuotient,
+    environmentalFactors,
+    trends,
+    historicalData,
+    anomalies,
+    deepInsights,
+    badges,
+    streakBadges,
+    badgeNarrative,
+    nearMisses,
+    insight,
+    mantra,
+    allData,
+  };
 }
