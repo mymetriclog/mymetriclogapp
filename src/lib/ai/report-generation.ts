@@ -64,7 +64,7 @@ export async function generateDailyAIInsights(
     let completion;
     try {
       completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4",
         messages: [
           {
             role: "user",
@@ -73,6 +73,8 @@ export async function generateDailyAIInsights(
         ],
         temperature: 0.7,
         max_tokens: 800,
+        presence_penalty: 0.3,
+        frequency_penalty: 0.3,
       });
     } catch (modelError: any) {
       // Fallbacks for model issues or quota limits
@@ -81,7 +83,7 @@ export async function generateDailyAIInsights(
         modelError.code === "insufficient_quota"
       ) {
         console.log(
-          "⚠️ GPT-4o-mini unavailable or quota exceeded, falling back to gpt-3.5-turbo"
+          "⚠️ GPT-4 unavailable or quota exceeded, falling back to gpt-3.5-turbo"
         );
         try {
           completion = await openai.chat.completions.create({
@@ -139,7 +141,7 @@ export async function generateWeeklyAIInsights(
     let completion;
     try {
       completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4",
         messages: [
           {
             role: "system",
@@ -153,6 +155,8 @@ export async function generateWeeklyAIInsights(
         ],
         temperature: 0.7,
         max_tokens: 1500,
+        presence_penalty: 0.3,
+        frequency_penalty: 0.3,
       });
     } catch (modelError: any) {
       // Fallbacks for model issues or quota limits
@@ -161,7 +165,7 @@ export async function generateWeeklyAIInsights(
         modelError.code === "insufficient_quota"
       ) {
         console.log(
-          "⚠️ GPT-4o-mini unavailable or quota exceeded, falling back to gpt-3.5-turbo"
+          "⚠️ GPT-4 unavailable or quota exceeded, falling back to gpt-3.5-turbo"
         );
         try {
           completion = await openai.chat.completions.create({
