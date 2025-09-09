@@ -9,10 +9,20 @@ import {
   type WellnessScores,
 } from "@/lib/scoring/wellness-scoring";
 import { WeatherService } from "@/lib/weather/weather-service";
-import { getFitbitStats } from "@/lib/integrations/fitbit";
-import { getGmailStats } from "@/lib/integrations/gmail";
-import { getGoogleCalendarStats } from "@/lib/integrations/google-calendar";
-import { getSpotifyStats } from "@/lib/integrations/spotify";
+import {
+  getFitbitStats,
+  getFitbitAccessToken,
+} from "@/lib/integrations/fitbit";
+import { getGmailStats, getGmailAccessToken } from "@/lib/integrations/gmail";
+import {
+  getGoogleCalendarStats,
+  getGoogleCalendarAccessToken,
+  getGoogleCalendarEvents,
+} from "@/lib/integrations/google-calendar";
+import {
+  getSpotifyStats,
+  getSpotifyAccessToken,
+} from "@/lib/integrations/spotify";
 import { ComprehensiveIntegrationService } from "@/lib/integrations/comprehensive-integration-service";
 import { BadgeCalculator } from "@/lib/badges/badge-calculator";
 
@@ -78,24 +88,49 @@ export async function generateDailyReport(
     throw new Error("User not found");
   }
 
-  // Get all integration data
-  const [fitbitData, gmailData, calendarData, spotifyData, weatherData] =
+  // Get access tokens first
+  const [fitbitToken, gmailToken, calendarToken, spotifyToken] =
     await Promise.all([
-      getFitbitStats(userId),
-      getGmailStats(userId),
-      getGoogleCalendarStats(userId),
-      getSpotifyStats(userId),
-      WeatherService.getWeatherData(40.7128, -74.006, yesterday), // Default to NYC, should be user's location
+      getFitbitAccessToken(userId),
+      getGmailAccessToken(userId),
+      getGoogleCalendarAccessToken(userId),
+      getSpotifyAccessToken(userId),
     ]);
+
+  // Get all integration data with proper tokens
+  const [fitbitData, gmailData, calendarStats, spotifyData, weatherData] =
+    await Promise.all([
+      fitbitToken ? getFitbitStats(fitbitToken) : null,
+      gmailToken ? getGmailStats(gmailToken) : null,
+      calendarToken ? getGoogleCalendarStats(calendarToken) : null,
+      spotifyToken ? getSpotifyStats(spotifyToken) : null,
+      WeatherService.getWeatherData(40.7128, -74.006, yesterday), // TODO: Get user's actual location from profile or timezone
+    ]);
+
+  // Get calendar events separately for analysis
+  const calendarEvents = calendarToken
+    ? await getGoogleCalendarEvents(
+        calendarToken,
+        "primary",
+        100,
+        yesterday.toISOString(),
+        new Date(yesterday.getTime() + 24 * 60 * 60 * 1000).toISOString()
+      )
+    : [];
+  const calendarData = { events: calendarEvents, stats: calendarStats };
 
   // Calendar Summary - for yesterday
   const calendarAnalysis =
-    ComprehensiveIntegrationService.getAdvancedCalendarAnalysis([]);
+    ComprehensiveIntegrationService.getAdvancedCalendarAnalysis(
+      calendarData?.events || []
+    );
   const calSummary = formatCalendarAnalysis(calendarAnalysis);
 
   // NEW: Calendar Intelligence
   const calendarIntelligence =
-    ComprehensiveIntegrationService.analyzeCalendarIntelligence([]);
+    ComprehensiveIntegrationService.analyzeCalendarIntelligence(
+      calendarData?.events || []
+    );
 
   // Email Summary - for yesterday with category breakdown
   const emailStats = {
@@ -111,21 +146,28 @@ export async function generateDailyReport(
 
   // Build email summary
   const emailSummaryParts = [];
-  emailSummaryParts.push(`📩 Primary Inbox: ${emailStats.primary} emails`);
-  emailSummaryParts.push(`📤 Sent: ${emailStats.sent} emails`);
-  if (emailStats.noise > 20) {
+  if (gmailData) {
+    emailSummaryParts.push(`📩 Primary Inbox: ${emailStats.primary} emails`);
+    emailSummaryParts.push(`📤 Sent: ${emailStats.sent} emails`);
+    if (emailStats.noise > 20) {
+      emailSummaryParts.push(
+        `🔕 Filtered: ${emailStats.noise} promotional/social (${emailStats.noisePercentage}% of total)`
+      );
+    }
+  } else {
     emailSummaryParts.push(
-      `🔕 Filtered: ${emailStats.noise} promotional/social (${emailStats.noisePercentage}% of total)`
+      "No Gmail data available - Integration not connected"
     );
   }
   const emailSummary = emailSummaryParts.join("\n");
 
   // Add email response time analysis
-  const emailResponseAnalysis =
-    ComprehensiveIntegrationService.analyzeEmailResponseTimes(
-      twoDaysAgo,
-      yesterday
-    );
+  const emailResponseAnalysis = gmailData
+    ? ComprehensiveIntegrationService.analyzeEmailResponseTimes(
+        twoDaysAgo,
+        yesterday
+      )
+    : null;
 
   // Tasks - completed yesterday (placeholder for now)
   const completedTasks = "";
@@ -133,7 +175,7 @@ export async function generateDailyReport(
   // Spotify - yesterday's listening
   const spotifySummary = spotifyData
     ? summarizeSpotifyHistory(spotifyData)
-    : "No Spotify listening data found.";
+    : "No Spotify listening data - Integration not connected";
 
   // Parse audio features for recommendations
   const audioFeatures = spotifyData
@@ -152,7 +194,7 @@ export async function generateDailyReport(
   // Weather - yesterday's weather
   const weatherSummary = weatherData
     ? WeatherService.getWeatherSummary(weatherData)
-    : "Weather data unavailable";
+    : "Weather data unavailable - Location not configured";
   const hourlyWeather = weatherData
     ? WeatherService.getHourlyForecast(weatherData)
     : [];
@@ -428,6 +470,9 @@ function formatDate(date: Date): string {
 }
 
 function formatCalendarAnalysis(analysis: any): string {
+  if (!analysis || analysis.totalEvents === 0) {
+    return "No calendar events scheduled - Integration not connected";
+  }
   return `📅 ${analysis.totalEvents} events scheduled`;
 }
 

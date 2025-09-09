@@ -754,19 +754,40 @@ function generateWeeklyFallbackInsights(data: AIReportData): AIInsight {
 }
 
 function generateFallbackInsight(data: AIReportData): string {
-  const { scores } = data;
+  const { scores, fitbitData, gmailData, spotifyData, weatherData } = data;
   const total = scores.total;
 
+  // Check what data is available
+  const hasFitbit =
+    fitbitData && (fitbitData.steps > 0 || fitbitData.heartRate);
+  const hasGmail = gmailData && gmailData.totalEmails > 0;
+  const hasSpotify =
+    spotifyData && spotifyData.items && spotifyData.items.length > 0;
+  const hasWeather = weatherData && weatherData.current;
+
+  let dataContext = "";
+  if (!hasFitbit && !hasGmail && !hasSpotify) {
+    dataContext =
+      " Since no integrations are connected, this is based on basic scoring. Consider connecting your Fitbit, Gmail, or Spotify for more personalized insights.";
+  } else if (!hasFitbit) {
+    dataContext =
+      " Connect your Fitbit to get detailed activity and sleep insights.";
+  } else if (!hasGmail) {
+    dataContext = " Connect your Gmail to get work productivity insights.";
+  } else if (!hasSpotify) {
+    dataContext = " Connect your Spotify to get mood and music insights.";
+  }
+
   if (total >= 90) {
-    return "Exceptional day! You're operating at peak performance across all metrics. Keep this momentum going!";
+    return `Exceptional day! You're operating at peak performance across all metrics. Keep this momentum going!${dataContext}`;
   } else if (total >= 80) {
-    return "Great day! You're maintaining excellent habits and productivity. Minor optimizations could push you to exceptional.";
+    return `Great day! You're maintaining excellent habits and productivity. Minor optimizations could push you to exceptional.${dataContext}`;
   } else if (total >= 70) {
-    return "Good day with room for improvement. Focus on your weakest area to boost overall performance.";
+    return `Good day with room for improvement. Focus on your weakest area to boost overall performance.${dataContext}`;
   } else if (total >= 60) {
-    return "Moderate day. Consider what's working well and what needs attention to improve tomorrow.";
+    return `Moderate day. Consider what's working well and what needs attention to improve tomorrow.${dataContext}`;
   } else {
-    return "Challenging day. Tomorrow is a new opportunity to reset and focus on your key priorities.";
+    return `Challenging day. Tomorrow is a new opportunity to reset and focus on your key priorities.${dataContext}`;
   }
 }
 
@@ -782,7 +803,17 @@ function generateFallbackMantra(data: AIReportData): string {
 }
 
 function generateFallbackMoodInsight(data: AIReportData): string {
+  const { fitbitData, spotifyData } = data;
   let insight = "Your mood today reflects your overall wellness balance.";
+
+  // Check if we have actual data or just fallback scores
+  const hasRealData = fitbitData || spotifyData;
+
+  if (!hasRealData) {
+    insight =
+      "Mood analysis requires connected integrations. Connect your Fitbit or Spotify for personalized mood insights based on your sleep, activity, and music patterns.";
+    return insight;
+  }
 
   if (data.fitbitData?.stats?.today?.sleep?.efficiency >= 85) {
     insight +=
