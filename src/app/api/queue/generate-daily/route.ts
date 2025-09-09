@@ -75,7 +75,15 @@ export async function POST(request: Request) {
         sender_email:
           process.env.SENDER_VERIFICATION_EMAIL || "asad@devstitch.com",
         email_type: "daily_report" as const,
-        subject: `Your Daily MyMetricLog Report - ${reportData.fullDateStr}`,
+        subject: `🦊 MyMetricLog Daily Report: ${
+          reportData.fullDateStr ||
+          new Date().toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        }`,
         status: "pending" as const,
         report_date: reportData.fullDateStr,
         report_type: "daily" as const,
@@ -100,7 +108,15 @@ export async function POST(request: Request) {
 
         const result = await sendEmail(
           session?.user?.email!,
-          `Your Daily MyMetricLog Report - ${reportData.fullDateStr}`,
+          `🦊 MyMetricLog Daily Report: ${
+            reportData.fullDateStr ||
+            new Date().toLocaleDateString("en-US", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })
+          }`,
           emailHTML,
           undefined,
           ccEmails
@@ -192,7 +208,15 @@ export async function GET() {
     // Send email
     await sendEmail(
       session.user.email!,
-      `Your Daily MyMetricLog Report - ${reportData.fullDateStr}`,
+      `🦊 MyMetricLog Daily Report: ${
+        reportData.fullDateStr ||
+        new Date().toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      }`,
       emailHTML,
       undefined,
       ccEmails
