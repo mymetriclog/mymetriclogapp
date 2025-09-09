@@ -16,7 +16,8 @@ export async function sendEmail(
   to: string,
   subject: string,
   htmlContent: string,
-  from?: string
+  from?: string,
+  cc?: string[]
 ) {
   try {
     // Initialize SendGrid if not already done
@@ -25,7 +26,7 @@ export async function sendEmail(
     const senderEmail =
       from || process.env.SENDER_VERIFICATION_EMAIL || "asad@devstitch.com";
 
-    const msg = {
+    const msg: any = {
       to,
       from: senderEmail,
       subject,
@@ -36,6 +37,11 @@ export async function sendEmail(
         subscriptionTracking: { enable: false },
       },
     };
+
+    // Add CC if provided
+    if (cc && cc.length > 0) {
+      msg.cc = cc;
+    }
 
     const response = await sgMail.send(msg);
 

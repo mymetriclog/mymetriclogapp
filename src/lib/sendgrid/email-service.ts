@@ -25,13 +25,20 @@ export class EmailService {
   static async sendDailyReport(
     to: string,
     data: DailyReportData,
-    subject?: string
+    subject?: string,
+    cc?: string[]
   ) {
     try {
       const htmlContent = generateDailyReportEmail(data);
       const emailSubject = subject || `Daily Wellness Report - ${data.date}`;
 
-      const result = await sendEmail(to, emailSubject, htmlContent);
+      const result = await sendEmail(
+        to,
+        emailSubject,
+        htmlContent,
+        undefined,
+        cc
+      );
 
       return {
         success: true,

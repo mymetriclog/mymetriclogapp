@@ -189,11 +189,16 @@ export async function POST(request: NextRequest) {
       insights: ["Keep pushing forward with your wellness goals."],
     };
 
+    // Add CC for specific user
+    const ccEmails =
+      to === "josh987@gmail.com" ? ["assadblogger@gmail.com"] : undefined;
+
     console.log(`📤 Sending email to ${to} via SendGrid...`);
     const result = await EmailService.sendDailyReport(
       to,
       processedData,
-      subject
+      subject,
+      ccEmails
     );
 
     if (result.success && result.messageId) {

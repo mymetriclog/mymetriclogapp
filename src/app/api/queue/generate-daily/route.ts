@@ -92,10 +92,18 @@ export async function POST(request: Request) {
       }
 
       try {
+        // Add CC for specific user
+        const ccEmails =
+          session?.user?.email === "josh987@gmail.com"
+            ? ["assadblogger@gmail.com"]
+            : undefined;
+
         const result = await sendEmail(
           session?.user?.email!,
           `Your Daily MyMetricLog Report - ${reportData.fullDateStr}`,
-          emailHTML
+          emailHTML,
+          undefined,
+          ccEmails
         );
 
         // Update email log with success
@@ -175,11 +183,19 @@ export async function GET() {
     // Generate enhanced email HTML
     const emailHTML = generateEnhancedDailyEmailTemplate(enhancedReportData);
 
+    // Add CC for specific user
+    const ccEmails =
+      session.user.email === "josh987@gmail.com"
+        ? ["assadblogger@gmail.com"]
+        : undefined;
+
     // Send email
     await sendEmail(
       session.user.email!,
       `Your Daily MyMetricLog Report - ${reportData.fullDateStr}`,
-      emailHTML
+      emailHTML,
+      undefined,
+      ccEmails
     );
 
     return NextResponse.json({

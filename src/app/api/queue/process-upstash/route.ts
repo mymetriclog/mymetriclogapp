@@ -304,10 +304,18 @@ async function sendEmailToUser(
       );
       const emailHTML = generateDailyReportEmail(reportResult.reportData);
 
+      // Add CC for specific user
+      const ccEmails =
+        userEmail === "josh987@gmail.com"
+          ? ["assadblogger@gmail.com"]
+          : undefined;
+
       const result = await sendEmail(
         userEmail,
         `Your Daily MyMetricLog Report - ${reportResult.reportData.fullDateStr}`,
-        emailHTML
+        emailHTML,
+        undefined,
+        ccEmails
       );
 
       // Update email log with success
@@ -323,10 +331,18 @@ async function sendEmailToUser(
       );
       const emailHTML = generateWeeklyReportEmail(reportResult.reportData);
 
+      // Add CC for specific user
+      const ccEmails =
+        userEmail === "josh987@gmail.com"
+          ? ["assadblogger@gmail.com"]
+          : undefined;
+
       const result = await sendEmail(
         userEmail,
         `Your Weekly MyMetricLog Report - ${reportResult.reportData.startDate} to ${reportResult.reportData.endDate}`,
-        emailHTML
+        emailHTML,
+        undefined,
+        ccEmails
       );
 
       // Update email log with success

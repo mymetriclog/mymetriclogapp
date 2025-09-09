@@ -111,13 +111,15 @@ export interface DailyReportData {
 
 export function generateDailyReportEmail(data: DailyReportData): string {
   // Parse sleep efficiency at the start
-  const sleepEfficiencyMatch = data.fitbitSleep.match(/😴 Efficiency: (\d+)%/);
+  const sleepEfficiencyMatch = (data.fitbitSleep || "").match(
+    /😴 Efficiency: (\d+)%/
+  );
   const sleepEfficiency = sleepEfficiencyMatch
     ? parseInt(sleepEfficiencyMatch[1])
     : 0;
 
   // Get all the data parsing (keep existing)
-  const calEvents = data.dayContext.calendarData || [];
+  const calEvents = data.dayContext?.calendarData || [];
   const trends = data.trends;
   const yesterday = new Date(data.date);
   const environmentalFactors = data.environmentalFactors;
@@ -183,8 +185,8 @@ export function generateDailyReportEmail(data: DailyReportData): string {
       : data.scores.total >= 60
       ? "#fbbc04"
       : "#ea4335";
-  const stressColor = getStressColor(data.stressRadar.score);
-  const recoveryColor = getRecoveryColor(data.recoveryQuotient.score);
+  const stressColor = getStressColor(data.stressRadar?.score || 0);
+  const recoveryColor = getRecoveryColor(data.recoveryQuotient?.score || 0);
 
   // Generate the complete HTML email template exactly as in code.js
   const htmlBody = `
@@ -249,10 +251,18 @@ export function generateDailyReportEmail(data: DailyReportData): string {
   ${quickWinBox}
   
   <!-- Badge Section -->
-  ${generateBadgeSection(data.badges, data.streakBadges, data.badgeNarrative)}
+  ${generateBadgeSection(
+    data.badges || [],
+    data.streakBadges || [],
+    data.badgeNarrative || ""
+  )}
   
   <!-- Near Misses -->
-  ${data.nearMisses.length > 0 ? generateNearMissSection(data.nearMisses) : ""}
+  ${
+    (data.nearMisses?.length || 0) > 0
+      ? generateNearMissSection(data.nearMisses || [])
+      : ""
+  }
   
   <!-- Detailed Sections -->
   ${generateDetailedSections(data)}
@@ -456,12 +466,13 @@ function generateBadgeSection(
   streakBadges: any[],
   narrative: string
 ): string {
-  if (badges.length === 0 && streakBadges.length === 0) return "";
+  if ((badges?.length || 0) === 0 && (streakBadges?.length || 0) === 0)
+    return "";
 
   return `<div style='background:#f8f8f8; padding:20px; border-radius:8px; margin:20px 0;'>
     <h3 style='font-size:20px; font-weight:600; color:#1a1a1a; margin:0 0 16px 0;'>🏆 Achievements</h3>
     <div style='display:flex; flex-wrap:wrap; gap:10px; margin-bottom:15px;'>
-      ${[...badges, ...streakBadges]
+      ${[...(badges || []), ...(streakBadges || [])]
         .map(
           (badge) => `
         <div style='background:white; padding:10px; border-radius:8px; border:1px solid #e0e0e0; text-align:center; min-width:80px;'>
@@ -511,7 +522,7 @@ function generateDetailedSections(data: DailyReportData): string {
         data.fitbitSleep
       }</div>
       <div style='margin-top:10px; font-size:12px; color:#666;'>
-        ${data.scores.explanations.sleep
+        ${(data.scores.explanations?.sleep || [])
           .map((exp) => `<div>• ${exp}</div>`)
           .join("")}
       </div>
@@ -529,7 +540,7 @@ function generateDetailedSections(data: DailyReportData): string {
         data.fitbitActivity
       }</div>
       <div style='margin-top:10px; font-size:12px; color:#666;'>
-        ${data.scores.explanations.activity
+        ${(data.scores.explanations?.activity || [])
           .map((exp) => `<div>• ${exp}</div>`)
           .join("")}
       </div>
@@ -547,7 +558,7 @@ function generateDetailedSections(data: DailyReportData): string {
         data.fitbitHeart
       }</div>
       <div style='margin-top:10px; font-size:12px; color:#666;'>
-        ${data.scores.explanations.heart
+        ${(data.scores.explanations?.heart || [])
           .map((exp) => `<div>• ${exp}</div>`)
           .join("")}
       </div>
@@ -568,7 +579,7 @@ function generateDetailedSections(data: DailyReportData): string {
         data.calSummary
       }</div>
       <div style='margin-top:10px; font-size:12px; color:#666;'>
-        ${data.scores.explanations.work
+        ${(data.scores.explanations?.work || [])
           .map((exp) => `<div>• ${exp}</div>`)
           .join("")}
       </div>

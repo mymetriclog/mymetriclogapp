@@ -77,6 +77,17 @@ export async function generateDailyAIInsights(
         frequency_penalty: 0.3,
       });
     } catch (modelError: any) {
+      // Check for API key errors - if API key is invalid, don't generate report
+      if (
+        modelError.code === "invalid_api_key" ||
+        modelError.code === "invalid_request_error"
+      ) {
+        console.error("❌ OpenAI API key is invalid. Cannot generate report.");
+        throw new Error(
+          "OpenAI API key is invalid. Please check your API key configuration."
+        );
+      }
+
       // Fallbacks for model issues or quota limits
       if (
         modelError.code === "model_not_found" ||
@@ -96,13 +107,17 @@ export async function generateDailyAIInsights(
             ],
             temperature: 0.7,
             max_tokens: 800,
+            presence_penalty: 0.3,
+            frequency_penalty: 0.3,
           });
         } catch (fallbackErr: any) {
           if (fallbackErr.code === "insufficient_quota") {
             console.log(
-              "⚠️ Quota exceeded for all models. Using fallback insights."
+              "⚠️ Quota exceeded for all models. Cannot generate report without AI insights."
             );
-            return generateFallbackInsights(data);
+            throw new Error(
+              "OpenAI quota exceeded. Cannot generate report without AI insights."
+            );
           }
           throw fallbackErr;
         }
@@ -124,6 +139,14 @@ export async function generateDailyAIInsights(
     };
   } catch (error) {
     console.error("Error generating AI insights:", error);
+    // If it's an API key error or quota error, don't generate fallback insights
+    if (
+      error instanceof Error &&
+      (error.message.includes("API key is invalid") ||
+        error.message.includes("quota exceeded"))
+    ) {
+      throw error; // Re-throw the error to stop report generation
+    }
     return generateFallbackInsights(data);
   }
 }
@@ -159,6 +182,19 @@ export async function generateWeeklyAIInsights(
         frequency_penalty: 0.3,
       });
     } catch (modelError: any) {
+      // Check for API key errors - if API key is invalid, don't generate report
+      if (
+        modelError.code === "invalid_api_key" ||
+        modelError.code === "invalid_request_error"
+      ) {
+        console.error(
+          "❌ OpenAI API key is invalid. Cannot generate weekly report."
+        );
+        throw new Error(
+          "OpenAI API key is invalid. Please check your API key configuration."
+        );
+      }
+
       // Fallbacks for model issues or quota limits
       if (
         modelError.code === "model_not_found" ||
@@ -183,13 +219,17 @@ export async function generateWeeklyAIInsights(
             ],
             temperature: 0.7,
             max_tokens: 1500,
+            presence_penalty: 0.3,
+            frequency_penalty: 0.3,
           });
         } catch (fallbackErr: any) {
           if (fallbackErr.code === "insufficient_quota") {
             console.log(
-              "⚠️ Quota exceeded for all models (weekly). Using fallback insights."
+              "⚠️ Quota exceeded for all models (weekly). Cannot generate report without AI insights."
             );
-            return generateWeeklyFallbackInsights(data);
+            throw new Error(
+              "OpenAI quota exceeded. Cannot generate weekly report without AI insights."
+            );
           }
           throw fallbackErr;
         }
@@ -204,6 +244,15 @@ export async function generateWeeklyAIInsights(
 
     return parsedInsights;
   } catch (error) {
+    console.error("Error generating weekly AI insights:", error);
+    // If it's an API key error or quota error, don't generate fallback insights
+    if (
+      error instanceof Error &&
+      (error.message.includes("API key is invalid") ||
+        error.message.includes("quota exceeded"))
+    ) {
+      throw error; // Re-throw the error to stop report generation
+    }
     const fallbackInsights = generateWeeklyFallbackInsights(data);
     return fallbackInsights;
   }
