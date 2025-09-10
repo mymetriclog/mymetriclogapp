@@ -61,6 +61,7 @@ export interface EnhancedReportData {
 
   // Additional data for complete email template
   insight: string;
+  gpt_summary?: string; // Comprehensive GPT summary
   mantra: string;
   moodInsight: string;
   weatherSummary: string;

@@ -205,10 +205,12 @@ export async function getFitbitProfile(
 }
 
 export async function getFitbitStats(
-  accessToken: string
+  accessToken: string,
+  date?: Date
 ): Promise<FitbitStats | null> {
   try {
-    const today = new Date().toISOString().split("T")[0];
+    const targetDate = date || new Date();
+    const today = targetDate.toISOString().split("T")[0];
 
     // Fetch today's data
     const [stepsRes, caloriesRes, distanceRes, heartRateRes, sleepRes] =

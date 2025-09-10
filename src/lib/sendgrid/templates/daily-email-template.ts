@@ -29,7 +29,8 @@ export interface DailyReportData {
       work: string[];
     };
   };
-  insight: string;
+  insight?: string; // Optional - we prefer gpt_summary
+  gpt_summary?: string; // Add comprehensive GPT summary
   mantra: string;
   moodInsight: string;
   weatherSummary: string;
@@ -37,6 +38,10 @@ export interface DailyReportData {
   emailSummary: string;
   completedTasks: string;
   spotifySummary: string;
+  spotifyInsights: {
+    insight: string;
+    recommendation: string;
+  };
   fitbitActivity: string;
   fitbitSleep: string;
   fitbitHeart: string;
@@ -114,7 +119,7 @@ export function composeEnhancedMyMetricLogEmail(
   fullDateStr: string,
   dateStr: string,
   scores: any,
-  insight: string,
+  gptSummary: string,
   mantra: string,
   moodInsight: string,
   weatherSummary: string,
@@ -122,6 +127,10 @@ export function composeEnhancedMyMetricLogEmail(
   emailSummary: string,
   completedTasks: string,
   spotifySummary: string,
+  spotifyInsights: {
+    insight: string;
+    recommendation: string;
+  },
   fitbitActivity: string,
   fitbitSleep: string,
   fitbitHeart: string,
@@ -206,7 +215,7 @@ export function composeEnhancedMyMetricLogEmail(
   );
 
   // Parse email stats
-  const receivedMatch = (emailSummary || "").match(/Received: (\d+)/);
+  const receivedMatch = (emailSummary || "").match(/Primary Inbox: (\d+)/);
   const sentMatch = (emailSummary || "").match(/Sent: (\d+)/);
   const emailStats = {
     received: receivedMatch ? parseInt(receivedMatch[1]) : 0,
@@ -360,7 +369,7 @@ export function composeEnhancedMyMetricLogEmail(
     </h3>
     <p style='margin:10px 0; font-size:16px; color:#6c5ce7; font-style:italic;'>${insightHeadline}</p>
     <div style='font-family:Arial, sans-serif; font-size:14px; line-height:1.6; color:#333;'>
-      ${convertAndFormatInsight(insight)}
+      ${convertAndFormatInsight(gptSummary)}
     </div>
   </div>
   
@@ -517,21 +526,20 @@ export function composeEnhancedMyMetricLogEmail(
       <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
         ${(emailSummary || "").replace(/\n/g, "<br>")}
         ${
-          emailResponseAnalysis && emailResponseAnalysis.avgMinutes
+          emailResponseAnalysis && emailResponseAnalysis.avgResponseTime
             ? `<br><div style='background:#f3e5f5; padding:10px; border-radius:4px; margin-top:8px;'>
               <strong>⚡ Email Response Patterns:</strong><br>
               <span style='font-size:13px;'>
                 • Average response time: <strong>${
-                  emailResponseAnalysis.avgMinutes < 60
-                    ? emailResponseAnalysis.avgMinutes + " minutes"
-                    : Math.round((emailResponseAnalysis.avgMinutes / 60) * 10) /
-                        10 +
-                      " hours"
+                  emailResponseAnalysis.avgResponseTime < 1
+                    ? Math.round(emailResponseAnalysis.avgResponseTime * 60) +
+                      " minutes"
+                    : emailResponseAnalysis.avgResponseTime + " hours"
                 }</strong><br>
                 ${
-                  emailResponseAnalysis.avgMinutes < 60
+                  emailResponseAnalysis.avgResponseTime < 1
                     ? "• Status: <span style='color:#43a047;'>Highly responsive</span>"
-                    : emailResponseAnalysis.avgMinutes < 240
+                    : emailResponseAnalysis.avgResponseTime < 4
                     ? "• Status: <span style='color:#ff9800;'>Moderate response time</span>"
                     : "• Status: <span style='color:#ea4335;'>Delayed responses - inbox overwhelm?</span>"
                 }
@@ -539,6 +547,54 @@ export function composeEnhancedMyMetricLogEmail(
             </div>`
             : ""
         }
+        ${
+          emailResponseAnalysis &&
+          emailResponseAnalysis.insights &&
+          emailResponseAnalysis.insights.length > 0
+            ? `<br><div style='background:#e8f5e8; padding:10px; border-radius:4px; margin-top:8px;'>
+              <strong>💡 Email Insights:</strong><br>
+              <span style='font-size:13px;'>
+                ${emailResponseAnalysis.insights
+                  .map((insight: string) => `• ${insight}`)
+                  .join("<br>")}
+              </span>
+            </div>`
+            : ""
+        }
+        ${
+          emailResponseAnalysis && emailResponseAnalysis.responseRate
+            ? `<br><div style='background:#fff3cd; padding:10px; border-radius:4px; margin-top:8px;'>
+              <strong>📊 Email Statistics:</strong><br>
+              <span style='font-size:13px;'>
+                • Response rate: <strong>${
+                  emailResponseAnalysis.responseRate
+                }%</strong><br>
+                ${
+                  emailResponseAnalysis.urgentEmails
+                    ? `• Urgent emails: <strong>${emailResponseAnalysis.urgentEmails}</strong><br>`
+                    : ""
+                }
+                ${
+                  emailResponseAnalysis.peakHours &&
+                  emailResponseAnalysis.peakHours.length > 0
+                    ? `• Peak response hours: <strong>${emailResponseAnalysis.peakHours
+                        .map((h: number) => h + ":00")
+                        .join(", ")}</strong><br>`
+                    : ""
+                }
+                ${
+                  emailResponseAnalysis.slowestDays &&
+                  emailResponseAnalysis.slowestDays.length > 0
+                    ? `• Slowest response days: <strong>${emailResponseAnalysis.slowestDays.join(
+                        ", "
+                      )}</strong>`
+                    : ""
+                }
+              </span>
+            </div>`
+            : ""
+        }
+        ${emailManagementInsight}
       </div>
     </div>
     
@@ -748,9 +804,39 @@ export function composeEnhancedMyMetricLogEmail(
           )}' alt='Sage Music' style='width:48px; height:auto; margin-right:10px; vertical-align:middle;'/>
           <span style='line-height:48px;'>Music</span>
         </h4>
-        <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
-          ${(spotifySummary || "").replace(/\n/g, "<br>")}
+      <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
+        ${(spotifySummary || "").replace(/\n/g, "<br>")}
+      </div>
+      
+      ${
+        spotifyInsights && spotifyInsights.insight
+          ? `
+        <div style='margin-top:16px; padding:12px; background:#fff3cd; border-left:4px solid #ffc107; border-radius:4px;'>
+          <div style='font-weight:600; color:#856404; margin-bottom:8px; display:flex; align-items:center;'>
+            💡 Insight
+          </div>
+          <div style='color:#856404; font-size:13px; line-height:1.5;'>
+            ${spotifyInsights.insight}
+          </div>
         </div>
+      `
+          : ""
+      }
+      
+      ${
+        spotifyInsights && spotifyInsights.recommendation
+          ? `
+        <div style='margin-top:12px; padding:12px; background:#d1ecf1; border-left:4px solid #17a2b8; border-radius:4px;'>
+          <div style='font-weight:600; color:#0c5460; margin-bottom:8px; display:flex; align-items:center;'>
+            🎯 Recommendation
+          </div>
+          <div style='color:#0c5460; font-size:13px; line-height:1.5;'>
+            ${spotifyInsights.recommendation}
+          </div>
+        </div>
+      `
+          : ""
+      }
       </div>
     </div>
   </div>
@@ -804,7 +890,7 @@ export function generateDailyReportEmail(data: DailyReportData): string {
   };
 
   // Map other data with fallbacks
-  const insight = data.insight || "No insights available";
+  const gptSummary = data.gpt_summary || "No analysis available"; // Use only comprehensive GPT summary
   const mantra = data.mantra || "Focus on your wellness journey today";
   const moodInsight = data.moodInsight || "Mood data not available";
   const weatherSummary = data.weatherSummary || "Weather data not available";
@@ -812,6 +898,10 @@ export function generateDailyReportEmail(data: DailyReportData): string {
   const emailSummary = data.emailSummary || "No email data available";
   const completedTasks = data.completedTasks || "";
   const spotifySummary = data.spotifySummary || "No music data available";
+  const spotifyInsights = data.spotifyInsights || {
+    insight: "",
+    recommendation: "",
+  };
   const fitbitActivity = data.fitbitActivity || "No activity data available";
   const fitbitSleep = data.fitbitSleep || "No sleep data available";
   const fitbitHeart = data.fitbitHeart || "No heart data available";
@@ -878,7 +968,7 @@ export function generateDailyReportEmail(data: DailyReportData): string {
     fullDateStr,
     dateStr,
     scores,
-    insight,
+    gptSummary,
     mantra,
     moodInsight,
     weatherSummary,
@@ -886,6 +976,7 @@ export function generateDailyReportEmail(data: DailyReportData): string {
     emailSummary,
     completedTasks,
     spotifySummary,
+    spotifyInsights,
     fitbitActivity,
     fitbitSleep,
     fitbitHeart,
@@ -1164,26 +1255,137 @@ function generateBadgeSection(
   if ((badges?.length || 0) === 0 && (streakBadges?.length || 0) === 0)
     return "";
 
-  return `<div style='background:#f8f8f8; padding:20px; border-radius:8px; margin:20px 0;'>
-    <h3 style='font-size:20px; font-weight:600; color:#1a1a1a; margin:0 0 16px 0;'>🏆 Achievements</h3>
-    <div style='display:flex; flex-wrap:wrap; gap:10px; margin-bottom:15px;'>
-      ${[...(badges || []), ...(streakBadges || [])]
-        .map(
-          (badge) => `
-        <div style='background:white; padding:10px; border-radius:8px; border:1px solid #e0e0e0; text-align:center; min-width:80px;'>
-          <div style='font-size:24px; margin-bottom:5px;'>${badge.icon}</div>
-          <div style='font-size:12px; font-weight:600; color:#333;'>${badge.name}</div>
+  // Get badge design based on rarity (matching code.js)
+  const getBadgeDesign = (rarity: string) => {
+    const designs: any = {
+      legendary: {
+        background: "linear-gradient(135deg, #FFF8E1 0%, #FFD700 100%)",
+        border: "#FFB300",
+        shadow: "rgba(255,215,0,0.3)",
+        rarityColor: "#FF6F00",
+        titleColor: "#F57C00",
+        descColor: "#5D4037",
+        emojiShadow: "rgba(255,193,7,0.4)",
+      },
+      epic: {
+        background: "linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%)",
+        border: "#9C27B0",
+        shadow: "rgba(156,39,176,0.25)",
+        rarityColor: "#7B1FA2",
+        titleColor: "#6A1B9A",
+        descColor: "#4A148C",
+        emojiShadow: "rgba(156,39,176,0.4)",
+      },
+      rare: {
+        background: "linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%)",
+        border: "#2196F3",
+        shadow: "rgba(33,150,243,0.25)",
+        rarityColor: "#1976D2",
+        titleColor: "#1565C0",
+        descColor: "#0D47A1",
+        emojiShadow: "rgba(33,150,243,0.4)",
+      },
+      uncommon: {
+        background: "linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%)",
+        border: "#4CAF50",
+        shadow: "rgba(76,175,80,0.25)",
+        rarityColor: "#388E3C",
+        titleColor: "#2E7D32",
+        descColor: "#1B5E20",
+        emojiShadow: "rgba(76,175,80,0.4)",
+      },
+      common: {
+        background: "linear-gradient(135deg, #FAFAFA 0%, #F5F5F5 100%)",
+        border: "#BDBDBD",
+        shadow: "rgba(0,0,0,0.1)",
+        rarityColor: "#757575",
+        titleColor: "#616161",
+        descColor: "#424242",
+        emojiShadow: "rgba(0,0,0,0.15)",
+      },
+    };
+    return designs[rarity.toLowerCase()] || designs.common;
+  };
+
+  let html = `<section style="background: #fffbeb; border-left: 4px solid #fde68a; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">`;
+
+  // Add narrative BEFORE the header (matching code.js)
+  if (narrative) {
+    html += narrative;
+  }
+
+  // Header with icon (matching code.js)
+  html += `<h3 style="font-size: 20px; font-weight: 600; color: #1a1a1a; margin: 0 0 16px 0; display: flex; align-items: center;">
+    🏅 Today's Achievements 
+    <span style="font-size: 14px; font-weight: normal; color: #666; margin-left: 10px;">
+      (${badges?.length || 0} earned)
+    </span>
+  </h3>`;
+
+  // Badge grid (matching code.js layout)
+  if ((badges?.length || 0) > 0) {
+    html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 16px;">`;
+
+    badges.forEach((badge) => {
+      const design = getBadgeDesign(badge.rarity || "common");
+      const emoji = badge.emoji || badge.icon || "🏆";
+      const name = badge.name || "Unknown Badge";
+      const description = badge.description || "";
+      const rarity = badge.rarity || "COMMON";
+
+      html += `<div style="
+        background: ${design.background};
+        border: 1px solid ${design.border};
+        border-radius: 8px;
+        padding: 14px;
+        position: relative;
+        box-shadow: 0 1px 3px ${design.shadow};
+      ">
+        <!-- Rarity tag -->
+        <div style="position: absolute; top: 8px; right: 8px; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: white; background: ${design.rarityColor};">
+          ${rarity}
         </div>
-      `
-        )
-        .join("")}
-    </div>
-    ${
-      narrative
-        ? `<div style='font-size:14px; color:#666; font-style:italic;'>${narrative}</div>`
-        : ""
-    }
-  </div>`;
+        <!-- Badge content -->
+        <div style="display: flex; align-items: center;">
+          <div style="font-size: 36px; margin-right: 14px; filter: drop-shadow(0 2px 4px ${design.emojiShadow});">
+            ${emoji}
+          </div>
+          <div style="flex: 1;">
+            <div style="font-weight: 600; font-size: 16px; margin-bottom: 2px; color: ${design.titleColor};">
+              ${name}
+            </div>
+            <div style="font-size: 13px; color: ${design.descColor};">
+              ${description}
+            </div>
+          </div>
+        </div>
+      </div>`;
+    });
+
+    html += `</div>`;
+  }
+
+  // Streak section (matching code.js)
+  if ((streakBadges?.length || 0) > 0) {
+    html += `<div style="background: #e8f0fe; border-radius: 6px; padding: 14px; border-left: 4px solid #1976d2;">
+      <div style="font-weight: 600; color: #1565c0; margin-bottom: 8px; font-size: 14px;">🔥 ACTIVE STREAKS</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 16px;">`;
+
+    streakBadges.forEach((streak) => {
+      html += `<div style="display: flex; align-items: center;">
+        <span style="font-size: 20px; margin-right: 8px;">${streak.emoji}</span>
+        <div>
+          <span style="font-weight: 600; color: #424242; font-size: 14px;">${streak.name}</span><br>
+          <span style="color: #1976d2; font-weight: 700; font-size: 16px;">Day ${streak.count}</span>
+        </div>
+      </div>`;
+    });
+
+    html += `</div></div>`;
+  }
+
+  html += `</section>`;
+  return html;
 }
 
 function generateNearMissSection(nearMisses: any[]): string {
@@ -1354,13 +1556,44 @@ function generateDetailedSections(data: DailyReportData): string {
       <div style='font-size:14px; color:#333; line-height:1.6;'>${
         data.spotifySummary
       }</div>
+      
+      ${
+        data.spotifyInsights && data.spotifyInsights.insight
+          ? `
+        <div style='margin-top:12px; padding:10px; background:#fff3cd; border-left:3px solid #ffc107; border-radius:4px;'>
+          <div style='font-weight:600; color:#856404; margin-bottom:6px; font-size:12px;'>
+            💡 Insight
+          </div>
+          <div style='color:#856404; font-size:12px; line-height:1.4;'>
+            ${data.spotifyInsights.insight}
+          </div>
+        </div>
+      `
+          : ""
+      }
+      
+      ${
+        data.spotifyInsights && data.spotifyInsights.recommendation
+          ? `
+        <div style='margin-top:8px; padding:10px; background:#d1ecf1; border-left:3px solid #17a2b8; border-radius:4px;'>
+          <div style='font-weight:600; color:#0c5460; margin-bottom:6px; font-size:12px;'>
+            🎯 Recommendation
+          </div>
+          <div style='color:#0c5460; font-size:12px; line-height:1.4;'>
+            ${data.spotifyInsights.recommendation}
+          </div>
+        </div>
+      `
+          : ""
+      }
     </div>
   `;
 }
 
-function convertAndFormatInsight(insight: string): string {
+function convertAndFormatInsight(gptSummary: string): string {
   // Convert markdown bold to HTML bold, handle missing insight
-  const text = (insight || "").toString();
+  const text = (gptSummary || "").toString();
+
   return text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
 }
 

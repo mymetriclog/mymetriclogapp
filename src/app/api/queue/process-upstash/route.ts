@@ -35,7 +35,6 @@ export async function POST(request: NextRequest) {
 
     jobData = JSON.parse(body);
     const { userId, userEmail, reportType = "daily", jobId } = jobData;
-
     // Check if this job has already been processed
     if (processedJobs.has(jobId)) {
       console.log(`⚠️ Job ${jobId} already processed, skipping duplicate`);
@@ -49,14 +48,8 @@ export async function POST(request: NextRequest) {
 
     // Mark job as being processed
     processedJobs.add(jobId);
-
-    console.log(
-      `\n🚀 Processing ${reportType} report for ${userEmail} (Job ${jobId})`
-    );
-
     // Step 1: Check if user still has integrations and refresh tokens
     const hasIntegrations = await checkUserIntegrations(userId, userEmail);
-
     if (!hasIntegrations) {
       console.log(`⏭️ Skipping ${userEmail} - no integrations`);
       return NextResponse.json({
@@ -73,6 +66,12 @@ export async function POST(request: NextRequest) {
       userEmail,
       reportType
     );
+
+    // console.log("🚀 Report result from generateUserReport:", reportResult);
+    // console.log(
+    //   "🏆 Badges:",
+    //   JSON.stringify(reportResult.reportData.badges, null, 2)
+    // );
 
     // Step 3: Send email to user
     await sendEmailToUser(userEmail, reportResult, reportType, userId);

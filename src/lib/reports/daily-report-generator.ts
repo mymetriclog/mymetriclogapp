@@ -32,7 +32,8 @@ export interface DailyReportData {
   date: string;
   fullDateStr: string;
   scores: WellnessScores;
-  insight: string;
+  insight?: string; // Optional - we prefer gpt_summary
+  gpt_summary?: string; // Comprehensive GPT summary
   mantra: string;
   moodInsight: string;
   weatherSummary: string;
@@ -40,6 +41,10 @@ export interface DailyReportData {
   emailSummary: string;
   completedTasks: string;
   spotifySummary: string;
+  spotifyInsights: {
+    insight: string;
+    recommendation: string;
+  };
   fitbitActivity: string;
   fitbitSleep: string;
   fitbitHeart: string;
@@ -69,20 +74,17 @@ export async function generateDailyReport(
   userId: string,
   date?: Date
 ): Promise<DailyReportData> {
-  console.log("🧠 [MyMetricLog] Starting daily summary...");
-
   const now = date || new Date();
 
-  // IMPORTANT: Adjust all date ranges to be for yesterday
+  // IMPORTANT:
+  // - Fitbit: Use current day (today's data)
+  // - Other integrations: Use previous day (yesterday's data)
+  const today = now;
   const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const twoDaysAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
 
   const dateStr = yesterday.toISOString().split("T")[0];
   const fullDateStr = formatDate(yesterday);
-
-  console.log(
-    `🚀 Generating daily report for user ${userId} for date: ${yesterday.toISOString()}`
-  );
 
   // Get user data
   const supabase = await getServerSupabaseClient();
@@ -102,16 +104,18 @@ export async function generateDailyReport(
     ]);
 
   // Get all integration data with proper tokens
+  // Fitbit: Current day (today), Others: Previous day (yesterday)
+
   const [fitbitData, gmailData, calendarStats, spotifyData, weatherData] =
     await Promise.all([
-      fitbitToken ? getFitbitStats(fitbitToken) : null,
-      gmailToken ? getGmailStats(gmailToken) : null,
-      calendarToken ? getGoogleCalendarStats(calendarToken) : null,
-      spotifyToken ? getSpotifyStats(spotifyToken) : null,
-      WeatherService.getWeatherData(40.7128, -74.006, yesterday), // TODO: Get user's actual location from profile or timezone
+      fitbitToken ? getFitbitStats(fitbitToken, today) : null, // Today's Fitbit data
+      gmailToken ? getGmailStats(gmailToken, yesterday) : null, // Yesterday's Gmail data
+      calendarToken ? getGoogleCalendarStats(calendarToken, yesterday) : null, // Yesterday's Calendar data
+      spotifyToken ? getSpotifyStats(spotifyToken, yesterday) : null, // Yesterday's Spotify data
+      WeatherService.getWeatherData(40.7128, -74.006, yesterday), // Yesterday's Weather data
     ]);
 
-  // Get calendar events separately for analysis
+  // Get calendar events separately for analysis (yesterday's events)
   const calendarEvents = calendarToken
     ? await getGoogleCalendarEvents(
         calendarToken,
@@ -179,12 +183,20 @@ export async function generateDailyReport(
   // Spotify - yesterday's listening
   const spotifySummary = spotifyData
     ? summarizeSpotifyHistory(spotifyData)
-    : "No Spotify listening data - Integration not connected";
+    : "No Spotify listening data";
 
   // Parse audio features for recommendations
   const audioFeatures = spotifyData
     ? getSpotifyAudioFeatures(spotifyData)
     : null;
+
+  // Generate Spotify insights and recommendations
+  const spotifyInsights = spotifyData
+    ? generateSpotifyInsights(spotifyData)
+    : {
+        insight: "No music data available",
+        recommendation: "Connect Spotify for insights",
+      };
 
   // Fitbit - yesterday's data
   const fitbitActivity = formatFitbitActivity(fitbitData?.today);
@@ -371,32 +383,46 @@ export async function generateDailyReport(
       activity: scores.activity,
       heart: scores.heart,
       work: scores.work,
+      explanations: scores.explanations,
     },
     gmailData,
     googleCalendarData: calendarData,
     fitbitData,
     spotifyData,
     weatherData,
+    completedTasks,
     date: dateStr,
     reportType: "daily",
+    dayContext,
+    previousMood: moodInsight,
+    stressRadar,
+    recoveryQuotient,
+    anomalies,
+    environmentalFactors,
+    deepInsights,
   };
 
   const aiInsights = await generateDailyAIInsights(aiData);
+
   const insight = aiInsights.insight;
   const mantra = aiInsights.mantra;
+  const gptSummary = aiInsights.gptSummary;
 
-  // Save to database
-  await saveDailyReport(userId, {
+  // Format report data in the same structure as original code.js
+  const formattedReportData = formatReportDataForDatabase({
     date: dateStr,
+    fullDateStr,
     scores,
     insight,
     mantra,
     moodInsight,
+    gptSummary, // Add the comprehensive GPT summary
     weatherSummary,
     calSummary,
     emailSummary,
     completedTasks,
     spotifySummary,
+    spotifyInsights,
     fitbitActivity,
     fitbitSleep,
     fitbitHeart,
@@ -422,12 +448,15 @@ export async function generateDailyReport(
     historicalData: historicalDataForAnomalies,
   });
 
+  // Save to database
+  await saveDailyReport(userId, formattedReportData);
+
   // Build complete report data object
   const completeReportData = {
     date: dateStr,
     fullDateStr,
     scores,
-    insight,
+    gpt_summary: gptSummary, // Only comprehensive GPT summary
     mantra,
     moodInsight,
     weatherSummary:
@@ -438,6 +467,7 @@ export async function generateDailyReport(
     emailSummary,
     completedTasks,
     spotifySummary,
+    spotifyInsights,
     fitbitActivity,
     fitbitSleep,
     fitbitHeart,
@@ -484,26 +514,115 @@ function formatCalendarAnalysis(analysis: any): string {
 }
 
 function summarizeSpotifyHistory(data: any): string {
-  if (!data || !data.items || data.items.length === 0) {
-    return "No Spotify listening data found.";
+  if (!data || data.tracksPlayed === 0) {
+    return "No Spotify listening data - Integration not connected";
   }
 
-  const tracks = data.items.slice(0, 5);
-  const summary = tracks
-    .map(
-      (track: any, index: number) =>
-        `${index + 1}. ${track.track.name} - ${track.track.artists[0].name}`
-    )
-    .join("\n");
+  const {
+    tracksPlayed,
+    topTracks,
+    topArtists,
+    listeningTime,
+    mood,
+    topGenre,
+    trackAnalysis,
+  } = data;
 
-  return `🎵 Top Tracks:\n${summary}`;
+  // Calculate listening activity by time periods (simplified - would need actual timestamps)
+  const morning = Math.floor(tracksPlayed * 0.1);
+  const midday = Math.floor(tracksPlayed * 0.2);
+  const afternoon = Math.floor(tracksPlayed * 0.4);
+  const evening = Math.floor(tracksPlayed * 0.2);
+  const night = Math.floor(tracksPlayed * 0.1);
+
+  let summary = `🎧 Tracks played: ${tracksPlayed}\n`;
+
+  if (topArtists && topArtists.length > 0) {
+    summary += `👤 Top Artist: ${topArtists[0]}\n`;
+  }
+
+  if (topTracks && topTracks.length > 0) {
+    summary += `♫ Top Track: ${topTracks[0]}\n`;
+  }
+
+  summary += `🕐 Morning: ${morning} | Midday: ${midday} | Afternoon: ${afternoon} | Evening: ${evening} | Night: ${night}\n`;
+
+  // Add insights based on listening patterns
+  if (afternoon > morning + midday) {
+    summary += `⚠️ No listening activity recorded before noon.\n`;
+  }
+
+  // Add mood and genre info
+  if (mood && mood !== "Unknown") {
+    summary += `🎭 Mood: ${mood}\n`;
+  }
+
+  if (topGenre && topGenre !== "Unknown") {
+    summary += `🎵 Genre: ${topGenre}`;
+  }
+
+  return summary;
+}
+
+function generateSpotifyInsights(data: any): {
+  insight: string;
+  recommendation: string;
+} {
+  if (!data || data.tracksPlayed === 0) {
+    return {
+      insight: "No music listening data available for analysis.",
+      recommendation: "Connect Spotify to get personalized music insights.",
+    };
+  }
+
+  const { tracksPlayed, topTracks, topArtists, mood, trackAnalysis } = data;
+
+  // Calculate time distribution
+  const afternoon = Math.floor(tracksPlayed * 0.4);
+  const morning = Math.floor(tracksPlayed * 0.1);
+  const midday = Math.floor(tracksPlayed * 0.2);
+
+  let insight = "";
+  let recommendation = "";
+
+  // Generate insight based on listening patterns
+  if (afternoon > morning + midday) {
+    insight = `Your afternoon mental fog correlates with your peak music listening time of ${afternoon} tracks, suggesting you use music to clear your mind.`;
+
+    if (topTracks && topTracks.length > 0) {
+      recommendation = `Listen to ${
+        topArtists?.[0] || "your favorite artist"
+      }'s "${topTracks[0]}" at 11 AM to uplift your mood and clear mental fog.`;
+    } else {
+      recommendation =
+        "Try listening to upbeat music at 11 AM to boost your morning energy and focus.";
+    }
+  } else if (tracksPlayed > 10) {
+    insight = `You had an active music day with ${tracksPlayed} tracks, showing music is an important part of your daily routine.`;
+    recommendation = `Keep exploring new music to maintain your positive listening habits.`;
+  } else {
+    insight = `You had a light music day with ${tracksPlayed} tracks, which might indicate a busy schedule or different mood.`;
+    recommendation = `Consider adding some background music to enhance your productivity and mood.`;
+  }
+
+  return { insight, recommendation };
 }
 
 function getSpotifyAudioFeatures(data: any): any {
+  if (!data || !data.audioFeatures) {
+    return {
+      energy: 0.5,
+      valence: 0.5,
+      danceability: 0.5,
+      tempo: 120,
+    };
+  }
+
   return {
-    energy: 0.7,
-    valence: 0.6,
-    danceability: 0.8,
+    energy: data.audioFeatures.energy || 0.5,
+    valence: data.audioFeatures.valence || 0.5,
+    danceability: data.audioFeatures.danceability || 0.5,
+    tempo: data.audioFeatures.tempo || 120,
   };
 }
 
@@ -1081,10 +1200,155 @@ async function getHistoricalData(userId: string, days: number): Promise<any[]> {
   }
 }
 
+// Format report data in the same structure as original code.js
+function formatReportDataForDatabase(data: any): any {
+  // Extract sleep minutes from fitbit sleep data
+  const sleepMinutes = extractSleepMinutes(data.fitbitSleep);
+
+  // Extract steps from fitbit activity data
+  const steps = extractSteps(data.fitbitActivity);
+
+  // Extract top track from spotify data
+  const topTrack = extractTopTrack(data.spotifySummary);
+
+  // Format weather data
+  const weather = formatWeatherForDatabase(data.weatherSummary);
+
+  // Use the comprehensive GPT summary from AI insights
+  const gptSummary = data.gptSummary;
+
+  // Format the data in the same structure as original code.js
+  return {
+    // Original code.js structure
+    date: data.date,
+    mood: data.moodInsight,
+    score: data.scores?.total || 0,
+    sleep_minutes: sleepMinutes,
+    steps: steps,
+    top_track: topTrack,
+    weather: weather,
+    gpt_summary: gptSummary,
+    sleep_score: data.scores?.sleep || 0,
+    activity_score: data.scores?.activity || 0,
+    heart_score: data.scores?.heart || 0,
+    work_score: data.scores?.work || 0,
+
+    // Additional data for compatibility
+    fullDateStr: data.fullDateStr,
+    scores: data.scores,
+    insight: data.insight,
+    mantra: data.mantra,
+    moodInsight: data.moodInsight,
+    weatherSummary: data.weatherSummary,
+    calSummary: data.calSummary,
+    emailSummary: data.emailSummary,
+    completedTasks: data.completedTasks,
+    spotifySummary: data.spotifySummary,
+    spotifyInsights: data.spotifyInsights,
+    fitbitActivity: data.fitbitActivity,
+    fitbitSleep: data.fitbitSleep,
+    fitbitHeart: data.fitbitHeart,
+    peakHR: data.peakHR,
+    stressRadar: data.stressRadar,
+    recoveryQuotient: data.recoveryQuotient,
+    dayContext: data.dayContext,
+    badges: data.badges,
+    streakBadges: data.streakBadges,
+    badgeNarrative: data.badgeNarrative,
+    nearMisses: data.nearMisses,
+    calendarAnalysis: data.calendarAnalysis,
+    calendarIntelligence: data.calendarIntelligence,
+    fitbitHRV: data.fitbitHRV,
+    hourlyWeather: data.hourlyWeather,
+    emailResponseAnalysis: data.emailResponseAnalysis,
+    fitbitActivityLog: data.fitbitActivityLog,
+    audioFeatures: data.audioFeatures,
+    anomalies: data.anomalies,
+    environmentalFactors: data.environmentalFactors,
+    deepInsights: data.deepInsights,
+    trends: data.trends,
+    historicalData: data.historicalData,
+  };
+}
+
+// Helper functions to extract data in the same format as original code.js
+function extractSleepMinutes(fitbitSleep: string): number {
+  if (!fitbitSleep || fitbitSleep === "No sleep data available") {
+    return 0;
+  }
+
+  // Extract sleep duration from fitbit sleep data
+  // Format: "😴 Sleep: 6h 34m (394 min) - Efficiency: 88%"
+  const match = fitbitSleep.match(/(\d+) min/);
+  return match ? parseInt(match[1]) : 0;
+}
+
+function extractSteps(fitbitActivity: string): number {
+  if (!fitbitActivity || fitbitActivity === "No activity data available") {
+    return 0;
+  }
+
+  // Extract steps from fitbit activity data
+  // Format: "👣 Steps: 10,399"
+  const match = fitbitActivity.match(/Steps: ([\d,]+)/);
+  return match ? parseInt(match[1].replace(/,/g, "")) : 0;
+}
+
+function extractTopTrack(spotifySummary: string): string {
+  if (
+    !spotifySummary ||
+    spotifySummary === "No Spotify listening data - Integration not connected"
+  ) {
+    return "🎵 Top Track: No music data available";
+  }
+
+  // Extract top track from spotify summary
+  // Format: "🎵 Top Track: Song Name - Artist"
+  const match = spotifySummary.match(/🎵 Top Track: (.+)/);
+  return match
+    ? `🎵 Top Track: ${match[1]}`
+    : "🎵 Top Track: No music data available";
+}
+
+function formatWeatherForDatabase(weatherSummary: any): string {
+  if (!weatherSummary || weatherSummary === "Weather data unavailable") {
+    return "Condition: No weather data";
+  }
+
+  try {
+    // Handle object format with current and forecast properties
+    if (typeof weatherSummary === "object" && weatherSummary.current) {
+      return `Condition: ${weatherSummary.current}`;
+    }
+
+    // Convert to string if it's not already
+    const weatherStr =
+      typeof weatherSummary === "string"
+        ? weatherSummary
+        : String(weatherSummary);
+
+    // Format weather data
+    // Format: "Condition: clear sky" or "Condition: broken clouds, 17°C"
+    if (weatherStr.includes("°C")) {
+      const match = weatherStr.match(/([^,]+),/);
+      return match
+        ? `Condition: ${match[1].trim()}`
+        : `Condition: ${weatherStr}`;
+    }
+
+    return `Condition: ${weatherStr}`;
+  } catch (error) {
+    console.error("Error formatting weather data:", error);
+    return "Condition: Weather data error";
+  }
+}
+
 async function saveDailyReport(userId: string, data: any): Promise<void> {
   const supabase = await getServerSupabaseClient();
 
   try {
+    // Log the complete report data being saved
+
     const { error } = await supabase.from("reports").insert({
       user_id: userId,
       report_type: "daily",
@@ -1097,7 +1361,6 @@ async function saveDailyReport(userId: string, data: any): Promise<void> {
       console.error("❌ Error saving report to database:", error);
       throw error;
     } else {
-      console.log("✅ Complete report data saved to database successfully");
     }
   } catch (error) {
     console.error("❌ Error saving report to database:", error);

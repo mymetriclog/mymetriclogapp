@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "@/lib/supabase/server";
 import { generateDailyReport } from "@/lib/reports/daily-report-generator";
-import { generateEnhancedDailyReport } from "@/lib/reports/enhanced-report-generator";
-import { generateEnhancedDailyEmailTemplate } from "@/lib/sendgrid/templates/enhanced-daily-email-template";
+import { generateDailyReportEmail } from "@/lib/sendgrid/templates/daily-email-template";
 import { sendEmail } from "@/lib/sendgrid/email-service";
 
 export async function POST(request: Request) {
@@ -39,29 +38,10 @@ export async function POST(request: Request) {
 
     const reportDate = date ? new Date(date) : undefined;
 
-    // Generate the daily report (legacy)
     const reportData = await generateDailyReport(targetUserId, reportDate);
 
-    // Generate enhanced report with all new features
-    const enhancedReportData = await generateEnhancedDailyReport(
-      reportData.fitbitSleep || "",
-      reportData.fitbitActivity || "",
-      reportData.fitbitHeart || "",
-      reportData.fitbitHRV,
-      { emails: [], totalEmails: 0, sentEmails: 0 }, // gmailData structure
-      { events: [] }, // calendarData structure
-      {
-        stats: reportData.spotifySummary
-          ? { summary: reportData.spotifySummary }
-          : {},
-      }, // spotifyData structure
-      { summary: reportData.weatherSummary }, // weatherData structure
-      reportData.completedTasks || "",
-      reportDate || new Date()
-    );
-
-    // Generate enhanced email HTML
-    const emailHTML = generateEnhancedDailyEmailTemplate(enhancedReportData);
+    // Generate email HTML using the correct template
+    const emailHTML = generateDailyReportEmail(reportData);
 
     // Send email (only for user session requests, queue requests handle email separately)
     if (!isQueueRequest) {
@@ -94,7 +74,6 @@ export async function POST(request: Request) {
 
       if (logResult.success) {
         logId = logResult.logId;
-        console.log(`📝 Email logged with ID: ${logId}`);
       } else {
         console.warn(`⚠️ Failed to log email: ${logResult.error}`);
       }
@@ -147,8 +126,7 @@ export async function POST(request: Request) {
       message: isQueueRequest
         ? "Daily report generated successfully"
         : "Daily report generated and sent successfully",
-      reportData: enhancedReportData,
-      legacyReportData: reportData,
+      reportData: reportData,
     });
   } catch (error) {
     console.error("❌ Error generating daily report:", error);
@@ -174,30 +152,11 @@ export async function GET() {
     }
 
     console.log("🚀 Generating daily report for user:", session.user.id);
-
     // Generate the daily report (legacy)
     const reportData = await generateDailyReport(session.user.id);
 
-    // Generate enhanced report with all new features
-    const enhancedReportData = await generateEnhancedDailyReport(
-      reportData.fitbitSleep || "",
-      reportData.fitbitActivity || "",
-      reportData.fitbitHeart || "",
-      reportData.fitbitHRV,
-      { emails: [], totalEmails: 0, sentEmails: 0 }, // gmailData structure
-      { events: [] }, // calendarData structure
-      {
-        stats: reportData.spotifySummary
-          ? { summary: reportData.spotifySummary }
-          : {},
-      }, // spotifyData structure
-      { summary: reportData.weatherSummary }, // weatherData structure
-      reportData.completedTasks || "",
-      new Date()
-    );
-
-    // Generate enhanced email HTML
-    const emailHTML = generateEnhancedDailyEmailTemplate(enhancedReportData);
+    // Generate email HTML using the correct template
+    const emailHTML = generateDailyReportEmail(reportData);
 
     // Add CC for specific user
     const ccEmails =
@@ -225,8 +184,9 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       message: "Daily report generated and sent successfully",
-      reportData: enhancedReportData,
-      legacyReportData: reportData,
+      // Return the original reportData so consumers get gpt_summary and the exact structure
+      reportData: reportData,
+      // legacyReportData: enhancedReportData,
     });
   } catch (error) {
     console.error("❌ Error generating daily report:", error);

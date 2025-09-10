@@ -173,10 +173,10 @@ export function generateAudioAnalysisInsights(
  */
 export function analyzeIndividualTracks(
   tracks: any[],
-  audioFeatures: any[]
+  audioFeatures: any[] | null
 ): TrackAnalysis[] {
   return tracks.map((track, index) => {
-    const features = audioFeatures[index] || {};
+    const features = audioFeatures?.[index] || {};
     const trackFeatures = analyzeAdvancedAudioFeatures([track], [features]);
 
     return {

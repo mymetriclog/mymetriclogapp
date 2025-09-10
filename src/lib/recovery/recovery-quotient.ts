@@ -106,7 +106,7 @@ export function getRecoveryQuotient(
   }
 
   // Store recovery score for tomorrow's comparison
-  storePreviousRecoveryScore(totalScore);
+  // storePreviousRecoveryScore(totalScore);
 
   return {
     score: totalScore,
@@ -300,7 +300,7 @@ function getBaselineRHR(): number {
 function storePreviousRecoveryScore(score: number): void {
   // This would typically store in a database or cache
   // For now, just a placeholder
-  console.log(`Storing recovery score: ${score}`);
+  // console.log(`Storing recovery score: ${score}`);
 }
 
 /**

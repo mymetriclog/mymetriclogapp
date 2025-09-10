@@ -124,6 +124,7 @@ export async function getSpotifyAccessToken(
       return null;
     }
 
+
     const now = Math.floor(Date.now() / 1000);
 
     if (data.expires_at && data.expires_at > now && data.access_token) {
@@ -213,19 +214,25 @@ export async function getSpotifyProfile(
 }
 
 export async function getSpotifyStats(
-  accessToken: string
+  accessToken: string,
+  date?: Date
 ): Promise<SpotifyStats | null> {
   try {
-    // Get recently played tracks
-    const response = await fetch(
-      "https://api.spotify.com/v1/me/player/recently-played?limit=50",
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        cache: "no-store",
-      }
-    );
+    // Get recently played tracks (filter by date if provided)
+    let url = "https://api.spotify.com/v1/me/player/recently-played?limit=50";
+    if (date) {
+      // Use a broader range: from 2 days ago to now to catch any tracks
+      const twoDaysAgo = new Date(date.getTime() - 2 * 24 * 60 * 60 * 1000);
+      const timestamp = Math.floor(twoDaysAgo.getTime() / 1000);
+      url += `&after=${timestamp}`;
+    }
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    });
 
     if (!response.ok) {
       return null;
@@ -286,6 +293,8 @@ export async function getSpotifyStats(
         summary: "No Spotify data available",
       };
     }
+
+    console.log("🎵 Processing Spotify data with", tracks.length, "tracks");
 
     // Extract track IDs for audio features
     const trackIds = tracks.map((item: any) => item.track.id).slice(0, 20);
@@ -366,7 +375,7 @@ export async function getSpotifyStats(
     );
     const trackAnalysis = analyzeIndividualTracks(tracks, audioFeatures);
 
-    return {
+    const spotifyStats = {
       tracksPlayed,
       topGenre: advancedFeatures.genre,
       mood: advancedFeatures.mood,
@@ -384,7 +393,10 @@ export async function getSpotifyStats(
       trackAnalysis,
       summary: audioInsights.audioSummary,
     };
+
+    return spotifyStats;
   } catch (error) {
+    console.error("❌ Error in getSpotifyStats:", error);
     return null;
   }
 }

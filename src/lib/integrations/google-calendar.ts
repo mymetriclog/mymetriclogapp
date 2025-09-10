@@ -380,15 +380,15 @@ export async function getGoogleCalendarEventsWithDetails(
   }
 }
 
-export async function getGoogleCalendarStats(accessToken: string) {
+export async function getGoogleCalendarStats(accessToken: string, date?: Date) {
   try {
     const profile = await getGoogleCalendarProfile(accessToken);
     if (!profile) {
       return null;
     }
 
-    // Get events for the next 30 days
-    const now = new Date();
+    // Get events for the specified date (or next 30 days if no date provided)
+    const now = date || new Date();
     const thirtyDaysFromNow = new Date(
       now.getTime() + 30 * 24 * 60 * 60 * 1000
     );

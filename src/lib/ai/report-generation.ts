@@ -12,6 +12,12 @@ export interface AIReportData {
     activity: number;
     heart: number;
     work: number;
+    explanations?: {
+      sleep: string[];
+      activity: string[];
+      heart: string[];
+      work: string[];
+    };
   };
   gmailData?: any;
   googleCalendarData?: any;
@@ -21,6 +27,16 @@ export interface AIReportData {
   completedTasks?: string;
   date: string;
   reportType: "daily" | "weekly";
+  dayContext?: {
+    dayName: string;
+    dayType: string;
+  };
+  previousMood?: string;
+  stressRadar?: any;
+  recoveryQuotient?: any;
+  anomalies?: any;
+  environmentalFactors?: any;
+  deepInsights?: any;
 }
 
 export interface AIInsight {
@@ -30,6 +46,94 @@ export interface AIInsight {
   recommendations: string[];
   trends: any;
   patterns: any;
+  gptSummary: string; // Add comprehensive GPT summary
+}
+
+/**
+ * Build comprehensive GPT input exactly like the original code.js
+ */
+function buildComprehensiveGPTInput(data: AIReportData): string {
+  const dayContext = data.dayContext || { dayName: "day", dayType: "weekday" };
+  const previousMood = data.previousMood || "balanced";
+
+  let gptInput = `Yesterday's (${dayContext.dayName}) mood: ${previousMood}
+Note: Sleep data reflects last night's rest (affecting today's energy)
+
+SCORE BREAKDOWN:
+Overall: ${data.scores?.total || 0}/100
+Sleep: ${data.scores?.sleep || 0}/100 - ${
+    data.scores?.explanations?.sleep?.join("; ") || "No explanations available"
+  }
+Activity: ${data.scores?.activity || 0}/100 - ${
+    data.scores?.explanations?.activity?.join("; ") ||
+    "No explanations available"
+  }
+Heart: ${data.scores?.heart || 0}/100 - ${
+    data.scores?.explanations?.heart?.join("; ") || "No explanations available"
+  }
+Work: ${data.scores?.work || 0}/100 - ${
+    data.scores?.explanations?.work?.join("; ") || "No explanations available"
+  }
+
+Calendar:
+${data.googleCalendarData?.calSummary || "No calendar data available"}
+
+Calendar Intelligence Score: ${
+    data.googleCalendarData?.calendarIntelligence?.score || 0
+  }/100
+${
+  data.googleCalendarData?.calendarIntelligence?.insights?.length > 0
+    ? `Calendar Issues: ${data.googleCalendarData.calendarIntelligence.insights.join(
+        ", "
+      )}\n\n`
+    : ""
+}Emails:
+${data.gmailData?.emailSummary || "No email data available"}
+
+${
+  data.gmailData?.noisePercentage > 70
+    ? `Note: ${data.gmailData.noisePercentage}% of emails were promotional/social noise\n\n`
+    : ""
+}${data.completedTasks ? `Tasks:\n${data.completedTasks}\n\n` : ""}Spotify:
+${data.spotifyData?.spotifySummary || "No Spotify listening data found."}
+
+Activity:
+${data.fitbitData?.fitbitActivity || "No activity data available"}
+
+Sleep:
+${data.fitbitData?.fitbitSleep || "No sleep data available"}
+
+Heart:
+${data.fitbitData?.fitbitHeart || "No heart data available"}
+
+Weather:
+${data.weatherData?.weatherSummary || "No weather data available"}
+
+Stress Level:
+${data.stressRadar?.level || "Unknown"} (${data.stressRadar?.score || 0}/100)
+
+Recovery:
+${data.recoveryQuotient?.readiness || "Unknown"} (${
+    data.recoveryQuotient?.score || 0
+  }/100)
+
+${
+  data.anomalies?.detected?.length > 0
+    ? `Biometric Anomalies: ${data.anomalies.detected
+        .map((a: any) => `${a.type} - ${a.insight}`)
+        .join("; ")}\n\n`
+    : ""
+}${
+    data.environmentalFactors?.weather?.impact !== "neutral"
+      ? `Environmental Impact: ${data.environmentalFactors.weather.insight}\n\n`
+      : ""
+  }${
+    data.deepInsights?.patterns?.length > 0
+      ? `AI Pattern Detected: ${data.deepInsights.patterns[0].type} - ${data.deepInsights.patterns[0].detail}\n\n`
+      : ""
+  }`;
+
+  return gptInput;
 }
 
 /**
@@ -43,15 +147,97 @@ export async function generateDailyAIInsights(
     // Avoid recursion - use direct AI call instead of enhanced report
     console.log("🤖 Generating AI insights directly...");
 
-    // Generate simple prompt to avoid recursion
-    const prompt = `Generate a daily wellness insight for a user with the following data:
-    - Total Score: ${data.scores?.total || 0}
-    - Sleep Score: ${data.scores?.sleep || 0}
-    - Activity Score: ${data.scores?.activity || 0}
-    - Heart Score: ${data.scores?.heart || 0}
-    - Work Score: ${data.scores?.work || 0}
-    
-    Please provide a brief, encouraging insight about their wellness performance.`;
+    // Build comprehensive GPT input exactly like the original code.js
+    const gptInput = buildComprehensiveGPTInput(data);
+
+    // Use the same prompt structure as the original code.js
+    const prompt = `You are Sage, a wise and insightful fox who serves as a personal wellness analyst. You're knowledgeable, supportive, and focus on integrated analysis rather than criticism. You combine ancient wisdom with modern wellness science, speaking with warmth and genuine care.
+
+SAGE'S PERSONALITY:
+• You're an expert analyst who sees patterns others miss
+• You provide integrated insights, not just observations
+• You're encouraging and constructive, never scolding
+• You connect the dots between different metrics
+• Balance expertise with warmth and support
+• You're that friend who helps you understand yourself better
+
+IMPORTANT CONTEXT - Yesterday's EXACT scores and explanations:
+• Overall Score: ${data.scores?.total || 0}/100
+• Sleep: ${data.scores?.sleep || 0}/100 (${
+      data.scores?.explanations?.sleep?.join("; ") ||
+      "No explanations available"
+    })
+• Activity: ${data.scores?.activity || 0}/100 (${
+      data.scores?.explanations?.activity?.join("; ") ||
+      "No explanations available"
+    })
+• Heart: ${data.scores?.heart || 0}/100 (${
+      data.scores?.explanations?.heart?.join("; ") ||
+      "No explanations available"
+    })
+• Work: ${data.scores?.work || 0}/100 (${
+      data.scores?.explanations?.work?.join("; ") || "No explanations available"
+    })
+
+KEY INSIGHTS TO INCORPORATE:
+- If 0 meetings: This is POSITIVE - highlight the rare focus opportunity
+- If high email noise %: This is about inbox filtering, not work performance
+- Reference the EXACT scores above, don't make up numbers
+- Explain WHY each score is what it is based on the breakdowns provided
+- Match headlines to actual data (don't say 'work intensity stealing sleep' if work score is 100)
+
+Write your response in EXACTLY this format with [PARAGRAPH BREAK] markers:
+
+[Paragraph 1: Metrics overview]
+[PARAGRAPH BREAK]
+[Paragraph 2: Integrated analysis]
+[PARAGRAPH BREAK]
+[Paragraph 3: Recommendation]
+
+PARAGRAPH 1 (Metrics Overview - 60-80 words): Present yesterday's scores conversationally but precisely. Start with: 'Your ${
+      data.dayContext?.dayName || "day"
+    } delivered a [adjective] **${
+      data.scores?.total || 0
+    }/100**.' Then cover each subscore with its main driver. Example: 'Sleep hit **85/100** with **7h 42m** of quality rest, though efficiency at **65%** suggests some restlessness. Activity reached **90/100** powered by **12,415 steps** and **60+ active minutes**.' Include all 4 subscores. Be factual here - save analysis for paragraph 2.
+
+PARAGRAPH 2 (Integrated Analysis - 60-80 words): NOW connect the dots. Show how metrics influenced each other. Examples: 'That stellar activity score despite poor sleep efficiency? Classic compensation pattern - your body pushed through fatigue with movement.' or 'With **0 meetings** and perfect work score, you capitalized on rare deep focus time.' Include:
+• How sleep affected other metrics
+• Email/meeting patterns and their impact
+• Any notable patterns or mismatches
+• Recovery vs activity balance
+
+PARAGRAPH 3 (Today's Action - 40-60 words): ONE specific recommendation targeting the biggest opportunity. Format: '**[Action] at [time]** - [why it matters].' Example: '**Set bedroom to 65°F at 9:30 PM tonight** - your **49% sleep efficiency** screams environmental issues. Cool, dark, quiet wins every time.' End with brief encouragement.
+
+CRITICAL STYLE RULES:
+• NO EXTENDED METAPHORS - Max 2-3 light comparisons total
+• NO THEMED RESPONSES (no symphony, recipe, journey, etc. throughout)
+• Be conversational but not cutesy
+• Use specific numbers, not vague descriptions
+• If you mention 'Chef's kiss' or similar, use it ONCE max
+
+ADDITIONAL GUIDELINES:
+• If task data is unavailable or shows no tasks, DO NOT penalize or mention as negative
+• When work score includes 'Task tracking not configured = 25/25 points', don't treat as an issue
+• For sedentary time, be real but not harsh: 'typical for desk warriors' not 'terrible inactivity'
+• Weekend context: lower activity/work is GOOD, not concerning
+
+FORMATTING RULES:
+• YOU MUST include [PARAGRAPH BREAK] between each paragraph
+• Use **bold** for ALL numbers and key actions
+• No greetings or headers - jump right in
+• Always use 'you/your' - you're talking TO them
+• Keep it 180-220 words total (NOT 250)
+
+TONE GUIDELINES:
+• Sound like their smartest, most caring friend
+• Add personality through word choice, not gimmicks
+• If something's off, say it kindly but directly
+• Make insights clear first, clever second
+• End with motivation, not just instructions
+
+DATA:
+
+${gptInput}`;
 
     let completion;
     try {
@@ -128,6 +314,7 @@ export async function generateDailyAIInsights(
       recommendations: parsed.recommendations,
       trends: data.scores,
       patterns: [],
+      gptSummary: response, // Use the full AI response as GPT summary
     };
   } catch (error) {
     console.error("Error generating AI insights:", error);
@@ -825,6 +1012,7 @@ function parseAIResponse(response: string, data: AIReportData): AIInsight {
           : generateFallbackRecommendations(data),
       trends: {},
       patterns: [],
+      gptSummary: insight || generateFallbackInsight(data), // Use insight as fallback for GPT summary
     };
   } catch (error) {
     return generateFallbackInsights(data);
@@ -877,6 +1065,7 @@ function parseWeeklyAIResponse(
           : generateWeeklyFallbackTrends(data),
       patterns:
         patterns.length > 0 ? patterns : generateWeeklyFallbackPatterns(data),
+      gptSummary: insight || generateWeeklyFallbackInsight(data), // Use insight as fallback for GPT summary
     };
   } catch (error) {
     return generateWeeklyFallbackInsights(data);
@@ -895,6 +1084,7 @@ function generateFallbackInsights(data: AIReportData): AIInsight {
     recommendations: generateFallbackRecommendations(data),
     trends: {},
     patterns: [],
+    gptSummary: generateFallbackInsight(data), // Use insight as fallback for GPT summary
   };
 }
 
@@ -906,6 +1096,7 @@ function generateWeeklyFallbackInsights(data: AIReportData): AIInsight {
     recommendations: generateWeeklyFallbackRecommendations(data),
     trends: generateWeeklyFallbackTrends(data),
     patterns: generateWeeklyFallbackPatterns(data),
+    gptSummary: generateWeeklyFallbackInsight(data), // Use insight as fallback for GPT summary
   };
 }
 

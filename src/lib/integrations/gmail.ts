@@ -169,11 +169,25 @@ export async function getGmailProfile(
 
 export async function getGmailMessages(
   accessToken: string,
-  maxResults: number = 10
+  maxResults: number = 10,
+  date?: Date
 ): Promise<GmailMessage[]> {
   try {
+    // Build query with date filter if provided
+    let query = "";
+    if (date) {
+      const dateStr = date.toISOString().split("T")[0];
+      query = `?q=after:${dateStr} before:${
+        new Date(date.getTime() + 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0]
+      }&maxResults=${maxResults}`;
+    } else {
+      query = `?maxResults=${maxResults}`;
+    }
+
     const response = await fetch(
-      `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${maxResults}`,
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages${query}`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -374,15 +388,15 @@ export async function getGmailMessagesWithContent(
   }
 }
 
-export async function getGmailStats(accessToken: string) {
+export async function getGmailStats(accessToken: string, date?: Date) {
   try {
     const profile = await getGmailProfile(accessToken);
     if (!profile) {
       return null;
     }
 
-    // Get recent messages for additional stats
-    const messages = await getGmailMessages(accessToken, 100);
+    // Get recent messages for additional stats (filter by date if provided)
+    const messages = await getGmailMessages(accessToken, 100, date);
 
     // Calculate unread count (approximate) - handle messages without labelIds
     const unreadCount = messages.filter((msg) => {
