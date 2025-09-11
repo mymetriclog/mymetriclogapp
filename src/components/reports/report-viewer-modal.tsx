@@ -20,6 +20,39 @@ interface ReportData {
   json: any;
   ai_insights?: any;
   created_at?: string;
+  // Comprehensive data fields
+  gpt_summary?: string;
+  mantra?: string;
+  moodInsight?: string;
+  weatherSummary?: string;
+  calSummary?: string;
+  emailSummary?: string;
+  completedTasks?: string;
+  spotifySummary?: string;
+  spotifyInsights?: any;
+  fitbitActivity?: string;
+  fitbitSleep?: string;
+  fitbitHeart?: string;
+  peakHR?: number;
+  stressRadar?: any;
+  recoveryQuotient?: any;
+  dayContext?: any;
+  badges?: any[];
+  streakBadges?: any[];
+  badgeNarrative?: string;
+  nearMisses?: any[];
+  calendarAnalysis?: any;
+  calendarIntelligence?: any;
+  fitbitHRV?: any;
+  hourlyWeather?: any;
+  emailResponseAnalysis?: any;
+  fitbitActivityLog?: any;
+  audioFeatures?: any;
+  anomalies?: any;
+  environmentalFactors?: any;
+  deepInsights?: any;
+  trends?: any;
+  historicalData?: any[];
 }
 
 interface ReportViewerModalProps {
@@ -98,85 +131,12 @@ export function ReportViewerModal({
       score: report.score,
       hasJson: !!report.json,
       hasAiInsights: !!report.ai_insights,
+      hasGptSummary: !!report.gpt_summary,
+      hasMantra: !!report.mantra,
     });
 
-    // Extract data from the report JSON
-    const reportData = report.json || {};
-
-    // Debug: Log the extracted report data
-    console.log("📊 Extracted report data:", {
-      gmailData: reportData.gmailData,
-      fitbitData: reportData.fitbitData,
-      spotifyData: reportData.spotifyData,
-      weatherData: reportData.weatherData,
-      googleCalendarData: reportData.googleCalendarData,
-    });
-
-    // Check what data is actually available based on REAL database structure
-    const hasGmailData =
-      reportData.gmailData &&
-      (reportData.gmailData.stats?.emailsToday ||
-        reportData.gmailData.stats?.totalEmails ||
-        reportData.gmailData.stats?.unreadCount ||
-        reportData.gmailData.stats?.calendarInvites ||
-        reportData.gmailData.stats?.averageResponseTime);
-
-    const hasFitbitData =
-      reportData.fitbitData &&
-      (reportData.fitbitData.steps ||
-        reportData.fitbitData.calories ||
-        reportData.fitbitData.sleep ||
-        reportData.fitbitData.heartRate ||
-        reportData.fitbitData.distance);
-
-    const hasSpotifyData =
-      reportData.spotifyData &&
-      (reportData.spotifyData.recentTracks ||
-        reportData.spotifyData.topTracks ||
-        reportData.spotifyData.savedAlbums ||
-        reportData.spotifyData.playlists);
-
-    const hasWeatherData =
-      reportData.weatherData &&
-      (reportData.weatherData.summary?.current ||
-        reportData.weatherData.summary?.impact ||
-        reportData.weatherData.insights?.moodInfluence ||
-        reportData.weatherData.hourlyForecast?.length > 0);
-
-    const hasGoogleCalendarData =
-      reportData.googleCalendarData &&
-      (reportData.googleCalendarData.stats?.eventsToday ||
-        reportData.googleCalendarData.stats?.totalEvents ||
-        reportData.googleCalendarData.stats?.upcomingEvents ||
-        reportData.googleCalendarData.events?.length > 0);
-
-    const hasInsights =
-      report.ai_insights &&
-      (report.ai_insights.mantra ||
-        report.ai_insights.insight ||
-        report.ai_insights.moodInsight ||
-        report.ai_insights.recommendations?.length > 0);
-
-    // Debug: Log what data is available
-    console.log("✅ Data availability check:", {
-      hasGmailData,
-      hasFitbitData,
-      hasSpotifyData,
-      hasWeatherData,
-      hasGoogleCalendarData,
-      hasInsights,
-    });
-
-    // Debug: Log weather data specifically
-    console.log("🌤️ Weather data check:", {
-      hasWeatherData,
-      weatherData: reportData.weatherData,
-      current: reportData.weatherData?.summary?.current,
-      hourlyForecast: reportData.weatherData?.hourlyForecast,
-      hourlyLength: reportData.weatherData?.hourlyForecast?.length,
-    });
-
-    // Create data structure for the template using REAL database data
+    // Use the comprehensive data directly from the report object
+    // This is the data that our updated API now provides
     const dailyReportData = {
       date: report.date,
       fullDateStr: new Date(report.date).toLocaleDateString("en-US", {
@@ -185,7 +145,7 @@ export function ReportViewerModal({
         month: "long",
         day: "numeric",
       }),
-      scores: {
+      scores: report.json?.scores || {
         total: report.score,
         sleep: Math.round(report.score * 0.25),
         activity: Math.round(report.score * 0.25),
@@ -198,139 +158,132 @@ export function ReportViewerModal({
           work: ["Work productivity and focus indicators"],
         },
       },
-      insight: hasInsights
-        ? report.ai_insights.insight || "Great progress today!"
-        : "Great progress today!",
-      mantra: hasInsights
-        ? report.ai_insights.mantra || "Stay consistent, stay strong!"
-        : "Stay consistent, stay strong!",
-      moodInsight: hasInsights
-        ? report.ai_insights.moodInsight ||
-          "Your mood patterns show positive trends"
-        : "Your mood patterns show positive trends",
-      weatherSummary: hasWeatherData
-        ? reportData.weatherData.summary?.current ||
-          "Weather data not available"
-        : "Weather data not available",
-      calSummary: hasGoogleCalendarData
-        ? `You have ${
-            reportData.googleCalendarData.stats?.eventsToday || 0
-          } events today`
-        : "No calendar data available",
-      emailSummary: hasGmailData
-        ? `You received ${
-            reportData.gmailData.stats?.emailsToday || 0
-          } emails today`
-        : "No email data available",
-      completedTasks: "Review your daily progress and plan for tomorrow",
-      spotifySummary: hasSpotifyData
-        ? "Your music listening patterns show good variety"
-        : "No music data available",
-      fitbitActivity: hasFitbitData
-        ? `You took ${reportData.fitbitData.steps || 0} steps today`
-        : "No activity data available",
-      fitbitSleep: hasFitbitData
-        ? `You slept for ${reportData.fitbitData.sleep || "7h 30m"}`
-        : "No sleep data available",
-      fitbitHeart: hasFitbitData
-        ? `Your resting heart rate was ${
-            reportData.fitbitData.heartRate || 72
-          } bpm`
-        : "No heart rate data available",
-      peakHR: hasFitbitData ? (reportData.fitbitData.heartRate || 72) + 20 : 92,
-      stressRadar: {
-        level:
-          report.score >= 80 ? "Low" : report.score >= 60 ? "Medium" : "High",
-        score: report.score,
-        factors: ["Work pressure", "Sleep quality", "Activity level"],
-      },
-      recoveryQuotient: {
-        readiness:
-          report.score >= 80 ? "High" : report.score >= 60 ? "Medium" : "Low",
-        score: report.score,
-        factors: [
-          "Sleep quality",
-          "Heart rate variability",
-          "Activity recovery",
+      insight: report.json?.insight || "Great progress today!",
+      gpt_summary: report.gpt_summary || report.json?.gpt_summary,
+      mantra:
+        report.mantra || report.json?.mantra || "Stay consistent, stay strong!",
+      moodInsight:
+        report.moodInsight ||
+        report.json?.moodInsight ||
+        "Your mood patterns show positive trends",
+      weatherSummary:
+        report.weatherSummary ||
+        report.json?.weatherSummary ||
+        "Weather data not available",
+      calSummary:
+        report.calSummary ||
+        report.json?.calSummary ||
+        "No calendar data available",
+      emailSummary:
+        report.emailSummary ||
+        report.json?.emailSummary ||
+        "No email data available",
+      completedTasks:
+        report.completedTasks ||
+        report.json?.completedTasks ||
+        "Review your daily progress and plan for tomorrow",
+      spotifySummary:
+        report.spotifySummary ||
+        report.json?.spotifySummary ||
+        "No music data available",
+      spotifyInsights: report.spotifyInsights || report.json?.spotifyInsights,
+      fitbitActivity:
+        report.fitbitActivity ||
+        report.json?.fitbitActivity ||
+        "No activity data available",
+      fitbitSleep:
+        report.fitbitSleep ||
+        report.json?.fitbitSleep ||
+        "No sleep data available",
+      fitbitHeart:
+        report.fitbitHeart ||
+        report.json?.fitbitHeart ||
+        "No heart rate data available",
+      peakHR: report.peakHR || report.json?.peakHR || 92,
+      stressRadar: report.stressRadar ||
+        report.json?.stressRadar || {
+          level:
+            report.score >= 80 ? "Low" : report.score >= 60 ? "Medium" : "High",
+          score: report.score,
+          factors: ["Work pressure", "Sleep quality", "Activity level"],
+        },
+      recoveryQuotient: report.recoveryQuotient ||
+        report.json?.recoveryQuotient || {
+          readiness:
+            report.score >= 80 ? "High" : report.score >= 60 ? "Medium" : "Low",
+          score: report.score,
+          factors: [
+            "Sleep quality",
+            "Heart rate variability",
+            "Activity recovery",
+          ],
+        },
+      dayContext: report.dayContext ||
+        report.json?.dayContext || {
+          dayName: new Date(report.date).toLocaleDateString("en-US", {
+            weekday: "long",
+          }),
+          dayType: "Regular",
+          calendarData: [],
+        },
+      badges: report.badges || report.json?.badges || [],
+      streakBadges: report.streakBadges || report.json?.streakBadges || [],
+      badgeNarrative:
+        report.badgeNarrative ||
+        report.json?.badgeNarrative ||
+        "Keep up the great work!",
+      nearMisses: report.nearMisses || report.json?.nearMisses || [],
+      calendarAnalysis:
+        report.calendarAnalysis || report.json?.calendarAnalysis,
+      calendarIntelligence: report.calendarIntelligence ||
+        report.json?.calendarIntelligence || {
+          score: report.score,
+          insights: ["Calendar analysis based on your data"],
+        },
+      fitbitHRV: report.fitbitHRV || report.json?.fitbitHRV,
+      hourlyWeather: report.hourlyWeather || report.json?.hourlyWeather || [],
+      emailResponseAnalysis:
+        report.emailResponseAnalysis || report.json?.emailResponseAnalysis,
+      fitbitActivityLog:
+        report.fitbitActivityLog || report.json?.fitbitActivityLog || [],
+      audioFeatures: report.audioFeatures || report.json?.audioFeatures,
+      anomalies: report.anomalies ||
+        report.json?.anomalies || {
+          detected: [],
+          insights: ["No significant anomalies detected"],
+        },
+      environmentalFactors: report.environmentalFactors ||
+        report.json?.environmentalFactors || {
+          weather: {
+            impact: "No weather data",
+            insight: "Weather data not available",
+          },
+        },
+      deepInsights: report.deepInsights ||
+        report.json?.deepInsights || {
+          patterns: [],
+          insights: ["Your daily patterns show consistent improvement"],
+        },
+      trends: report.trends ||
+        report.json?.trends || {
+          overall: {
+            trend: report.score > 70 ? 1 : report.score > 50 ? 0 : -1,
+            sparkline: [report.score - 5, report.score, report.score + 5],
+          },
+        },
+      historicalData: report.historicalData ||
+        report.json?.historicalData || [
+          { score: report.score - 5 },
+          { score: report.score },
+          { score: report.score + 5 },
         ],
-      },
-      dayContext: {
-        dayName: new Date(report.date).toLocaleDateString("en-US", {
-          weekday: "long",
-        }),
-        dayType: "Regular",
-        calendarData: hasGoogleCalendarData
-          ? reportData.googleCalendarData.events || []
-          : [],
-      },
-      badges: [],
-      streakBadges: [],
-      badgeNarrative: "Keep up the great work!",
-      nearMisses: [],
-      calendarAnalysis: hasGoogleCalendarData
-        ? reportData.googleCalendarData
-        : null,
-      calendarIntelligence: {
-        score: report.score,
-        insights: ["Calendar analysis based on your data"],
-      },
-      fitbitHRV: hasFitbitData ? reportData.fitbitData.hrv || null : null,
-      hourlyWeather: hasWeatherData
-        ? reportData.weatherData.hourlyForecast || []
-        : [],
-      emailResponseAnalysis: hasGmailData ? reportData.gmailData : null,
-      fitbitActivityLog: hasFitbitData ? [reportData.fitbitData] : [],
-      audioFeatures: hasSpotifyData
-        ? reportData.spotifyData.audioFeatures || null
-        : null,
-      anomalies: {
-        detected: [],
-        insights: ["No significant anomalies detected"],
-      },
-      environmentalFactors: {
-        weather: {
-          impact: hasWeatherData
-            ? reportData.weatherData.summary?.impact || "No impact"
-            : "No weather data",
-          insight: hasWeatherData
-            ? reportData.weatherData.insights?.moodInfluence ||
-              "Weather data not available"
-            : "Weather data not available",
-        },
-      },
-      deepInsights: {
-        patterns: [],
-        insights: hasInsights
-          ? [report.ai_insights.insight, report.ai_insights.moodInsight].filter(
-              Boolean
-            )
-          : ["Your daily patterns show consistent improvement"],
-      },
-      trends: {
-        overall: {
-          trend: report.score > 70 ? 1 : report.score > 50 ? 0 : -1,
-          sparkline: [report.score - 5, report.score, report.score + 5],
-        },
-      },
-      historicalData: [
-        { score: report.score - 5 },
-        { score: report.score },
-        { score: report.score + 5 },
-      ],
-      weatherData: hasWeatherData ? reportData.weatherData : undefined,
-      calendarData: hasGoogleCalendarData
-        ? reportData.googleCalendarData
-        : undefined,
-      emailData: hasGmailData ? reportData.gmailData : undefined,
-      spotifyData: hasSpotifyData ? reportData.spotifyData : undefined,
-      fitbitData: hasFitbitData ? reportData.fitbitData : undefined,
     };
 
     // Debug: Log the final data structure being passed to template
     console.log("📋 Final dailyReportData for template:", dailyReportData);
     console.log(
       "🌤️ Weather data being passed to template:",
-      dailyReportData.weatherData
+      dailyReportData.weatherSummary
     );
 
     // Helper function to format sleep data

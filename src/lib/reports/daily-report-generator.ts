@@ -650,8 +650,54 @@ function formatFitbitSleep(sleep: any): string {
   const hours = Math.floor(duration / 60);
   const minutes = duration % 60;
 
-  return `😴 Sleep: ${hours}h ${minutes}m
+  // Extract additional sleep details if available
+  let details = `😴 Sleep: ${hours}h ${minutes}m (${duration} min)
 😴 Efficiency: ${efficiency}%`;
+
+  // Add sleep stages if available
+  if (sleep.stages) {
+    const lightHours = Math.floor(sleep.stages.light / 60);
+    const lightMins = sleep.stages.light % 60;
+    const deepHours = Math.floor(sleep.stages.deep / 60);
+    const deepMins = sleep.stages.deep % 60;
+    const remHours = Math.floor(sleep.stages.rem / 60);
+    const remMins = sleep.stages.rem % 60;
+    const wakeHours = Math.floor(sleep.stages.wake / 60);
+    const wakeMins = sleep.stages.wake % 60;
+
+    details += `
+😴 Light Sleep: ${lightHours}h ${lightMins}m (${sleep.stages.light} min)
+😴 Deep Sleep: ${deepHours}h ${deepMins}m (${sleep.stages.deep} min)
+😴 REM Sleep: ${remHours}h ${remMins}m (${sleep.stages.rem} min)
+😴 Wake Time: ${wakeHours}h ${wakeMins}m (${sleep.stages.wake} min)`;
+  }
+
+  // Add bedtime and wake time if available from sleep data
+  if (sleep.startTime && sleep.endTime) {
+    const bedTime = new Date(sleep.startTime).toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const wakeTime = new Date(sleep.endTime).toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+    details += `
+😴 Bedtime: ${bedTime}
+😴 Wake Time: ${wakeTime}`;
+  }
+
+  // Add time in bed if available
+  if (sleep.timeInBed) {
+    const timeInBedHours = Math.floor(sleep.timeInBed / 60);
+    const timeInBedMins = sleep.timeInBed % 60;
+    details += `
+😴 Time in Bed: ${timeInBedHours}h ${timeInBedMins}m (${sleep.timeInBed} min)`;
+  }
+
+  return details;
 }
 
 function formatFitbitHeart(heart: any): string {

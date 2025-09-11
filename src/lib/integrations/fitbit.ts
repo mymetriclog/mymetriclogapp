@@ -35,6 +35,9 @@ type FitbitStats = {
     sleep: {
       duration: number;
       efficiency: number;
+      startTime?: string | null;
+      endTime?: string | null;
+      timeInBed?: number;
       stages: {
         light: number;
         deep: number;
@@ -270,6 +273,9 @@ export async function getFitbitStats(
         sleep: {
           duration: sleep?.summary?.totalMinutesAsleep || 0,
           efficiency: sleep?.summary?.efficiency || 0,
+          startTime: sleep?.summary?.startTime || null,
+          endTime: sleep?.summary?.endTime || null,
+          timeInBed: sleep?.summary?.totalTimeInBed || 0,
           stages: {
             light: sleep?.summary?.stages?.light || 0,
             deep: sleep?.summary?.stages?.deep || 0,

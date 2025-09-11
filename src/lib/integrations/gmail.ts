@@ -426,7 +426,7 @@ export async function getGmailStats(accessToken: string, date?: Date) {
     }).length;
 
     const stats = {
-      totalEmails: profile.messagesTotal,
+      totalEmails: emailsToday, // Use emails from the specific day, not total account emails
       unreadCount,
       emailsToday,
       averageResponseTime: 2.5, // This would need more complex logic

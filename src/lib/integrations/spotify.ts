@@ -124,7 +124,6 @@ export async function getSpotifyAccessToken(
       return null;
     }
 
-
     const now = Math.floor(Date.now() / 1000);
 
     if (data.expires_at && data.expires_at > now && data.access_token) {

@@ -18,9 +18,9 @@ export async function GET() {
     const supabase = await getServerSupabaseClient();
 
     // Fetch all reports with user information from the database
-    
+
     // Get current user's reports only
-    
+
     // Get current user's reports
     const { data: reports, error } = await supabase
       .from("reports")
@@ -37,16 +37,19 @@ export async function GET() {
     }
 
     // Transform the database data to match the expected format
-    
+
     const transformedReports =
       reports?.map((report) => {
-        
         // Since we're only getting current user's reports, use session data
-        const userEmail = session?.user?.email || 'Unknown';
-        const userName = session?.user?.user_metadata?.full_name || 
-                        session?.user?.email?.split('@')[0] || 
-                        'Unknown User';
-        
+        const userEmail = session?.user?.email || "Unknown";
+        const userName =
+          session?.user?.user_metadata?.full_name ||
+          session?.user?.email?.split("@")[0] ||
+          "Unknown User";
+
+        // Extract comprehensive data from report_data
+        const reportData = report.report_data || {};
+
         return {
           id: report.id,
           user_id: report.user_id,
@@ -55,13 +58,43 @@ export async function GET() {
           date: report.report_date,
           kind: report.report_type,
           score: getScoreFromReport(report),
-          html: generateHTMLFromReportData(
-            report.report_data,
-            report.ai_insights
-          ),
-          json: report.report_data,
-          ai_insights: report.ai_insights,
+          html: generateComprehensiveHTMLFromReportData(reportData),
+          json: reportData, // Return the full report data instead of just report.report_data
+          ai_insights: reportData.ai_insights || report.ai_insights,
           created_at: report.created_at,
+          // Add comprehensive data fields for web display
+          gpt_summary: reportData.gpt_summary,
+          mantra: reportData.mantra,
+          moodInsight: reportData.moodInsight,
+          weatherSummary: reportData.weatherSummary,
+          calSummary: reportData.calSummary,
+          emailSummary: reportData.emailSummary,
+          completedTasks: reportData.completedTasks,
+          spotifySummary: reportData.spotifySummary,
+          spotifyInsights: reportData.spotifyInsights,
+          fitbitActivity: reportData.fitbitActivity,
+          fitbitSleep: reportData.fitbitSleep,
+          fitbitHeart: reportData.fitbitHeart,
+          peakHR: reportData.peakHR,
+          stressRadar: reportData.stressRadar,
+          recoveryQuotient: reportData.recoveryQuotient,
+          dayContext: reportData.dayContext,
+          badges: reportData.badges,
+          streakBadges: reportData.streakBadges,
+          badgeNarrative: reportData.badgeNarrative,
+          nearMisses: reportData.nearMisses,
+          calendarAnalysis: reportData.calendarAnalysis,
+          calendarIntelligence: reportData.calendarIntelligence,
+          fitbitHRV: reportData.fitbitHRV,
+          hourlyWeather: reportData.hourlyWeather,
+          emailResponseAnalysis: reportData.emailResponseAnalysis,
+          fitbitActivityLog: reportData.fitbitActivityLog,
+          audioFeatures: reportData.audioFeatures,
+          anomalies: reportData.anomalies,
+          environmentalFactors: reportData.environmentalFactors,
+          deepInsights: reportData.deepInsights,
+          trends: reportData.trends,
+          historicalData: reportData.historicalData,
         };
       }) || [];
 
@@ -174,52 +207,72 @@ function calculateScoreFromReportData(reportData: any): number {
   return Math.round(score / totalFactors);
 }
 
-// Helper function to generate HTML from report data
-function generateHTMLFromReportData(reportData: any, aiInsights: any): string {
+// Helper function to generate comprehensive HTML from report data
+function generateComprehensiveHTMLFromReportData(reportData: any): string {
   if (!reportData) return "<div>No data available</div>";
 
   let html = "<div>";
 
-  // Add sleep information
-  if (reportData.sleep) {
-    const hours = Math.floor(reportData.sleep / 60);
-    const minutes = reportData.sleep % 60;
-    html += `<strong>Sleep:</strong> ${hours}h ${minutes}m • `;
+  // Add comprehensive wellness data
+  if (
+    reportData.fitbitSleep &&
+    reportData.fitbitSleep !== "No sleep data available"
+  ) {
+    html += `<strong>Sleep:</strong> ${reportData.fitbitSleep} • `;
   }
 
-  // Add HRV information
-  if (reportData.hrv) {
-    html += `<strong>HRV:</strong> ${reportData.hrv} ms • `;
+  if (
+    reportData.fitbitActivity &&
+    reportData.fitbitActivity !== "No activity data available"
+  ) {
+    // Extract steps from activity data
+    const stepsMatch = reportData.fitbitActivity.match(/👣 Steps: ([\d,]+)/);
+    if (stepsMatch) {
+      html += `<strong>Steps:</strong> ${stepsMatch[1]} • `;
+    }
   }
 
-  // Add steps information
-  if (reportData.steps) {
-    html += `<strong>Steps:</strong> ${reportData.steps.toLocaleString()} • `;
+  if (
+    reportData.fitbitHeart &&
+    reportData.fitbitHeart !== "No heart data available"
+  ) {
+    // Extract resting HR from heart data
+    const rhrMatch = reportData.fitbitHeart.match(/❤️ Resting HR: (\d+)/);
+    if (rhrMatch) {
+      html += `<strong>Resting HR:</strong> ${rhrMatch[1]} bpm • `;
+    }
   }
 
-  // Add mood information
-  if (reportData.mood) {
-    html += `<em>Mood:</em> ${
-      reportData.mood.charAt(0).toUpperCase() + reportData.mood.slice(1)
-    } • `;
-  }
-
-  // Add recovery information if available
-  if (reportData.recovery) {
-    html += `<em>Recovery:</em> ${
-      reportData.recovery.charAt(0).toUpperCase() + reportData.recovery.slice(1)
-    }`;
+  // Add comprehensive scores if available
+  if (reportData.scores) {
+    html += `<strong>Overall Score:</strong> ${
+      reportData.scores.total || 0
+    }/100 • `;
+    html += `<strong>Sleep:</strong> ${reportData.scores.sleep || 0}/100 • `;
+    html += `<strong>Activity:</strong> ${
+      reportData.scores.activity || 0
+    }/100 • `;
+    html += `<strong>Heart:</strong> ${reportData.scores.heart || 0}/100 • `;
+    html += `<strong>Work:</strong> ${reportData.scores.work || 0}/100`;
   }
 
   // Add AI insights if available
-  if (aiInsights?.mantra) {
-    html += `<br/><em>Daily Mantra:</em> "${aiInsights.mantra}"`;
+  if (reportData.mantra) {
+    html += `<br/><em>Daily Mantra:</em> "${reportData.mantra}"`;
   }
 
-  if (aiInsights?.insight) {
-    html += `<br/><em>AI Insight:</em> ${aiInsights.insight}`;
+  if (reportData.gpt_summary) {
+    html += `<br/><em>AI Summary:</em> ${reportData.gpt_summary.substring(
+      0,
+      200
+    )}...`;
   }
 
   html += "</div>";
   return html;
+}
+
+// Legacy function for backward compatibility
+function generateHTMLFromReportData(reportData: any, aiInsights: any): string {
+  return generateComprehensiveHTMLFromReportData(reportData);
 }
