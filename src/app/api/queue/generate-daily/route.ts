@@ -81,9 +81,7 @@ export async function POST(request: Request) {
       try {
         // Add CC for specific user
         const ccEmails =
-          session?.user?.email === "josh987@gmail.com"
-            ? ["assadblogger@gmail.com"]
-            : undefined;
+          session?.user?.email === "josh987@gmail.com" ? [""] : undefined;
 
         const result = await sendEmail(
           session?.user?.email!,
@@ -160,9 +158,7 @@ export async function GET() {
 
     // Add CC for specific user
     const ccEmails =
-      session.user.email === "josh987@gmail.com"
-        ? ["assadblogger@gmail.com"]
-        : undefined;
+      session.user.email === "josh987@gmail.com" ? [""] : undefined;
 
     // Send email
     await sendEmail(

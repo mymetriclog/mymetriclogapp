@@ -125,7 +125,7 @@ export async function testSendGridConnection() {
     initializeSendGrid();
 
     // Try to send a test email to admin
-    const adminEmail = process.env.ADMIN_EMAIL || "assadblogger@gmail.com";
+    const adminEmail = process.env.ADMIN_EMAIL || "";
 
     const msg = {
       to: adminEmail,

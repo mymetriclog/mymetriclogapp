@@ -190,8 +190,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Add CC for specific user
-    const ccEmails =
-      to === "josh987@gmail.com" ? ["assadblogger@gmail.com"] : undefined;
+    const ccEmails = to === "josh987@gmail.com" ? [""] : undefined;
 
     console.log(`📤 Sending email to ${to} via SendGrid...`);
     const result = await EmailService.sendDailyReport(

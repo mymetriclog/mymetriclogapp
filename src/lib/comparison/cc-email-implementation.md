@@ -2,7 +2,7 @@
 
 ## 📧 **IMPLEMENTATION SUMMARY**
 
-Added CC functionality to automatically CC `assadblogger@gmail.com` when sending emails to `josh987@gmail.com`.
+Added CC functionality to automatically CC ``when sending emails to`josh987@gmail.com`.
 
 ## 🔧 **FILES MODIFIED**
 
@@ -47,12 +47,11 @@ static async sendDailyReport(
 ### 3. **`src/app/api/queue/process-upstash/route.ts`**
 
 - **Added CC condition** for both daily and weekly reports
-- **CC logic**: `userEmail === "josh987@gmail.com" ? ["assadblogger@gmail.com"] : undefined`
+- **CC logic**: `userEmail === "josh987@gmail.com" ? [""] : undefined`
 
 ```typescript
 // Daily reports
-const ccEmails =
-  userEmail === "josh987@gmail.com" ? ["assadblogger@gmail.com"] : undefined;
+const ccEmails = userEmail === "josh987@gmail.com" ? [""] : undefined;
 const result = await sendEmail(
   userEmail,
   subject,
@@ -62,8 +61,7 @@ const result = await sendEmail(
 );
 
 // Weekly reports
-const ccEmails =
-  userEmail === "josh987@gmail.com" ? ["assadblogger@gmail.com"] : undefined;
+const ccEmails = userEmail === "josh987@gmail.com" ? [""] : undefined;
 const result = await sendEmail(
   userEmail,
   subject,
@@ -76,14 +74,12 @@ const result = await sendEmail(
 ### 4. **`src/app/api/queue/generate-daily/route.ts`**
 
 - **Added CC condition** for both POST and GET methods
-- **CC logic**: `session?.user?.email === "josh987@gmail.com" ? ["assadblogger@gmail.com"] : undefined`
+- **CC logic**: `session?.user?.email === "josh987@gmail.com" ? [""] : undefined`
 
 ```typescript
 // POST method
 const ccEmails =
-  session?.user?.email === "josh987@gmail.com"
-    ? ["assadblogger@gmail.com"]
-    : undefined;
+  session?.user?.email === "josh987@gmail.com" ? [""] : undefined;
 const result = await sendEmail(
   session?.user?.email!,
   subject,
@@ -93,21 +89,17 @@ const result = await sendEmail(
 );
 
 // GET method
-const ccEmails =
-  session.user.email === "josh987@gmail.com"
-    ? ["assadblogger@gmail.com"]
-    : undefined;
+const ccEmails = session.user.email === "josh987@gmail.com" ? [""] : undefined;
 await sendEmail(session.user.email!, subject, emailHTML, undefined, ccEmails);
 ```
 
 ### 5. **`src/app/api/email/send-report/route.ts`**
 
 - **Added CC condition** for manual email sending
-- **CC logic**: `to === "josh987@gmail.com" ? ["assadblogger@gmail.com"] : undefined`
+- **CC logic**: `to === "josh987@gmail.com" ? [""] : undefined`
 
 ```typescript
-const ccEmails =
-  to === "josh987@gmail.com" ? ["assadblogger@gmail.com"] : undefined;
+const ccEmails = to === "josh987@gmail.com" ? [""] : undefined;
 const result = await EmailService.sendDailyReport(
   to,
   processedData,
@@ -121,18 +113,17 @@ const result = await EmailService.sendDailyReport(
 ### **Condition Logic**
 
 ```typescript
-const ccEmails =
-  userEmail === "josh987@gmail.com" ? ["assadblogger@gmail.com"] : undefined;
+const ccEmails = userEmail === "josh987@gmail.com" ? [""] : undefined;
 ```
 
-- **If email is `josh987@gmail.com`**: CC `assadblogger@gmail.com`
+- **If email is `josh987@gmail.com`**: CC ``
 - **If email is any other**: No CC (undefined)
 
 ### **Email Flow**
 
 1. **User triggers email** (daily report, weekly report, manual send)
 2. **System checks recipient email**
-3. **If recipient is `josh987@gmail.com`**: Adds `assadblogger@gmail.com` to CC
+3. **If recipient is `josh987@gmail.com`**: Adds `` to CC
 4. **If recipient is other email**: Sends without CC
 5. **SendGrid sends email** with appropriate CC settings
 
@@ -155,15 +146,15 @@ const ccEmails =
 
 ### **Test Cases:**
 
-1. **Send email to `josh987@gmail.com`** → Should CC `assadblogger@gmail.com`
+1. **Send email to `josh987@gmail.com`** → Should CC ``
 2. **Send email to any other email** → Should NOT CC anyone
-3. **Send daily report to `josh987@gmail.com`** → Should CC `assadblogger@gmail.com`
-4. **Send weekly report to `josh987@gmail.com`** → Should CC `assadblogger@gmail.com`
+3. **Send daily report to `josh987@gmail.com`** → Should CC ``
+4. **Send weekly report to `josh987@gmail.com`** → Should CC ``
 
 ### **Verification:**
 
 - Check SendGrid logs for CC recipients
-- Verify `assadblogger@gmail.com` receives copies of emails sent to `josh987@gmail.com`
+- Verify ``receives copies of emails sent to`josh987@gmail.com`
 - Verify other users don't get CC'd
 
 ## 🚀 **DEPLOYMENT READY**
