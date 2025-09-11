@@ -1,17 +1,5 @@
-// Constants from code.js
-const SAGE_IMAGES = {
-  analysis: "https://i.ibb.co/RT990pVm/Sage-analysis.png",
-  working: "https://i.ibb.co/QvT3v0XS/Sage-work.png",
-  sleep: "https://i.ibb.co/4ZTBpSS0/Sage-sleep.png",
-  active: "https://i.ibb.co/Q3vJSfjK/Sage-active.png",
-  heart: "https://i.ibb.co/B2yFxMs1/Sage-heart.png",
-  weather: "https://i.ibb.co/m5B8H8Gk/Sage-weather.png",
-  meditation: "https://i.ibb.co/XkScD1Bn/Sage-meditation.png",
-  music: "https://i.ibb.co/TMhvM4q5/Sage-music.png",
-  recovery: "https://i.ibb.co/xVfP72M/Sage-recovery.png",
-  greeting: "https://i.ibb.co/gbTdSHcx/Sage-hi.png",
-  quickwin: "https://i.ibb.co/hJ2433Xh/Sage-quick-win.png",
-};
+// Import constants from the proper location
+import { SAGE_IMAGES, MYMETRICLOG_LOGO } from "@/lib/constants/sage-images";
 
 export interface DailyReportData {
   date: string;
@@ -249,28 +237,79 @@ export function composeEnhancedMyMetricLogEmail(
   const stressColor = getStressColor(stressRadar?.score || 0);
   const recoveryColor = getRecoveryColor(recoveryQuotient?.score || 0);
 
-  // Extract key stats
-  const sleepMatch = (fitbitSleep || "").match(/(\d+)h (\d+)m/);
-  const sleepStr = sleepMatch
-    ? sleepMatch[1] + "h " + sleepMatch[2] + "m"
-    : "N/A";
-  const stepsMatch = (fitbitActivity || "").match(/👣 Steps: ([\d,]+)/);
-  const stepsStr = stepsMatch ? stepsMatch[1] : "N/A";
-  const caloriesMatch = (fitbitActivity || "").match(
+  // Extract key stats with improved pattern matching
+  // Sleep data - try multiple patterns
+  let sleepStr = "N/A";
+  const sleepMatch1 = (fitbitSleep || "").match(/(\d+)h (\d+)m/);
+  const sleepMatch2 = (fitbitSleep || "").match(/Sleep: (\d+h \d+m)/);
+  const sleepMatch3 = (fitbitSleep || "").match(/(\d+)h (\d+)m \(/);
+
+  if (sleepMatch1) {
+    sleepStr = sleepMatch1[1] + "h " + sleepMatch1[2] + "m";
+  } else if (sleepMatch2) {
+    sleepStr = sleepMatch2[1];
+  } else if (sleepMatch3) {
+    sleepStr = sleepMatch3[1] + "h " + sleepMatch3[2] + "m";
+  }
+
+  // Steps data - try multiple patterns
+  let stepsStr = "N/A";
+  const stepsMatch1 = (fitbitActivity || "").match(/👣 Steps: ([\d,]+)/);
+  const stepsMatch2 = (fitbitActivity || "").match(/Steps: ([\d,]+)/);
+
+  if (stepsMatch1) {
+    stepsStr = stepsMatch1[1];
+  } else if (stepsMatch2) {
+    stepsStr = stepsMatch2[1];
+  }
+
+  // Calories data - try multiple patterns
+  let caloriesStr = "N/A";
+  const caloriesMatch1 = (fitbitActivity || "").match(
     /🔥 Calories burned: ([\d,]+)/
   );
-  const caloriesStr = caloriesMatch ? caloriesMatch[1] + " cal" : "N/A";
-  const activeMatch = (fitbitActivity || "").match(/💪 Very Active: (\d+)/);
-  const activeStr = activeMatch ? activeMatch[1] + " min active" : "N/A";
-  const restingHRMatch = (fitbitHeart || "").match(/❤️ Resting HR: (\d+)/);
-  const restingHRStr = restingHRMatch ? restingHRMatch[1] + " bpm" : "N/A";
+  const caloriesMatch2 = (fitbitActivity || "").match(/Calories: ([\d,]+)/);
+
+  if (caloriesMatch1) {
+    caloriesStr = caloriesMatch1[1] + " cal";
+  } else if (caloriesMatch2) {
+    caloriesStr = caloriesMatch2[1] + " cal";
+  }
+
+  // Active minutes data - try multiple patterns
+  let activeStr = "N/A";
+  const activeMatch1 = (fitbitActivity || "").match(/💪 Very Active: (\d+)/);
+  const activeMatch2 = (fitbitActivity || "").match(/Very Active: (\d+)/);
+  const activeMatch3 = (fitbitActivity || "").match(/Active: (\d+)/);
+
+  if (activeMatch1) {
+    activeStr = activeMatch1[1] + " min active";
+  } else if (activeMatch2) {
+    activeStr = activeMatch2[1] + " min active";
+  } else if (activeMatch3) {
+    activeStr = activeMatch3[1] + " min active";
+  }
+
+  // Resting HR data - try multiple patterns
+  let restingHRStr = "N/A";
+  const restingHRMatch1 = (fitbitHeart || "").match(/❤️ Resting HR: (\d+)/);
+  const restingHRMatch2 = (fitbitHeart || "").match(/Resting HR: (\d+)/);
+  const restingHRMatch3 = (fitbitHeart || "").match(/Resting: (\d+)/);
+
+  if (restingHRMatch1) {
+    restingHRStr = restingHRMatch1[1] + " bpm";
+  } else if (restingHRMatch2) {
+    restingHRStr = restingHRMatch2[1] + " bpm";
+  } else if (restingHRMatch3) {
+    restingHRStr = restingHRMatch3[1] + " bpm";
+  }
 
   // Build HTML with inline styles for email compatibility
   const htmlBody = `
 <div style='font-family:Helvetica,Arial,sans-serif; color:#333; max-width:600px; margin:auto;'>
   <!-- Logo -->
   <div style='text-align:center; margin:20px 0;'>
-    <img src='https://i.ibb.co/9HwyVWzR/My-Metric-Log-Logo.png' alt='MyMetricLog Logo' style='max-width:300px; height:auto;'/>
+    <img src='${MYMETRICLOG_LOGO}' alt='MyMetricLog Logo' style='max-width:300px; height:auto;'/>
   </div>
   
   <!-- Date header -->
@@ -510,7 +549,7 @@ export function composeEnhancedMyMetricLogEmail(
     <div style='background:white; padding:16px; border-radius:6px; margin-bottom:12px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
       <h4 style='font-size:16px; font-weight:600; color:#424242; margin:0 0 8px 0;'>📅 Calendar</h4>
       <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
-        ${(calSummary || "").replace(/\n/g, "<br>")}
+        ${String(calSummary || "").replace(/\n/g, "<br>")}
         ${
           calendarIntelligence && calendarIntelligence.score < 100
             ? `<br><span style='color:#ff6f00;'>⚠️ ${(
@@ -524,7 +563,7 @@ export function composeEnhancedMyMetricLogEmail(
     <div style='background:white; padding:16px; border-radius:6px; margin-bottom:12px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
       <h4 style='font-size:16px; font-weight:600; color:#424242; margin:0 0 8px 0;'>✉️ Email</h4>
       <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
-        ${(emailSummary || "").replace(/\n/g, "<br>")}
+        ${String(emailSummary || "").replace(/\n/g, "<br>")}
         ${
           emailResponseAnalysis && emailResponseAnalysis.avgResponseTime
             ? `<br><div style='background:#f3e5f5; padding:10px; border-radius:4px; margin-top:8px;'>
@@ -603,7 +642,7 @@ export function composeEnhancedMyMetricLogEmail(
         ? `<div style='background:white; padding:16px; border-radius:6px;'>
           <h4 style='font-size:16px; font-weight:600; color:#424242; margin:0 0 8px 0;'>✅ Tasks</h4>
           <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
-            ${(completedTasks || "").replace(/\n/g, "<br>")}
+            ${String(completedTasks || "").replace(/\n/g, "<br>")}
           </div>
         </div>`
         : ""
@@ -711,7 +750,7 @@ export function composeEnhancedMyMetricLogEmail(
         </tr>
       </table>
       <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
-        ${(fitbitHeart || "").replace(/\n/g, "<br>")}
+        ${String(fitbitHeart || "").replace(/\n/g, "<br>")}
         ${
           fitbitHRV
             ? `<br>💗 HRV: ${fitbitHRV.value} ms (${fitbitHRV.status})<br>
@@ -765,7 +804,7 @@ export function composeEnhancedMyMetricLogEmail(
         <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
           <div style='background:#f0f9ff; padding:12px; border-radius:6px; margin-bottom:12px;'>
             <strong style='color:#1565c0;'>Yesterday's Weather:</strong><br>
-            ${(weatherSummary || "").replace(/\n/g, "<br>")}
+            ${String(weatherSummary || "").replace(/\n/g, "<br>")}
           </div>
           ${
             hourlyWeather &&
@@ -805,7 +844,7 @@ export function composeEnhancedMyMetricLogEmail(
           <span style='line-height:48px;'>Music</span>
         </h4>
       <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
-        ${(spotifySummary || "").replace(/\n/g, "<br>")}
+        ${String(spotifySummary || "").replace(/\n/g, "<br>")}
       </div>
       
       ${
