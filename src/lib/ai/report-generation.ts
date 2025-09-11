@@ -49,6 +49,18 @@ export interface AIInsight {
   gptSummary: string; // Add comprehensive GPT summary
 }
 
+export interface AIMoodAndEnergyForecast {
+  mood: {
+    state: string; // e.g., "Balanced", "Energized", "Foggy"
+    description: string; // e.g., "You may experience some mental fog today, especially in the afternoon."
+    additionalInfo: string; // e.g., "Mixed signals make prediction less certain."
+  };
+  energyForecast: {
+    level: string; // e.g., "moderate to good"
+    description: string; // e.g., "Expected productivity: moderate to good. Prioritize key tasks."
+  };
+}
+
 /**
  * Build comprehensive GPT input exactly like the original code.js
  */
@@ -134,6 +146,139 @@ ${
   }`;
 
   return gptInput;
+}
+
+/**
+ * Generate AI-powered mood and energy forecast
+ * Creates the specific format shown in the screenshot
+ */
+export async function generateMoodAndEnergyForecast(
+  data: AIReportData
+): Promise<AIMoodAndEnergyForecast> {
+  try {
+    console.log("🤖 Generating AI mood and energy forecast...");
+
+    const prompt = `You are Sage, a wise wellness analyst. Based on the user's wellness data, generate a mood assessment and energy forecast in the EXACT format specified below.
+
+USER'S WELLNESS DATA:
+- Overall Score: ${data.scores?.total || 0}/100
+- Sleep Score: ${data.scores?.sleep || 0}/100
+- Activity Score: ${data.scores?.activity || 0}/100
+- Heart Score: ${data.scores?.heart || 0}/100
+- Work Score: ${data.scores?.work || 0}/100
+- Stress Level: ${data.stressRadar?.level || "Unknown"} (${
+      data.stressRadar?.score || 0
+    }/100)
+- Recovery: ${data.recoveryQuotient?.readiness || "Unknown"} (${
+      data.recoveryQuotient?.score || 0
+    }/100)
+
+SLEEP DATA: ${data.fitbitData?.fitbitSleep || "No sleep data available"}
+ACTIVITY DATA: ${
+      data.fitbitData?.fitbitActivity || "No activity data available"
+    }
+HEART DATA: ${data.fitbitData?.fitbitHeart || "No heart data available"}
+
+INSTRUCTIONS:
+1. Analyze the wellness scores and data to determine the user's likely mood state
+2. Generate an energy forecast based on sleep quality, activity levels, and stress
+3. Use the EXACT format below - no variations
+
+REQUIRED FORMAT:
+MOOD_STATE: [Single word mood state like "Balanced", "Energized", "Foggy", "Tired", "Focused", "Restless"]
+MOOD_DESCRIPTION: [2-3 sentences describing the mood and what to expect, like "You may experience some mental fog today, especially in the afternoon."]
+MOOD_ADDITIONAL: [1 sentence with additional context, like "Mixed signals make prediction less certain." or "Clear patterns suggest consistent energy."]
+ENERGY_LEVEL: [Energy level description like "moderate to good", "high", "low", "variable"]
+ENERGY_DESCRIPTION: [1 sentence describing expected productivity, like "Expected productivity: moderate to good. Prioritize key tasks."]
+
+MOOD STATE OPTIONS (choose the most appropriate):
+- "Balanced" - when scores are relatively even and stable
+- "Energized" - when activity and heart scores are high
+- "Foggy" - when sleep quality is poor or there are mixed signals
+- "Tired" - when sleep score is low and recovery is poor
+- "Focused" - when work score is high and stress is low
+- "Restless" - when there's high activity but poor sleep
+- "Calm" - when stress is low and scores are moderate
+- "Stressed" - when stress radar shows high levels
+
+ENERGY LEVEL OPTIONS:
+- "high" - for scores 80+ with good sleep
+- "moderate to good" - for scores 60-79 with decent sleep
+- "moderate" - for scores 50-69 with some issues
+- "low" - for scores below 50 or poor sleep
+- "variable" - when there are mixed signals
+
+Be specific and actionable in your descriptions. Reference the actual data when relevant.`;
+
+    let completion;
+    try {
+      completion = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 400,
+        presence_penalty: 0.3,
+        frequency_penalty: 0.3,
+      });
+    } catch (modelError: any) {
+      if (
+        modelError.code === "invalid_api_key" ||
+        modelError.code === "invalid_request_error"
+      ) {
+        console.error(
+          "❌ OpenAI API key is invalid. Cannot generate mood forecast."
+        );
+        throw new Error(
+          "OpenAI API key is invalid. Please check your API key configuration."
+        );
+      }
+
+      if (
+        modelError.code === "model_not_found" ||
+        modelError.code === "insufficient_quota"
+      ) {
+        console.log(
+          "⚠️ GPT-4 unavailable, falling back to gpt-3.5-turbo for mood forecast"
+        );
+        try {
+          completion = await openai.chat.completions.create({
+            model: "gpt-3.5-turbo",
+            messages: [
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+            temperature: 0.7,
+            max_tokens: 400,
+            presence_penalty: 0.3,
+            frequency_penalty: 0.3,
+          });
+        } catch (fallbackErr: any) {
+          if (fallbackErr.code === "insufficient_quota") {
+            console.log(
+              "⚠️ Quota exceeded for all models. Using fallback mood forecast."
+            );
+            return generateFallbackMoodAndEnergyForecast(data);
+          }
+          throw fallbackErr;
+        }
+      } else {
+        throw modelError;
+      }
+    }
+
+    const response = completion.choices[0]?.message?.content || "";
+    return parseMoodAndEnergyResponse(response, data);
+  } catch (error) {
+    console.error("Error generating mood and energy forecast:", error);
+    return generateFallbackMoodAndEnergyForecast(data);
+  }
 }
 
 /**
@@ -974,6 +1119,122 @@ SPOTIFY: ${JSON.stringify(spotifyStats ?? {})}
 WEATHER: ${weatherSummary ?? "n/a"}
 
 Return 3 concise insights linking correlations and 2 actionable next steps.`;
+}
+
+/**
+ * Parse AI response for mood and energy forecast
+ */
+function parseMoodAndEnergyResponse(
+  response: string,
+  data: AIReportData
+): AIMoodAndEnergyForecast {
+  try {
+    const lines = response.split("\n").filter((line) => line.trim());
+
+    let moodState = "Balanced";
+    let moodDescription =
+      "Your mood today reflects your overall wellness balance.";
+    let moodAdditional = "Clear patterns suggest consistent energy.";
+    let energyLevel = "moderate to good";
+    let energyDescription =
+      "Expected productivity: moderate to good. Prioritize key tasks.";
+
+    for (const line of lines) {
+      if (line.startsWith("MOOD_STATE:")) {
+        moodState = line.replace("MOOD_STATE:", "").trim();
+      } else if (line.startsWith("MOOD_DESCRIPTION:")) {
+        moodDescription = line.replace("MOOD_DESCRIPTION:", "").trim();
+      } else if (line.startsWith("MOOD_ADDITIONAL:")) {
+        moodAdditional = line.replace("MOOD_ADDITIONAL:", "").trim();
+      } else if (line.startsWith("ENERGY_LEVEL:")) {
+        energyLevel = line.replace("ENERGY_LEVEL:", "").trim();
+      } else if (line.startsWith("ENERGY_DESCRIPTION:")) {
+        energyDescription = line.replace("ENERGY_DESCRIPTION:", "").trim();
+      }
+    }
+
+    return {
+      mood: {
+        state: moodState,
+        description: moodDescription,
+        additionalInfo: moodAdditional,
+      },
+      energyForecast: {
+        level: energyLevel,
+        description: energyDescription,
+      },
+    };
+  } catch (error) {
+    console.error("Error parsing mood and energy response:", error);
+    return generateFallbackMoodAndEnergyForecast(data);
+  }
+}
+
+/**
+ * Generate fallback mood and energy forecast when AI fails
+ */
+function generateFallbackMoodAndEnergyForecast(
+  data: AIReportData
+): AIMoodAndEnergyForecast {
+  const total = data.scores?.total || 0;
+  const sleep = data.scores?.sleep || 0;
+  const activity = data.scores?.activity || 0;
+  const stress = data.stressRadar?.score || 50;
+
+  let moodState = "Balanced";
+  let moodDescription =
+    "Your mood today reflects your overall wellness balance.";
+  let moodAdditional = "Clear patterns suggest consistent energy.";
+  let energyLevel = "moderate to good";
+  let energyDescription =
+    "Expected productivity: moderate to good. Prioritize key tasks.";
+
+  // Determine mood based on scores
+  if (total >= 80 && sleep >= 80) {
+    moodState = "Energized";
+    moodDescription =
+      "Excellent sleep and high activity levels suggest you're feeling energized and ready for the day.";
+    moodAdditional = "Strong recovery patterns indicate sustained energy.";
+    energyLevel = "high";
+    energyDescription =
+      "Expected productivity: high. Take advantage of peak performance.";
+  } else if (sleep < 60 || stress > 70) {
+    moodState = "Foggy";
+    moodDescription =
+      "You may experience some mental fog today, especially in the afternoon.";
+    moodAdditional = "Mixed signals make prediction less certain.";
+    energyLevel = "moderate";
+    energyDescription =
+      "Expected productivity: moderate. Focus on essential tasks and take breaks.";
+  } else if (total < 50) {
+    moodState = "Tired";
+    moodDescription =
+      "Lower energy levels suggest you may feel tired throughout the day.";
+    moodAdditional = "Recovery patterns indicate need for rest.";
+    energyLevel = "low";
+    energyDescription =
+      "Expected productivity: low. Prioritize rest and light activities.";
+  } else if (activity >= 80 && sleep >= 70) {
+    moodState = "Focused";
+    moodDescription =
+      "Good sleep and high activity suggest you're in a focused, productive state.";
+    moodAdditional = "Optimal conditions for deep work.";
+    energyLevel = "moderate to good";
+    energyDescription =
+      "Expected productivity: moderate to good. Schedule important tasks.";
+  }
+
+  return {
+    mood: {
+      state: moodState,
+      description: moodDescription,
+      additionalInfo: moodAdditional,
+    },
+    energyForecast: {
+      level: energyLevel,
+      description: energyDescription,
+    },
+  };
 }
 
 /**

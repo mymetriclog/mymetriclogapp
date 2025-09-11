@@ -100,6 +100,23 @@ export interface DailyReportData {
   historicalData: Array<{
     score: number;
   }>;
+  // Wellness Balance Data
+  balanceLevel: "excellent" | "good" | "needs_improvement";
+  balanceStatus: string;
+  balanceColor: string;
+  balanceInsight: string;
+  // AI Mood and Energy Forecast
+  aiMoodAndEnergy: {
+    mood: {
+      state: string;
+      description: string;
+      additionalInfo: string;
+    };
+    energyForecast: {
+      level: string;
+      description: string;
+    };
+  };
 }
 
 // Complete enhanced email composition function with all features integrated (from code.js)
@@ -141,7 +158,24 @@ export function composeEnhancedMyMetricLogEmail(
   environmentalFactors?: any,
   deepInsights?: any,
   trends?: any,
-  historicalData?: any[]
+  historicalData?: any[],
+  // Wellness Balance Data
+  balanceLevel?: "excellent" | "good" | "needs_improvement",
+  balanceStatus?: string,
+  balanceColor?: string,
+  balanceInsight?: string,
+  // AI Mood and Energy Forecast
+  aiMoodAndEnergy?: {
+    mood: {
+      state: string;
+      description: string;
+      additionalInfo: string;
+    };
+    energyForecast: {
+      level: string;
+      description: string;
+    };
+  }
 ): string {
   // Parse sleep efficiency at the start
   const sleepEfficiencyMatch = (fitbitSleep || "").match(
@@ -159,6 +193,14 @@ export function composeEnhancedMyMetricLogEmail(
     environmentalFactors ||
     getSocialEnvironmentalFactors(yesterday, weatherSummary, dayContext);
   const historicalDataArray = historicalData || [];
+
+  // Wellness Balance Data with defaults
+  const balanceLevelData = balanceLevel || "needs_improvement";
+  const balanceStatusData =
+    balanceStatus || "Challenging Day - Focus on Recovery";
+  const balanceColorData = balanceColor || "#ef4444";
+  const balanceInsightData =
+    balanceInsight || "Focus on recovery and wellness improvement.";
   if (trendsData && trendsData.overall && trendsData.overall.sparkline) {
     historicalDataArray.push(
       ...trendsData.overall.sparkline.map((score: number) => ({ score }))
@@ -188,7 +230,7 @@ export function composeEnhancedMyMetricLogEmail(
       calendarIntelligence: calendarIntelligence,
     });
 
-  const moodCard = generateMoodCard(moodInsight, scores);
+  const moodCard = generateAIMoodCard(aiMoodAndEnergy, scores);
   const quickWinBox = generateQuickWinBox(
     scores,
     stressRadar,
@@ -478,7 +520,8 @@ export function composeEnhancedMyMetricLogEmail(
     </table>
   </div>
   
-  <!-- Mood Card -->
+
+  <!-- AI-Generated Mood Card with Energy Forecast -->
   ${moodCard}
   
   <!-- Badge Section -->
@@ -906,7 +949,7 @@ export function composeEnhancedMyMetricLogEmail(
 }
 
 // Updated function to use composeEnhancedMyMetricLogEmail
-export function generateDailyReportEmail(data: DailyReportData): string {
+export function generateDailyReportEmail(data: any): string {
   // Extract data from the actual structure
   const fullDateStr =
     data.fullDateStr ||
@@ -1002,6 +1045,28 @@ export function generateDailyReportEmail(data: DailyReportData): string {
   const trends = data.trends || { overall: { trend: 0, sparkline: [] } };
   const historicalData = data.historicalData || [];
 
+  // Wellness Balance Data
+  const balanceLevel = data.balanceLevel || "needs_improvement";
+  const balanceStatus =
+    data.balanceStatus || "Challenging Day - Focus on Recovery";
+  const balanceColor = data.balanceColor || "#ef4444";
+  const balanceInsight =
+    data.balanceInsight || "Focus on recovery and wellness improvement.";
+
+  // AI Mood and Energy Forecast
+  const aiMoodAndEnergy = data.aiMoodAndEnergy || {
+    mood: {
+      state: "Balanced",
+      description: "Your mood today reflects your overall wellness balance.",
+      additionalInfo: "Clear patterns suggest consistent energy.",
+    },
+    energyForecast: {
+      level: "moderate to good",
+      description:
+        "Expected productivity: moderate to good. Prioritize key tasks.",
+    },
+  };
+
   // Convert DailyReportData to the format expected by composeEnhancedMyMetricLogEmail
   return composeEnhancedMyMetricLogEmail(
     fullDateStr,
@@ -1038,7 +1103,14 @@ export function generateDailyReportEmail(data: DailyReportData): string {
     environmentalFactors,
     deepInsights,
     trends,
-    historicalData
+    historicalData,
+    // Wellness Balance Data
+    balanceLevel,
+    balanceStatus,
+    balanceColor,
+    balanceInsight,
+    // AI Mood and Energy Forecast
+    aiMoodAndEnergy
   );
 }
 
@@ -1118,11 +1190,186 @@ function generateHourlyActivityPattern(
   return pattern.join(" ");
 }
 
-function generateMoodCard(moodInsight: string, scores: any): string {
-  return `<div style='background:linear-gradient(135deg, #e8f0fe 0%, #d2e3fc 100%); border:2px solid #1976d2; border-radius:12px; padding:20px; margin:20px 0;'>
-    <h3 style='font-size:20px; font-weight:600; color:#1565c0; margin:0 0 12px 0;'>😊 Mood Insight</h3>
-    <div style='font-size:15px; line-height:1.8; color:#333;'>${moodInsight}</div>
+function generateAIMoodCard(aiMoodAndEnergy: any, scores: any): string {
+  // Use AI-generated data if available, otherwise fallback to basic mood
+  const moodData = aiMoodAndEnergy || {
+    mood: {
+      state: "Balanced",
+      description: "Your mood today reflects your overall wellness balance.",
+      additionalInfo: "Clear patterns suggest consistent energy.",
+    },
+    energyForecast: {
+      level: "moderate to good",
+      description:
+        "Expected productivity: moderate to good. Prioritize key tasks.",
+    },
+  };
+
+  const moodState = moodData.mood.state;
+  const moodDescription = moodData.mood.description;
+  const moodAdditional = moodData.mood.additionalInfo;
+  const energyLevel = moodData.energyForecast.level;
+  const energyDescription = moodData.energyForecast.description;
+
+  // Get appropriate emoji and color based on mood state
+  const moodEmojis: { [key: string]: string } = {
+    Balanced: "😊",
+    Energized: "⚡",
+    Foggy: "🌫️",
+    Tired: "😴",
+    Focused: "🎯",
+    Restless: "😣",
+    Calm: "🧘",
+    Stressed: "😰",
+  };
+
+  const emoji = moodEmojis[moodState] || "😊";
+
+  // Get color based on overall score
+  const borderColor =
+    scores?.total >= 80
+      ? "#0b8043"
+      : scores?.total >= 60
+      ? "#fbbc04"
+      : "#ea4335";
+
+  return `<div style='background: linear-gradient(135deg, #f8f9fa 0%, #e8f0fe 100%); border: 2px solid ${borderColor}; border-radius: 12px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
+    <div style='display: flex; align-items: center; margin-bottom: 15px;'>
+      <span style='font-size: 48px; margin-right: 15px;'>${emoji}</span>
+      <div>
+        <h3 style='margin: 0; font-size: 20px; color: #1a73e8; display: flex; align-items: center;'>
+          <span style='font-size: 24px; margin-right: 8px;'>⚖️</span>
+          Today's Mood: ${moodState}
+        </h3>
+        <p style='margin: 5px 0 0 0; color: #5f6368; font-size: 14px;'>${moodDescription}</p>
+        <p style='margin: 5px 0 0 0; color: #5f6368; font-size: 14px;'>${moodAdditional}</p>
+      </div>
+    </div>
+    
+    <div style='background: rgba(255,255,255,0.7); border-radius: 8px; padding: 12px; margin-top: 15px; border-left: 4px solid ${borderColor};'>
+      <div style='display: flex; align-items: center; margin-bottom: 8px;'>
+        <span style='font-size: 20px; margin-right: 8px;'>📊</span>
+        <strong style='color: #1a73e8;'>Energy Forecast:</strong>
+      </div>
+      <span style='color: #5f6368; font-size: 14px;'>${energyDescription}</span>
+    </div>
   </div>`;
+}
+
+function generateMoodCard(moodInsight: string, scores: any): string {
+  const moodEmojis: { [key: string]: string } = {
+    energized: "⚡",
+    relaxed: "😌",
+    tired: "😴",
+    anxious: "😰",
+    overwhelmed: "😵",
+    motivated: "💪",
+    foggy: "🌫️",
+    calm: "🧘",
+    focused: "🎯",
+    restless: "😣",
+    balanced: "😊",
+  };
+
+  let moodKeyword = "balanced";
+  const lowerInsight = moodInsight.toLowerCase();
+  const feelMatch = lowerInsight.match(/feel (\w+)/);
+
+  if (feelMatch) {
+    moodKeyword = feelMatch[1];
+  } else {
+    for (const mood in moodEmojis) {
+      if (lowerInsight.indexOf(mood) !== -1) {
+        moodKeyword = mood;
+        break;
+      }
+    }
+  }
+
+  const emoji = moodEmojis[moodKeyword] || "😊";
+  const borderColor =
+    scores?.total >= 80
+      ? "#0b8043"
+      : scores?.total >= 60
+      ? "#fbbc04"
+      : "#ea4335";
+  const energyForecast = generateEnergyForecast(scores, moodKeyword);
+
+  return `<div style='background: linear-gradient(135deg, #f8f9fa 0%, #e8f0fe 100%); border: 2px solid ${borderColor}; border-radius: 12px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
+    <div style='display: flex; align-items: center; margin-bottom: 10px;'>
+      <span style='font-size: 48px; margin-right: 15px;'>${emoji}</span>
+      <div>
+        <h3 style='margin: 0; font-size: 20px; color: #1a73e8;'>Today's Mood: ${capitalizeFirstLetter(
+          moodKeyword
+        )}</h3>
+        <p style='margin: 5px 0 0 0; color: #5f6368; font-size: 14px;'>${moodInsight}</p>
+      </div>
+    </div>
+    <div style='background: rgba(255,255,255,0.7); border-radius: 8px; padding: 12px; margin-top: 15px; border-left: 4px solid ${borderColor};'>
+      <strong style='color: #1a73e8;'>📊 Energy Forecast:</strong><br>
+      <span style='color: #5f6368; font-size: 14px;'>${energyForecast}</span>
+    </div>
+  </div>`;
+}
+
+function generateEnergyForecast(scores: any, mood: string): string {
+  const forecasts: { [key: string]: string[] } = {
+    high: [
+      "Peak performance window: 9-11 AM. Schedule important tasks early.",
+      "Strong energy reserves. Consider tackling complex projects today.",
+      "Optimal conditions for deep work. Protect your focus time.",
+    ],
+    moderate: [
+      "Steady energy with potential dip around 2-3 PM. Plan accordingly.",
+      "Good baseline energy. Take regular breaks to maintain momentum.",
+      "Expected productivity: moderate to good. Prioritize key tasks.",
+    ],
+    low: [
+      "Energy conservation recommended. Focus on essential tasks only.",
+      "Anticipate fatigue by mid-afternoon. Schedule lighter activities.",
+      "Recovery day ahead. Be gentle with yourself and adjust expectations.",
+    ],
+  };
+
+  const level =
+    scores?.total >= 80 ? "high" : scores?.total >= 60 ? "moderate" : "low";
+  const options = forecasts[level];
+  return options[Math.floor(Math.random() * options.length)];
+}
+
+function capitalizeFirstLetter(string: string): string {
+  return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+function extractMoodFromInsight(moodInsight: string): string {
+  const moodEmojis: { [key: string]: string } = {
+    energized: "⚡",
+    relaxed: "😌",
+    tired: "😴",
+    anxious: "😰",
+    overwhelmed: "😵",
+    motivated: "💪",
+    foggy: "🌫️",
+    calm: "🧘",
+    focused: "🎯",
+    restless: "😣",
+    balanced: "😊",
+  };
+
+  const lowerInsight = moodInsight.toLowerCase();
+  const feelMatch = lowerInsight.match(/feel (\w+)/);
+
+  if (feelMatch) {
+    return feelMatch[1];
+  }
+
+  for (const mood in moodEmojis) {
+    if (lowerInsight.indexOf(mood) !== -1) {
+      return mood;
+    }
+  }
+
+  return "balanced";
 }
 
 function generateQuickWinBox(
@@ -1132,13 +1379,49 @@ function generateQuickWinBox(
   environmentalFactors: any,
   calendarIntelligence: any
 ): string {
-  return `<div style='background:linear-gradient(135deg, #e8f0fe 0%, #d2e3fc 100%); border:2px solid #1976d2; border-radius:12px; padding:20px; margin:20px 0;'>
-    <h3 style='font-size:20px; font-weight:600; color:#1565c0; margin:0 0 12px 0;'>
-      <img src='${SAGE_IMAGES.quickwin}' style='width:24px; height:24px; margin-right:8px; vertical-align:middle;'/>
-      🎯 Today's Quick Win
-    </h3>
-    <div style='font-size:15px; line-height:1.8; color:#333;'>Focus on getting 8 hours of quality sleep tonight for better recovery.</div>
-  </div>`;
+  let quickWin = "";
+  let icon = "🎯";
+
+  if (scores?.sleep < 70 && scores?.activity > 80) {
+    quickWin =
+      "Set a 10 PM wind-down alarm tonight - your high activity needs better sleep support";
+    icon = "😴";
+  } else if (
+    stressRadar?.score > 50 &&
+    environmentalFactors?.weather?.impact === "positive"
+  ) {
+    quickWin =
+      "Take your next call outside - combine ideal weather with stress reduction for instant relief";
+    icon = "🌞";
+  } else if (scores?.activity < 60) {
+    quickWin =
+      "Schedule a 15-minute walk at 2 PM - break up sedentary time when energy typically dips";
+    icon = "🚶";
+  } else if (calendarIntelligence?.meetingQuality?.backToBack > 2) {
+    quickWin =
+      "Add 5-minute buffers between meetings - protect transition time for mental reset";
+    icon = "⏰";
+  } else if (scores?.work > 80 && scores?.total > 80) {
+    quickWin =
+      "Protect your peak state - decline one non-essential meeting today to maintain momentum";
+    icon = "🛡️";
+  } else {
+    quickWin =
+      "Take a 10-minute music + movement break at 10:30 AM for a 15% energy boost";
+    icon = "🎵";
+  }
+
+  return `<section style="background: #fefce8; border-left: 4px solid #fef3c7; border-radius: 12px; padding: 16px; margin: 20px 0; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <div style="font-size: 20px; font-weight: bold; color: #1565c0; margin-bottom: 8px; display: flex; align-items: center; justify-content: center;">
+      <img src="${getSageImage(
+        "quickwin"
+      )}" alt="Sage Quick Win" style="width:48px; height:auto; margin-right:12px;"/>
+      Quick Win for Today
+    </div>
+    <div style="font-size: 15px; color: #424242; line-height: 1.5;">
+      ${quickWin}
+    </div>
+  </section>`;
 }
 
 function generateInsightHeadline(

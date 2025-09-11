@@ -92,13 +92,13 @@ export function calculateWellnessScores(
     scoreCount++;
   }
 
-  // Calculate total score based on available metrics
-  const total =
-    scoreCount > 0
-      ? Math.round(
-          (sleepScore + activityScore + heartScore + workScore) / scoreCount
-        )
-      : 0;
+  // Calculate weighted total score (exact implementation from code.js)
+  const total = Math.round(
+    sleepScore * 0.3 + // 30% weight
+      activityScore * 0.3 + // 30% weight
+      heartScore * 0.2 + // 20% weight
+      workScore * 0.2 // 20% weight
+  );
 
   return {
     total,
@@ -529,4 +529,265 @@ export function calculateWeeklyScores(
       work: [],
     },
   };
+}
+
+/**
+ * Get wellness balance level based on total score
+ * Exact implementation from code.js
+ */
+export function getBalanceLevel(
+  total: number
+): "excellent" | "good" | "needs_improvement" {
+  if (total >= 80) return "excellent";
+  if (total >= 60) return "good";
+  return "needs_improvement";
+}
+
+/**
+ * Generate balance insight based on score level
+ * Exact implementation from code.js generateHighScoreFallback, generateMediumScoreFallback, generateLowScoreFallback
+ */
+export function generateBalanceInsight(
+  scores: WellnessScores,
+  additionalData?: any
+): string {
+  const total = scores.total;
+
+  if (total >= 80) {
+    return generateHighScoreFallback(scores, additionalData);
+  } else if (total >= 60) {
+    return generateMediumScoreFallback(scores, additionalData);
+  } else {
+    return generateLowScoreFallback(scores, additionalData);
+  }
+}
+
+/**
+ * Generate high score fallback insight (80+ score)
+ * Exact implementation from code.js
+ */
+function generateHighScoreFallback(
+  scores: WellnessScores,
+  additionalData?: any
+): string {
+  let insight = `Your overall score of **${scores.total}/100** reflects excellent wellness balance. `;
+
+  // Identify the strongest component
+  let bestMetric = "";
+  let bestScore = 0;
+
+  if (scores.sleep >= bestScore) {
+    bestMetric = "sleep";
+    bestScore = scores.sleep;
+  }
+  if (scores.activity >= bestScore) {
+    bestMetric = "activity";
+    bestScore = scores.activity;
+  }
+  if (scores.heart >= bestScore) {
+    bestMetric = "heart";
+    bestScore = scores.heart;
+  }
+  if (scores.work >= bestScore) {
+    bestMetric = "work";
+    bestScore = scores.work;
+  }
+
+  insight += `Your ${bestMetric} performance (**${bestScore}/100**) led the way with `;
+
+  if (bestMetric === "sleep") {
+    insight += "**8+ hours** of quality rest. ";
+  } else if (bestMetric === "activity") {
+    insight += "**10,000+ steps** and consistent movement. ";
+  } else if (bestMetric === "heart") {
+    insight += "excellent cardiovascular metrics. ";
+  } else if (bestMetric === "work") {
+    insight += "balanced productivity and focus time. ";
+  }
+
+  insight += "\n\n[PARAGRAPH BREAK]\n\n";
+
+  // Pattern recognition
+  insight += "This performance aligns with your typical pattern. ";
+  if (additionalData?.stressRadar?.score < 30) {
+    insight += `Low stress levels (**${additionalData.stressRadar.score}/100**) indicate excellent recovery. `;
+  }
+  if (additionalData?.badges?.length > 0) {
+    insight += `You earned ${additionalData.badges.length} achievement badges, including ${additionalData.badges[0].name}. `;
+  }
+
+  insight += "\n\n[PARAGRAPH BREAK]\n\n";
+
+  // Specific recommendation
+  let lowestMetric = "";
+  let lowestScore = 100;
+
+  if (scores.sleep < lowestScore) {
+    lowestMetric = "sleep";
+    lowestScore = scores.sleep;
+  }
+  if (scores.activity < lowestScore) {
+    lowestMetric = "activity";
+    lowestScore = scores.activity;
+  }
+  if (scores.heart < lowestScore) {
+    lowestMetric = "heart";
+    lowestScore = scores.heart;
+  }
+  if (scores.work < lowestScore) {
+    lowestMetric = "work";
+    lowestScore = scores.work;
+  }
+
+  if (lowestMetric === "sleep" && lowestScore < 80) {
+    insight +=
+      "**Set a bedtime reminder for 10:00 PM tonight** to maintain your sleep momentum. ";
+  } else if (lowestMetric === "activity" && lowestScore < 80) {
+    insight +=
+      "**Schedule a 20-minute walk at 2:00 PM** to boost your activity consistency. ";
+  } else {
+    insight +=
+      "**Maintain your current routine** - your wellness balance is optimal. Consider documenting what worked well today. ";
+  }
+
+  return insight;
+}
+
+/**
+ * Generate medium score fallback insight (60-79 score)
+ * Exact implementation from code.js
+ */
+function generateMediumScoreFallback(
+  scores: WellnessScores,
+  additionalData?: any
+): string {
+  let insight = `Your overall score of **${scores.total}/100** shows solid performance with room for optimization. `;
+
+  // Identify the weakest link
+  let weakestMetric = "";
+  let weakestScore = 100;
+
+  if (scores.sleep < weakestScore) {
+    weakestMetric = "sleep";
+    weakestScore = scores.sleep;
+  }
+  if (scores.activity < weakestScore) {
+    weakestMetric = "activity";
+    weakestScore = scores.activity;
+  }
+  if (scores.heart < weakestScore) {
+    weakestMetric = "heart";
+    weakestScore = scores.heart;
+  }
+  if (scores.work < weakestScore) {
+    weakestMetric = "work";
+    weakestScore = scores.work;
+  }
+
+  insight += `Your ${weakestMetric} score (**${weakestScore}/100**) presents the biggest opportunity for improvement`;
+
+  if (weakestMetric === "sleep") {
+    insight += " - only **6.5 hours** of sleep impacts all other metrics. ";
+  } else if (weakestMetric === "activity") {
+    insight += " - **6,000 steps** falls short of your optimal range. ";
+  } else if (weakestMetric === "heart") {
+    insight += " - elevated resting heart rate suggests stress accumulation. ";
+  } else if (weakestMetric === "work") {
+    insight += " - email overwhelm and meeting fatigue are draining focus. ";
+  }
+
+  insight += "\n\n[PARAGRAPH BREAK]\n\n";
+
+  // Connections
+  if (scores.sleep < 70 && scores.activity > 70) {
+    insight +=
+      "Despite limited sleep, you maintained activity levels - this pattern is unsustainable. ";
+  }
+  if (additionalData?.emailStats?.noisePercentage > 70) {
+    insight += `Email noise (**${additionalData.emailStats.noisePercentage}%** promotional) is creating unnecessary friction. `;
+  }
+
+  insight += "\n\n[PARAGRAPH BREAK]\n\n";
+
+  // Targeted action
+  if (weakestMetric === "sleep") {
+    insight +=
+      "**Tonight at 9:30 PM, begin your wind-down routine**: dim lights, no screens, and aim for 7.5 hours of sleep. This single change could add 15-20 points to tomorrow's score.";
+  } else if (weakestMetric === "activity") {
+    insight +=
+      "**Set 3 movement alarms** for 10 AM, 1 PM, and 3 PM. Just 5 minutes of walking each time will add ~2,000 steps and boost your energy.";
+  } else {
+    insight += `**Focus on your ${weakestMetric} metrics** today. Small improvements here will have the biggest impact on your overall wellness.`;
+  }
+
+  return insight;
+}
+
+/**
+ * Generate low score fallback insight (<60 score)
+ * Exact implementation from code.js
+ */
+function generateLowScoreFallback(
+  scores: WellnessScores,
+  additionalData?: any
+): string {
+  let insight = `Your overall score of **${scores.total}/100** indicates yesterday was challenging. `;
+
+  // Be compassionate but direct
+  const primaryIssues = [];
+  if (scores.sleep < 60) {
+    primaryIssues.push("insufficient sleep (**6 hours**)");
+  }
+  if (scores.activity < 60) {
+    primaryIssues.push("limited movement (**4,000 steps**)");
+  }
+  if (additionalData?.stressRadar?.score > 60) {
+    primaryIssues.push(
+      `elevated stress (**${additionalData.stressRadar.score}/100**)`
+    );
+  }
+
+  insight += "The main factors were " + primaryIssues.join(" and ") + ". ";
+
+  insight += "\n\n[PARAGRAPH BREAK]\n\n";
+
+  // Explain the cascade effect
+  insight += "These metrics are interconnected - ";
+  if (scores.sleep < 60) {
+    insight +=
+      "poor sleep typically reduces next-day activity by 30% and increases stress hormones. ";
+  }
+  if (additionalData?.recoveryQuotient?.score < 60) {
+    insight += `Your recovery score (**${additionalData.recoveryQuotient.score}/100**) suggests accumulated fatigue. `;
+  }
+
+  insight += "\n\n[PARAGRAPH BREAK]\n\n";
+
+  // Recovery-focused recommendation
+  insight +=
+    "**Today is a recovery day.** Your #1 priority: **Go to bed by 9:00 PM tonight** (set an alarm now). ";
+  insight +=
+    "Keep activity light, hydrate well, and minimize stressful commitments. ";
+  insight +=
+    "One good night's sleep can increase tomorrow's score by 20+ points.";
+
+  return insight;
+}
+
+/**
+ * Get balance status text for UI display
+ */
+export function getBalanceStatusText(total: number): string {
+  if (total >= 80) return "Excellent Wellness Balance";
+  if (total >= 60) return "Good Performance with Room for Optimization";
+  return "Challenging Day - Focus on Recovery";
+}
+
+/**
+ * Get balance color for UI display
+ */
+export function getBalanceColor(total: number): string {
+  if (total >= 80) return "#10b981"; // Green
+  if (total >= 60) return "#f59e0b"; // Yellow
+  return "#ef4444"; // Red
 }

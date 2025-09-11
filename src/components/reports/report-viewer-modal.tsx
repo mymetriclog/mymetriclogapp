@@ -53,6 +53,18 @@ interface ReportData {
   deepInsights?: any;
   trends?: any;
   historicalData?: any[];
+  // AI Mood and Energy Forecast
+  aiMoodAndEnergy?: {
+    mood: {
+      state: string;
+      description: string;
+      additionalInfo: string;
+    };
+    energyForecast: {
+      level: string;
+      description: string;
+    };
+  };
 }
 
 interface ReportViewerModalProps {
@@ -277,14 +289,70 @@ export function ReportViewerModal({
           { score: report.score },
           { score: report.score + 5 },
         ],
+      // Wellness Balance Data
+      balanceLevel: (report.score >= 80
+        ? "excellent"
+        : report.score >= 60
+        ? "good"
+        : "needs_improvement") as "excellent" | "good" | "needs_improvement",
+      balanceStatus:
+        report.score >= 80
+          ? "Excellent Wellness Balance"
+          : report.score >= 60
+          ? "Good Performance with Room for Optimization"
+          : "Challenging Day - Focus on Recovery",
+      balanceColor:
+        report.score >= 80
+          ? "#10b981"
+          : report.score >= 60
+          ? "#f59e0b"
+          : "#ef4444",
+      balanceInsight: `Your overall score of **${report.score}/100** ${
+        report.score >= 80
+          ? "reflects excellent wellness balance"
+          : report.score >= 60
+          ? "shows solid performance with room for optimization"
+          : "indicates yesterday was challenging"
+      }.`,
+      // AI Mood and Energy Forecast
+      aiMoodAndEnergy: report.aiMoodAndEnergy ||
+        report.json?.aiMoodAndEnergy || {
+          mood: {
+            state:
+              report.score >= 80
+                ? "Energized"
+                : report.score >= 60
+                ? "Balanced"
+                : "Tired",
+            description:
+              report.score >= 80
+                ? "Excellent sleep and high activity levels suggest you're feeling energized and ready for the day."
+                : report.score >= 60
+                ? "Your mood today reflects your overall wellness balance."
+                : "Lower energy levels suggest you may feel tired throughout the day.",
+            additionalInfo:
+              report.score >= 80
+                ? "Strong recovery patterns indicate sustained energy."
+                : report.score >= 60
+                ? "Clear patterns suggest consistent energy."
+                : "Recovery patterns indicate need for rest.",
+          },
+          energyForecast: {
+            level:
+              report.score >= 80
+                ? "high"
+                : report.score >= 60
+                ? "moderate to good"
+                : "low",
+            description:
+              report.score >= 80
+                ? "Expected productivity: high. Take advantage of peak performance."
+                : report.score >= 60
+                ? "Expected productivity: moderate to good. Prioritize key tasks."
+                : "Expected productivity: low. Focus on essential tasks and take breaks.",
+          },
+        },
     };
-
-    // Debug: Log the final data structure being passed to template
-    console.log("📋 Final dailyReportData for template:", dailyReportData);
-    console.log(
-      "🌤️ Weather data being passed to template:",
-      dailyReportData.weatherSummary
-    );
 
     // Helper function to format sleep data
     function formatSleep(sleepMinutes: number): string {

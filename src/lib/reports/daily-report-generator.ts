@@ -1,12 +1,18 @@
 import { getServerSupabaseClient } from "@/lib/supabase/server";
 import {
   generateDailyAIInsights,
+  generateMoodAndEnergyForecast,
   type AIReportData,
   type AIInsight,
+  type AIMoodAndEnergyForecast,
 } from "@/lib/ai/report-generation";
 import {
   calculateWellnessScores,
   type WellnessScores,
+  generateBalanceInsight,
+  getBalanceLevel,
+  getBalanceStatusText,
+  getBalanceColor,
 } from "@/lib/scoring/wellness-scoring";
 import { WeatherService } from "@/lib/weather/weather-service";
 import {
@@ -68,6 +74,13 @@ export interface DailyReportData {
   deepInsights: any;
   trends: any;
   historicalData: any[];
+  // Wellness Balance Data
+  balanceLevel: "excellent" | "good" | "needs_improvement";
+  balanceStatus: string;
+  balanceColor: string;
+  balanceInsight: string;
+  // AI Mood and Energy Forecast
+  aiMoodAndEnergy: AIMoodAndEnergyForecast;
 }
 
 export async function generateDailyReport(
@@ -268,6 +281,17 @@ export async function generateDailyReport(
     null // previousDayData - would fetch this
   );
 
+  // Calculate wellness balance data
+  const balanceLevel = getBalanceLevel(scores.total);
+  const balanceStatus = getBalanceStatusText(scores.total);
+  const balanceColor = getBalanceColor(scores.total);
+  const balanceInsight = generateBalanceInsight(scores, {
+    stressRadar,
+    recoveryQuotient,
+    badges: [],
+    emailStats,
+  });
+
   // NEW: Environmental Factors
   const environmentalFactors =
     ComprehensiveIntegrationService.getSocialEnvironmentalFactors(
@@ -403,6 +427,7 @@ export async function generateDailyReport(
   };
 
   const aiInsights = await generateDailyAIInsights(aiData);
+  const aiMoodAndEnergy = await generateMoodAndEnergyForecast(aiData);
 
   const insight = aiInsights.insight;
   const mantra = aiInsights.mantra;
@@ -491,6 +516,13 @@ export async function generateDailyReport(
     deepInsights,
     trends,
     historicalData: historicalDataForAnomalies,
+    // Wellness Balance Data
+    balanceLevel,
+    balanceStatus,
+    balanceColor,
+    balanceInsight,
+    // AI Mood and Energy Forecast
+    aiMoodAndEnergy,
   };
 
   return completeReportData;
