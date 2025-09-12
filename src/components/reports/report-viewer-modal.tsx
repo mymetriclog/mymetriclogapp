@@ -150,6 +150,25 @@ export function ReportViewerModal({
       jsonWeather: report.json?.weather,
     });
 
+    // Helper function to format text with paragraph breaks and bold (matches email template)
+    function convertAndFormatInsight(text: string): string {
+      if (!text) return "";
+
+      // Convert [PARAGRAPH BREAK] to HTML line breaks
+      const withParagraphBreaks = text.replace(
+        /\[PARAGRAPH BREAK\]/g,
+        "<br><br>"
+      );
+
+      // Convert markdown bold to HTML bold
+      const withBold = withParagraphBreaks.replace(
+        /\*\*(.*?)\*\*/g,
+        "<strong>$1</strong>"
+      );
+
+      return withBold;
+    }
+
     // Use the comprehensive data directly from the report object
     // This is the data that our updated API now provides
     const dailyReportData = {
@@ -174,7 +193,9 @@ export function ReportViewerModal({
         },
       },
       insight: report.json?.insight || "Great progress today!",
-      gpt_summary: report.gpt_summary || report.json?.gpt_summary,
+      gpt_summary: convertAndFormatInsight(
+        report.gpt_summary || report.json?.gpt_summary || ""
+      ),
       mantra:
         report.mantra || report.json?.mantra || "Stay consistent, stay strong!",
       moodInsight:

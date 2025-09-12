@@ -1916,7 +1916,16 @@ function convertAndFormatInsight(gptSummary: string): string {
   // Convert markdown bold to HTML bold, handle missing insight
   const text = (gptSummary || "").toString();
 
-  return text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  // Convert [PARAGRAPH BREAK] to HTML line breaks
+  const withParagraphBreaks = text.replace(/\[PARAGRAPH BREAK\]/g, "<br><br>");
+
+  // Convert markdown bold to HTML bold
+  const withBold = withParagraphBreaks.replace(
+    /\*\*(.*?)\*\*/g,
+    "<strong>$1</strong>"
+  );
+
+  return withBold;
 }
 
 function extractWeatherData(
