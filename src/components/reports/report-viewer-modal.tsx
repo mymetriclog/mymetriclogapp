@@ -145,6 +145,9 @@ export function ReportViewerModal({
       hasAiInsights: !!report.ai_insights,
       hasGptSummary: !!report.gpt_summary,
       hasMantra: !!report.mantra,
+      weatherSummary: report.weatherSummary,
+      jsonWeatherSummary: report.json?.weatherSummary,
+      jsonWeather: report.json?.weather,
     });
 
     // Use the comprehensive data directly from the report object
@@ -178,39 +181,61 @@ export function ReportViewerModal({
         report.moodInsight ||
         report.json?.moodInsight ||
         "Your mood patterns show positive trends",
-      weatherSummary:
-        report.weatherSummary ||
-        report.json?.weatherSummary ||
-        "Weather data not available",
-      calSummary:
+      weatherSummary: (() => {
+        const weatherData =
+          report.weatherSummary ||
+          report.json?.weatherSummary ||
+          report.json?.weather;
+        const formatted = formatWeatherData(weatherData);
+        console.log("🌤️ Final weather summary:", formatted);
+        return formatted;
+      })(),
+      calSummary: formatWeatherData(
         report.calSummary ||
-        report.json?.calSummary ||
-        "No calendar data available",
-      emailSummary:
+          report.json?.calSummary ||
+          "No calendar data available"
+      ),
+      emailSummary: formatWeatherData(
         report.emailSummary ||
-        report.json?.emailSummary ||
-        "No email data available",
-      completedTasks:
+          report.json?.emailSummary ||
+          "No email data available"
+      ),
+      completedTasks: formatWeatherData(
         report.completedTasks ||
-        report.json?.completedTasks ||
-        "Review your daily progress and plan for tomorrow",
-      spotifySummary:
-        report.spotifySummary ||
-        report.json?.spotifySummary ||
-        "No music data available",
-      spotifyInsights: report.spotifyInsights || report.json?.spotifyInsights,
-      fitbitActivity:
+          report.json?.completedTasks ||
+          "Review your daily progress and plan for tomorrow"
+      ),
+      spotifySummary: (() => {
+        const musicData = report.spotifySummary || report.json?.spotifySummary;
+        const formatted = formatWeatherData(
+          musicData || "No music data available"
+        );
+        console.log("🎵 Music summary data:", {
+          original: musicData,
+          formatted: formatted,
+        });
+        return formatted;
+      })(),
+      spotifyInsights: (() => {
+        const insights = report.spotifyInsights || report.json?.spotifyInsights;
+        console.log("🎵 Music insights data:", insights);
+        return insights;
+      })(),
+      fitbitActivity: formatWeatherData(
         report.fitbitActivity ||
-        report.json?.fitbitActivity ||
-        "No activity data available",
-      fitbitSleep:
+          report.json?.fitbitActivity ||
+          "No activity data available"
+      ),
+      fitbitSleep: formatWeatherData(
         report.fitbitSleep ||
-        report.json?.fitbitSleep ||
-        "No sleep data available",
-      fitbitHeart:
+          report.json?.fitbitSleep ||
+          "No sleep data available"
+      ),
+      fitbitHeart: formatWeatherData(
         report.fitbitHeart ||
-        report.json?.fitbitHeart ||
-        "No heart rate data available",
+          report.json?.fitbitHeart ||
+          "No heart rate data available"
+      ),
       peakHR: report.peakHR || report.json?.peakHR || 92,
       stressRadar: report.stressRadar ||
         report.json?.stressRadar || {
@@ -362,8 +387,123 @@ export function ReportViewerModal({
       return `${hours}h ${minutes}m`;
     }
 
+    // Helper function to format weather data (matches email template logic)
+    function formatWeatherData(weatherData: any): string {
+      if (!weatherData) return "Weather data not available";
+
+      // Debug logging
+      console.log("🌤️ Formatting weather data:", {
+        type: typeof weatherData,
+        data: weatherData,
+        isString: typeof weatherData === "string",
+        isObject: typeof weatherData === "object",
+      });
+
+      // If it's already a string, return it
+      if (typeof weatherData === "string") return weatherData;
+
+      // If it's an object, format it properly
+      if (typeof weatherData === "object") {
+        // Handle weather object with current and forecast data
+        if (weatherData.current) {
+          const current = weatherData.current;
+          if (typeof current === "string") {
+            return current; // Already formatted like "clear sky, 18°C"
+          }
+          if (current.condition && current.temperature) {
+            return `${current.condition}, ${current.temperature}`;
+          }
+        }
+
+        // Handle weather object with impact, current, forecast structure
+        if (weatherData.impact && weatherData.current) {
+          const current = weatherData.current;
+          if (typeof current === "string") {
+            return current; // Already formatted like "clear sky, 18°C"
+          }
+          if (current.condition && current.temperature) {
+            return `${current.condition}, ${current.temperature}`;
+          }
+        }
+
+        // Check if it has a summary or description
+        if (weatherData.summary) return weatherData.summary;
+        if (weatherData.description) return weatherData.description;
+        if (weatherData.weatherSummary) return weatherData.weatherSummary;
+
+        // If it has temperature and condition
+        if (weatherData.temperature && weatherData.condition) {
+          return `${weatherData.condition}, ${weatherData.temperature}`;
+        }
+
+        // If it has hourly data, format the first entry
+        if (
+          weatherData.hourly &&
+          Array.isArray(weatherData.hourly) &&
+          weatherData.hourly.length > 0
+        ) {
+          const firstHour = weatherData.hourly[0];
+          return `${firstHour.condition || "Clear"}, ${
+            firstHour.temperature || "18"
+          }°C`;
+        }
+
+        // Fallback to string representation
+        return JSON.stringify(weatherData);
+      }
+
+      return "Weather data not available";
+    }
+
+    // Helper function to extract weather data (matches email template)
+    function extractWeatherData(
+      weatherSummary: string,
+      type: "yesterday" | "today"
+    ): string {
+      const text = (weatherSummary || "").toString();
+
+      if (type === "yesterday") {
+        // Extract yesterday's weather data
+        const conditionMatch = text.match(/Yesterday.*?(\w+)/i);
+        const tempMatch = text.match(/(\d+)°[CF]/);
+        const windMatch = text.match(/(\d+\.?\d*)\s*m\/s/);
+        const cloudMatch = text.match(/(\d+)%/);
+        const locationMatch = text.match(/in\s+([A-Za-z\s]+)/);
+
+        const condition = conditionMatch ? conditionMatch[1] : "Clear";
+        const temp = tempMatch ? tempMatch[1] : "18";
+        const wind = windMatch ? windMatch[1] : "2.0";
+        const cloud = cloudMatch ? cloudMatch[1] : "0";
+        const location = locationMatch
+          ? locationMatch[1].trim()
+          : "Your Location";
+
+        return `☁️ ${condition} | 🌡️ ${temp}°C | 💨 ${wind} m/s | ☁️ ${cloud}% | 📍 ${location}`;
+      } else {
+        // Extract today's forecast
+        const tempRangeMatch = text.match(/(\d+)-(\d+)°[CF]/);
+        const bestTimesMatch = text.match(/Best outdoor times.*?(\d+ [AP]M)/gi);
+
+        const tempMin = tempRangeMatch ? tempRangeMatch[1] : "18";
+        const tempMax = tempRangeMatch ? tempRangeMatch[2] : "25";
+        const bestTimes = bestTimesMatch
+          ? bestTimesMatch.slice(0, 3).join(", ")
+          : "11 AM, 2 PM, 8 PM";
+
+        return `🌡️ ${tempMin}-${tempMax}°C | ⭐ Best outdoor times: ${bestTimes}`;
+      }
+    }
+
     // Generate the email template HTML
     const emailHTML = generateDailyReportEmail(dailyReportData);
+
+    // Debug: Check if Environment & Lifestyle section exists in HTML
+    console.log(
+      "🌍 Environment & Lifestyle section in HTML:",
+      emailHTML.includes("Environment & Lifestyle")
+    );
+    console.log("🎵 Music section in HTML:", emailHTML.includes("Music"));
+    console.log("🌤️ Weather section in HTML:", emailHTML.includes("Weather"));
 
     // Remove the historical chart section from the modal display
     const htmlWithoutChart = emailHTML.replace(
@@ -404,6 +544,21 @@ export function ReportViewerModal({
               transformOrigin: "top center",
               margin: "0 auto",
               maxWidth: "100%",
+            }}
+          />
+          <style
+            dangerouslySetInnerHTML={{
+              __html: `
+              .report-content [style*="display:grid"] {
+                display: grid !important;
+              }
+              .report-content [style*="grid-template-columns"] {
+                grid-template-columns: 1fr 1fr !important;
+              }
+              .report-content [style*="gap:12px"] {
+                gap: 12px !important;
+              }
+            `,
             }}
           />
         </div>
