@@ -473,9 +473,6 @@ export async function generateDailyReport(
     historicalData: historicalDataForAnomalies,
   });
 
-  // Save to database
-  await saveDailyReport(userId, formattedReportData);
-
   // Build complete report data object
   const completeReportData = {
     date: dateStr,
@@ -524,6 +521,9 @@ export async function generateDailyReport(
     // AI Mood and Energy Forecast
     aiMoodAndEnergy,
   };
+
+  // Save to database - save the complete report data instead of formatted data
+  await saveDailyReport(userId, completeReportData);
 
   return completeReportData;
 }

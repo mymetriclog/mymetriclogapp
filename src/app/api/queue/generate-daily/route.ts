@@ -7,7 +7,7 @@ import { sendEmail } from "@/lib/sendgrid/email-service";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { userId, userEmail, reportType, date } = body;
+    const { userId, userEmail, reportType, date, skipEmail = false } = body;
 
     // Check if this is a queue-based request (has userId) or user session request
     let targetUserId: string;
@@ -43,8 +43,8 @@ export async function POST(request: Request) {
     // Generate email HTML using the correct template
     const emailHTML = generateDailyReportEmail(reportData);
 
-    // Send email (only for user session requests, queue requests handle email separately)
-    if (!isQueueRequest) {
+    // Send email (only for user session requests and when not skipping email)
+    if (!isQueueRequest && !skipEmail) {
       const session = await getServerSession();
       const { EmailLogger } = await import("@/lib/email-logging/email-logger");
 

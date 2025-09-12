@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Step 2: Generate report using the API endpoint
+    // Step 2: Generate report using the API endpoint (without sending email)
     const reportResult = await generateUserReport(
       userId,
       userEmail,
@@ -225,6 +225,7 @@ async function generateUserReport(
         userId,
         userEmail,
         reportType,
+        skipEmail: true, // Skip email sending in API, we'll handle it separately
       }),
     });
 

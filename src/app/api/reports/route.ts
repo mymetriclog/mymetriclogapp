@@ -95,6 +95,13 @@ export async function GET() {
           deepInsights: reportData.deepInsights,
           trends: reportData.trends,
           historicalData: reportData.historicalData,
+          // Wellness Balance Data
+          balanceLevel: reportData.balanceLevel,
+          balanceStatus: reportData.balanceStatus,
+          balanceColor: reportData.balanceColor,
+          balanceInsight: reportData.balanceInsight,
+          // AI Mood and Energy Forecast
+          aiMoodAndEnergy: reportData.aiMoodAndEnergy,
         };
       }) || [];
 

@@ -65,6 +65,11 @@ interface ReportData {
       description: string;
     };
   };
+  // Wellness Balance Data
+  balanceLevel?: "excellent" | "good" | "needs_improvement";
+  balanceStatus?: string;
+  balanceColor?: string;
+  balanceInsight?: string;
 }
 
 interface ReportViewerModalProps {
@@ -336,30 +341,40 @@ export function ReportViewerModal({
           { score: report.score + 5 },
         ],
       // Wellness Balance Data
-      balanceLevel: (report.score >= 80
-        ? "excellent"
-        : report.score >= 60
-        ? "good"
-        : "needs_improvement") as "excellent" | "good" | "needs_improvement",
+      balanceLevel:
+        report.balanceLevel ||
+        report.json?.balanceLevel ||
+        ((report.score >= 80
+          ? "excellent"
+          : report.score >= 60
+          ? "good"
+          : "needs_improvement") as "excellent" | "good" | "needs_improvement"),
       balanceStatus:
-        report.score >= 80
+        report.balanceStatus ||
+        report.json?.balanceStatus ||
+        (report.score >= 80
           ? "Excellent Wellness Balance"
           : report.score >= 60
           ? "Good Performance with Room for Optimization"
-          : "Challenging Day - Focus on Recovery",
+          : "Challenging Day - Focus on Recovery"),
       balanceColor:
-        report.score >= 80
+        report.balanceColor ||
+        report.json?.balanceColor ||
+        (report.score >= 80
           ? "#10b981"
           : report.score >= 60
           ? "#f59e0b"
-          : "#ef4444",
-      balanceInsight: `Your overall score of **${report.score}/100** ${
-        report.score >= 80
-          ? "reflects excellent wellness balance"
-          : report.score >= 60
-          ? "shows solid performance with room for optimization"
-          : "indicates yesterday was challenging"
-      }.`,
+          : "#ef4444"),
+      balanceInsight:
+        report.balanceInsight ||
+        report.json?.balanceInsight ||
+        `Your overall score of **${report.score}/100** ${
+          report.score >= 80
+            ? "reflects excellent wellness balance"
+            : report.score >= 60
+            ? "shows solid performance with room for optimization"
+            : "indicates yesterday was challenging"
+        }.`,
       // AI Mood and Energy Forecast
       aiMoodAndEnergy: report.aiMoodAndEnergy ||
         report.json?.aiMoodAndEnergy || {
