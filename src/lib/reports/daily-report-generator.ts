@@ -522,6 +522,28 @@ export async function generateDailyReport(
     aiMoodAndEnergy,
   };
 
+  // Debug: Log the complete report data being saved
+  console.log("💾 Saving complete report data to database:", {
+    date: completeReportData.date,
+    scores: completeReportData.scores,
+    hasGptSummary: !!completeReportData.gpt_summary,
+    hasMantra: !!completeReportData.mantra,
+    hasWeatherSummary: !!completeReportData.weatherSummary,
+    hasCalSummary: !!completeReportData.calSummary,
+    hasEmailSummary: !!completeReportData.emailSummary,
+    hasSpotifySummary: !!completeReportData.spotifySummary,
+    hasFitbitActivity: !!completeReportData.fitbitActivity,
+    hasFitbitSleep: !!completeReportData.fitbitSleep,
+    hasFitbitHeart: !!completeReportData.fitbitHeart,
+    hasBadges: !!completeReportData.badges,
+    badgesLength: completeReportData.badges?.length || 0,
+    hasStreakBadges: !!completeReportData.streakBadges,
+    streakBadgesLength: completeReportData.streakBadges?.length || 0,
+    hasAiMoodAndEnergy: !!completeReportData.aiMoodAndEnergy,
+    hasBalanceLevel: !!completeReportData.balanceLevel,
+    hasBalanceStatus: !!completeReportData.balanceStatus,
+  });
+
   // Save to database - save the complete report data instead of formatted data
   await saveDailyReport(userId, completeReportData);
 

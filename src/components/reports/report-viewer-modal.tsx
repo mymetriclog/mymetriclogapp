@@ -94,6 +94,22 @@ export function ReportViewerModal({
       reportScore: report.score,
       reportJson: report.json,
       reportAiInsights: report.ai_insights,
+      hasGptSummary: !!report.gpt_summary,
+      hasMantra: !!report.mantra,
+      hasWeatherSummary: !!report.weatherSummary,
+      hasCalSummary: !!report.calSummary,
+      hasEmailSummary: !!report.emailSummary,
+      hasSpotifySummary: !!report.spotifySummary,
+      hasFitbitActivity: !!report.fitbitActivity,
+      hasFitbitSleep: !!report.fitbitSleep,
+      hasFitbitHeart: !!report.fitbitHeart,
+      hasBadges: !!report.badges,
+      badgesLength: report.badges?.length || 0,
+      hasStreakBadges: !!report.streakBadges,
+      streakBadgesLength: report.streakBadges?.length || 0,
+      hasAiMoodAndEnergy: !!report.aiMoodAndEnergy,
+      hasBalanceLevel: !!report.balanceLevel,
+      hasBalanceStatus: !!report.balanceStatus,
     });
 
     // Use the exact same generateReportHTML function that the modal uses
@@ -101,6 +117,17 @@ export function ReportViewerModal({
 
     // Debug: Log the generated HTML content length
     console.log("📄 Generated HTML Content Length:", htmlContent.length);
+
+    // Debug: Check if specific sections are empty
+    console.log("🔍 HTML Content Analysis:", {
+      hasWeatherSection: htmlContent.includes("Weather"),
+      hasMusicSection: htmlContent.includes("Music"),
+      hasEnvironmentSection: htmlContent.includes("Environment & Lifestyle"),
+      hasBadgeSection: htmlContent.includes("Today's Achievements"),
+      hasMoodSection: htmlContent.includes("Today's Mood"),
+      hasEnergySection: htmlContent.includes("Energy Forecast"),
+      hasWellnessSection: htmlContent.includes("Wellness Balance"),
+    });
 
     // Create a complete HTML document
     const fullHTML = `
@@ -186,11 +213,12 @@ export function ReportViewerModal({
       }),
       scores: report.json?.scores || {
         total: report.score,
-        sleep: Math.round(report.score * 0.25),
-        activity: Math.round(report.score * 0.25),
-        heart: Math.round(report.score * 0.25),
-        work: Math.round(report.score * 0.25),
-        explanations: {
+        sleep: report.json?.scores?.sleep || Math.round(report.score * 0.25),
+        activity:
+          report.json?.scores?.activity || Math.round(report.score * 0.25),
+        heart: report.json?.scores?.heart || Math.round(report.score * 0.25),
+        work: report.json?.scores?.work || Math.round(report.score * 0.25),
+        explanations: report.json?.scores?.explanations || {
           sleep: ["Sleep quality analysis based on your data"],
           activity: ["Activity level assessment"],
           heart: ["Heart rate and recovery metrics"],

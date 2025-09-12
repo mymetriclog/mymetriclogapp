@@ -50,6 +50,30 @@ export async function GET() {
         // Extract comprehensive data from report_data
         const reportData = report.report_data || {};
 
+        // Debug: Log the retrieved report data
+        console.log("📊 Retrieved report data from database:", {
+          reportId: report.id,
+          reportDate: report.report_date,
+          hasReportData: !!reportData,
+          scores: reportData.scores,
+          hasGptSummary: !!reportData.gpt_summary,
+          hasMantra: !!reportData.mantra,
+          hasWeatherSummary: !!reportData.weatherSummary,
+          hasCalSummary: !!reportData.calSummary,
+          hasEmailSummary: !!reportData.emailSummary,
+          hasSpotifySummary: !!reportData.spotifySummary,
+          hasFitbitActivity: !!reportData.fitbitActivity,
+          hasFitbitSleep: !!reportData.fitbitSleep,
+          hasFitbitHeart: !!reportData.fitbitHeart,
+          hasBadges: !!reportData.badges,
+          badgesLength: reportData.badges?.length || 0,
+          hasStreakBadges: !!reportData.streakBadges,
+          streakBadgesLength: reportData.streakBadges?.length || 0,
+          hasAiMoodAndEnergy: !!reportData.aiMoodAndEnergy,
+          hasBalanceLevel: !!reportData.balanceLevel,
+          hasBalanceStatus: !!reportData.balanceStatus,
+        });
+
         return {
           id: report.id,
           user_id: report.user_id,
