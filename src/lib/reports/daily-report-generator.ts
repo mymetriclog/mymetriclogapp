@@ -29,8 +29,14 @@ import {
   getSpotifyStats,
   getSpotifyAccessToken,
 } from "@/lib/integrations/spotify";
+import {
+  getGoogleTasksStats,
+  getGoogleTasksAccessToken,
+} from "@/lib/integrations/google-tasks";
 import { ComprehensiveIntegrationService } from "@/lib/integrations/comprehensive-integration-service";
 import { BadgeCalculator } from "@/lib/badges/badge-calculator";
+import { MoodService } from "@/lib/mood/mood-service";
+import { MoodPredictionService } from "@/lib/mood/mood-prediction-service";
 
 // Constants from code.js - moved to comprehensive-integration-service
 
@@ -108,25 +114,38 @@ export async function generateDailyReport(
   }
 
   // Get access tokens first
-  const [fitbitToken, gmailToken, calendarToken, spotifyToken] =
-    await Promise.all([
-      getFitbitAccessToken(userId),
-      getGmailAccessToken(userId),
-      getGoogleCalendarAccessToken(userId),
-      getSpotifyAccessToken(userId),
-    ]);
+  const [
+    fitbitToken,
+    gmailToken,
+    calendarToken,
+    spotifyToken,
+    googleTasksToken,
+  ] = await Promise.all([
+    getFitbitAccessToken(userId),
+    getGmailAccessToken(userId),
+    getGoogleCalendarAccessToken(userId),
+    getSpotifyAccessToken(userId),
+    getGoogleTasksAccessToken(userId),
+  ]);
 
   // Get all integration data with proper tokens
   // Fitbit: Current day (today), Others: Previous day (yesterday)
 
-  const [fitbitData, gmailData, calendarStats, spotifyData, weatherData] =
-    await Promise.all([
-      fitbitToken ? getFitbitStats(fitbitToken, today) : null, // Today's Fitbit data
-      gmailToken ? getGmailStats(gmailToken, yesterday) : null, // Yesterday's Gmail data
-      calendarToken ? getGoogleCalendarStats(calendarToken, yesterday) : null, // Yesterday's Calendar data
-      spotifyToken ? getSpotifyStats(spotifyToken, yesterday) : null, // Yesterday's Spotify data
-      WeatherService.getWeatherData(40.7128, -74.006, yesterday), // Yesterday's Weather data
-    ]);
+  const [
+    fitbitData,
+    gmailData,
+    calendarStats,
+    spotifyData,
+    weatherData,
+    googleTasksStats,
+  ] = await Promise.all([
+    fitbitToken ? getFitbitStats(fitbitToken, today) : null, // Today's Fitbit data
+    gmailToken ? getGmailStats(gmailToken, yesterday) : null, // Yesterday's Gmail data
+    calendarToken ? getGoogleCalendarStats(calendarToken, yesterday) : null, // Yesterday's Calendar data
+    spotifyToken ? getSpotifyStats(spotifyToken, yesterday) : null, // Yesterday's Spotify data
+    WeatherService.getWeatherData(40.7128, -74.006, yesterday), // Yesterday's Weather data
+    googleTasksToken ? getGoogleTasksStats(googleTasksToken, yesterday) : null, // Yesterday's Google Tasks data
+  ]);
 
   // Get calendar events separately for analysis (yesterday's events)
   const calendarEvents = calendarToken
@@ -195,7 +214,20 @@ export async function generateDailyReport(
     : generateFallbackEmailResponseAnalysis();
 
   // Tasks - completed yesterday (placeholder for now)
-  const completedTasks = "";
+  // Generate completed tasks summary from Google Tasks data
+  const completedTasks = googleTasksStats
+    ? `✅ Tasks: ${googleTasksStats.completedTasks}/${
+        googleTasksStats.totalTasks
+      } completed (${
+        googleTasksStats.completionRate
+      }% completion rate) • Productivity Score: ${
+        googleTasksStats.productivityScore
+      }/100${
+        googleTasksStats.overdueTasks > 0
+          ? ` • ⚠️ ${googleTasksStats.overdueTasks} overdue`
+          : ""
+      }`
+    : "📝 No task data available - Google Tasks not connected";
 
   // Spotify - yesterday's listening
   const spotifySummary = spotifyData
@@ -241,11 +273,37 @@ export async function generateDailyReport(
     : [];
 
   // Mood from day before yesterday
-  const previousMood = await getMoodFromDayBefore(userId, twoDaysAgo);
-  const moodInsight = getPredictedMood(
+  const previousMood = await MoodService.getMoodFromDayBefore(userId);
+
+  // Generate mood prediction based on wellness data
+  const wellnessData = {
     fitbitSleep,
     fitbitHeart,
-    spotifySummary
+    spotifySummary,
+    scores: {
+      sleep: 0, // Will be calculated later
+      activity: 0, // Will be calculated later
+      heart: 0, // Will be calculated later
+      work: 0, // Will be calculated later
+      total: 0, // Will be calculated later
+    },
+    dayContext: undefined, // Will be set later
+  };
+
+  const moodPrediction = MoodPredictionService.predictMood(wellnessData);
+  const moodInsight = MoodPredictionService.generateMoodInsight(
+    moodPrediction,
+    undefined
+  );
+
+  // Save the predicted mood to database
+  await MoodService.setMoodForDate(
+    userId,
+    yesterday,
+    moodPrediction.mood,
+    "ai_generated",
+    moodPrediction.confidence_score,
+    moodPrediction.factors
   );
 
   // Get day context for yesterday
@@ -274,7 +332,8 @@ export async function generateDailyReport(
     calSummary,
     completedTasks,
     dayContext,
-    allData
+    allData,
+    googleTasksStats
   );
 
   // Stress Detection
@@ -765,23 +824,6 @@ function extractPeakHR(heartString: string): number {
   return match ? parseInt(match[1]) : 0;
 }
 
-async function getMoodFromDayBefore(
-  userId: string,
-  date: Date
-): Promise<string> {
-  // Implementation from code.js
-  return "neutral";
-}
-
-function getPredictedMood(
-  sleep: string,
-  heart: string,
-  spotify: string
-): string {
-  // Implementation from code.js
-  return "Your mood today reflects your overall wellness balance.";
-}
-
 function getContextualDayAnalysis(
   date: Date,
   scores: any,
@@ -806,7 +848,8 @@ function getMyMetricLogScoreBreakdown(
   calSummary: string,
   completedTasks: string,
   dayContext: any,
-  allData: any
+  allData: any,
+  googleTasksStats?: any
 ): WellnessScores {
   // Implementation from code.js - this is the exact scoring logic
   const scores = {
@@ -1181,8 +1224,41 @@ function getMyMetricLogScoreBreakdown(
     );
   }
 
-  // Task completion (30 points)
-  if (completedTasks && completedTasks.length > 0) {
+  // Task completion (30 points) - Enhanced with Google Tasks data
+  if (googleTasksStats) {
+    const completionRate = googleTasksStats.completionRate || 0;
+    const productivityScore = googleTasksStats.productivityScore || 0;
+    const overdueTasks = googleTasksStats.overdueTasks || 0;
+
+    // Base score from productivity score (0-25 points)
+    const baseScore = Math.round((productivityScore / 100) * 25);
+    workScore += baseScore;
+    workExplanations.push(
+      `Google Tasks productivity (${productivityScore}/100) = ${baseScore}/25 points`
+    );
+
+    // Bonus for high completion rate (0-5 points)
+    if (completionRate >= 90) {
+      workScore += 5;
+      workExplanations.push(
+        `Perfect completion rate (${completionRate}%) = 5/5 bonus points`
+      );
+    } else if (completionRate >= 70) {
+      workScore += 3;
+      workExplanations.push(
+        `Good completion rate (${completionRate}%) = 3/5 bonus points`
+      );
+    }
+
+    // Penalty for overdue tasks
+    if (overdueTasks > 0) {
+      const penalty = Math.min(overdueTasks * 2, 10);
+      workScore = Math.max(0, workScore - penalty);
+      workExplanations.push(
+        `Overdue tasks penalty (${overdueTasks} tasks) = -${penalty} points`
+      );
+    }
+  } else if (completedTasks && completedTasks.length > 0) {
     workScore += 30;
     workExplanations.push("Tasks completed = 30/30 points");
   } else {

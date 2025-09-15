@@ -29,6 +29,14 @@ export interface ScoringData {
   };
   calSummary?: string; // Calendar summary string
   completedTasks?: string; // Tasks completion string
+  googleTasksStats?: {
+    totalTasks: number;
+    completedTasks: number;
+    pendingTasks: number;
+    overdueTasks: number;
+    completionRate: number;
+    productivityScore: number;
+  };
   dayContext?: {
     dayType: "weekend" | "weekday";
     dayName: string;
@@ -39,6 +47,7 @@ export interface ScoringData {
     calendarAnalysis?: any;
     emailStats?: any;
     emailResponseAnalysis?: any;
+    googleTasksStats?: any;
   };
 }
 
@@ -54,7 +63,8 @@ export function calculateWellnessScores(
   calSummary: string,
   completedTasks: string,
   dayContext: any,
-  allData: any
+  allData: any,
+  googleTasksStats?: any
 ): WellnessScores {
   let sleepScore = 0;
   let activityScore = 0;
@@ -86,9 +96,12 @@ export function calculateWellnessScores(
     scoreCount++;
   }
 
-  // Work Score (0-100) - based on Gmail and Google Calendar data
-  if (emailStats || calSummary) {
-    workScore = calculateWorkScore(emailStats, { calSummary });
+  // Work Score (0-100) - based on Gmail, Google Calendar, and Google Tasks data
+  if (emailStats || calSummary || googleTasksStats) {
+    workScore = calculateWorkScore(emailStats, {
+      calSummary,
+      googleTasksStats,
+    });
     scoreCount++;
   }
 
@@ -293,10 +306,13 @@ function calculateHeartScore(heartData: any): number {
 }
 
 /**
- * Calculate work productivity score based on email management
+ * Calculate work productivity score based on email management, calendar, and task completion
  * Mirrors the work scoring logic from code.js
  */
-function calculateWorkScore(emailStats: any, calendarStats?: any): number {
+function calculateWorkScore(
+  emailStats: any,
+  additionalStats?: { calSummary?: any; googleTasksStats?: any }
+): number {
   const totalEmails = emailStats.totalEmails || 0;
   const unreadCount = emailStats.unreadCount || 0;
   const sentCount = emailStats.sent || 0;
@@ -359,20 +375,20 @@ function calculateWorkScore(emailStats: any, calendarStats?: any): number {
     }
   }
 
-  // Calendar-based scoring (0-40 points) - if calendar data is available
+  // Calendar-based scoring (0-30 points) - if calendar data is available
   let calendarScore = 0;
-  if (calendarStats) {
-    const totalEvents = calendarStats.totalEvents || 0;
-    const eventsToday = calendarStats.eventsToday || 0;
-    const avgEventsPerDay = calendarStats.avgEventsPerDay || 0;
+  if (additionalStats?.calSummary) {
+    const totalEvents = additionalStats.calSummary.totalEvents || 0;
+    const eventsToday = additionalStats.calSummary.eventsToday || 0;
+    const avgEventsPerDay = additionalStats.calSummary.avgEventsPerDay || 0;
 
     // Event management scoring
     if (totalEvents > 0) {
       // Balance scoring - not too many, not too few events
       if (avgEventsPerDay >= 3 && avgEventsPerDay <= 8) {
-        calendarScore = 40; // Optimal balance
+        calendarScore = 30; // Optimal balance
       } else if (avgEventsPerDay >= 2 && avgEventsPerDay <= 10) {
-        calendarScore = 30; // Good balance
+        calendarScore = 25; // Good balance
       } else if (avgEventsPerDay >= 1 && avgEventsPerDay <= 12) {
         calendarScore = 20; // Acceptable balance
       } else {
@@ -381,20 +397,44 @@ function calculateWorkScore(emailStats: any, calendarStats?: any): number {
 
       // Today's activity scoring bonus
       if (eventsToday > 0 && eventsToday <= 5) {
-        calendarScore += 10; // Bonus for reasonable daily activity
+        calendarScore += 5; // Bonus for reasonable daily activity
       }
     }
   }
 
-  const totalScore =
-    responseScore + productivityScore + organizationScore + calendarScore;
+  // Google Tasks scoring (0-30 points) - if task data is available
+  let tasksScore = 0;
+  if (additionalStats?.googleTasksStats) {
+    const tasksStats = additionalStats.googleTasksStats;
+    const completionRate = tasksStats.completionRate || 0;
+    const productivityScore = tasksStats.productivityScore || 0;
+    const overdueTasks = tasksStats.overdueTasks || 0;
 
-  // Normalize to 100 if calendar scoring is included
-  if (calendarStats) {
-    return Math.min(100, totalScore);
+    // Base score from productivity score
+    tasksScore = Math.round((productivityScore / 100) * 25);
+
+    // Bonus for high completion rate
+    if (completionRate >= 90) {
+      tasksScore += 5; // Perfect completion bonus
+    } else if (completionRate >= 70) {
+      tasksScore += 3; // Good completion bonus
+    }
+
+    // Penalty for overdue tasks
+    if (overdueTasks > 0) {
+      tasksScore = Math.max(0, tasksScore - overdueTasks * 2);
+    }
   }
 
-  return totalScore;
+  const totalScore =
+    responseScore +
+    productivityScore +
+    organizationScore +
+    calendarScore +
+    tasksScore;
+
+  // Normalize to 100
+  return Math.min(100, totalScore);
 }
 
 /**
