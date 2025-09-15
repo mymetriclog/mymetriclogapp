@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,7 +10,9 @@ export async function GET(req: NextRequest) {
     if (error) {
       console.error("Google Tasks OAuth error:", error);
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL}/integrations/google-tasks?error=${encodeURIComponent(error)}`
+        `${
+          process.env.NEXT_PUBLIC_APP_URL
+        }/integrations/google-tasks?error=${encodeURIComponent(error)}`
       );
     }
 
@@ -47,8 +49,11 @@ export async function GET(req: NextRequest) {
     const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
 
     // Get user session
-    const supabase = createClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const supabase = await getServerSupabaseClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
     if (userError || !user) {
       console.error("User not authenticated:", userError);
