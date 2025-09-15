@@ -283,71 +283,42 @@ export function composeEnhancedMyMetricLogEmail(
   const stressColor = getStressColor(stressRadar?.score || 0);
   const recoveryColor = getRecoveryColor(recoveryQuotient?.score || 0);
 
-  // Extract key stats with improved pattern matching
-  // Sleep data - try multiple patterns
+  // Extract key stats - matching reportold.tsx exactly
+  // Sleep data - match reportold.tsx pattern
   let sleepStr = "N/A";
-  const sleepMatch1 = (fitbitSleep || "").match(/(\d+)h (\d+)m/);
-  const sleepMatch2 = (fitbitSleep || "").match(/Sleep: (\d+h \d+m)/);
-  const sleepMatch3 = (fitbitSleep || "").match(/(\d+)h (\d+)m \(/);
-
-  if (sleepMatch1) {
-    sleepStr = sleepMatch1[1] + "h " + sleepMatch1[2] + "m";
-  } else if (sleepMatch2) {
-    sleepStr = sleepMatch2[1];
-  } else if (sleepMatch3) {
-    sleepStr = sleepMatch3[1] + "h " + sleepMatch3[2] + "m";
+  const sleepMatch = (fitbitSleep || "").match(/(\d+)h (\d+)m/);
+  if (sleepMatch) {
+    sleepStr = sleepMatch[1] + "h " + sleepMatch[2] + "m";
   }
 
-  // Steps data - try multiple patterns
+  // Steps data - match reportold.tsx pattern
   let stepsStr = "N/A";
-  const stepsMatch1 = (fitbitActivity || "").match(/👣 Steps: ([\d,]+)/);
-  const stepsMatch2 = (fitbitActivity || "").match(/Steps: ([\d,]+)/);
-
-  if (stepsMatch1) {
-    stepsStr = stepsMatch1[1];
-  } else if (stepsMatch2) {
-    stepsStr = stepsMatch2[1];
+  const stepsMatch = (fitbitActivity || "").match(/👣 Steps: ([\d,]+)/);
+  if (stepsMatch) {
+    stepsStr = stepsMatch[1];
   }
 
-  // Calories data - try multiple patterns
+  // Calories data - match reportold.tsx pattern
   let caloriesStr = "N/A";
-  const caloriesMatch1 = (fitbitActivity || "").match(
+  const caloriesMatch = (fitbitActivity || "").match(
     /🔥 Calories burned: ([\d,]+)/
   );
-  const caloriesMatch2 = (fitbitActivity || "").match(/Calories: ([\d,]+)/);
-
-  if (caloriesMatch1) {
-    caloriesStr = caloriesMatch1[1] + " cal";
-  } else if (caloriesMatch2) {
-    caloriesStr = caloriesMatch2[1] + " cal";
+  if (caloriesMatch) {
+    caloriesStr = caloriesMatch[1] + " cal";
   }
 
-  // Active minutes data - try multiple patterns
+  // Active minutes data - match reportold.tsx pattern
   let activeStr = "N/A";
-  const activeMatch1 = (fitbitActivity || "").match(/💪 Very Active: (\d+)/);
-  const activeMatch2 = (fitbitActivity || "").match(/Very Active: (\d+)/);
-  const activeMatch3 = (fitbitActivity || "").match(/Active: (\d+)/);
-
-  if (activeMatch1) {
-    activeStr = activeMatch1[1] + " min active";
-  } else if (activeMatch2) {
-    activeStr = activeMatch2[1] + " min active";
-  } else if (activeMatch3) {
-    activeStr = activeMatch3[1] + " min active";
+  const activeMatch = (fitbitActivity || "").match(/💪 Very Active: (\d+)/);
+  if (activeMatch) {
+    activeStr = activeMatch[1] + " min active";
   }
 
-  // Resting HR data - try multiple patterns
+  // Resting HR data - match reportold.tsx pattern
   let restingHRStr = "N/A";
-  const restingHRMatch1 = (fitbitHeart || "").match(/❤️ Resting HR: (\d+)/);
-  const restingHRMatch2 = (fitbitHeart || "").match(/Resting HR: (\d+)/);
-  const restingHRMatch3 = (fitbitHeart || "").match(/Resting: (\d+)/);
-
-  if (restingHRMatch1) {
-    restingHRStr = restingHRMatch1[1] + " bpm";
-  } else if (restingHRMatch2) {
-    restingHRStr = restingHRMatch2[1] + " bpm";
-  } else if (restingHRMatch3) {
-    restingHRStr = restingHRMatch3[1] + " bpm";
+  const restingHRMatch = (fitbitHeart || "").match(/❤️ Resting HR: (\d+)/);
+  if (restingHRMatch) {
+    restingHRStr = restingHRMatch[1] + " bpm";
   }
 
   // Build HTML with inline styles for email compatibility
@@ -423,7 +394,7 @@ export function composeEnhancedMyMetricLogEmail(
     <br><br>
     <span style='font-size:14px; color:#666;'>
       Yesterday's (${dayContext?.dayName || "day"}) mood: ${
-    previousMood || "Unknown"
+    previousMood || ""
   }<br>
       Note: Sleep data reflects last night's rest (affecting today's energy)
     </span>
