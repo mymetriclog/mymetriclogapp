@@ -446,3 +446,41 @@ export async function getGoogleTasksWithDetails(
     return [];
   }
 }
+
+/**
+ * Upsert Google Tasks tokens to database
+ */
+export async function upsertGoogleTasksTokens(
+  userId: string,
+  tokenData: any
+): Promise<void> {
+  try {
+    const supabase = await getServerSupabaseClient();
+
+    const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
+
+    console.log("🔐 [GoogleTasks] Upserting tokens for user:", userId);
+
+    const { error } = await supabase.from("integration_tokens").upsert({
+      user_id: userId,
+      provider: "google-tasks",
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      expires_at: expiresAt.toISOString(),
+      scope: tokenData.scope,
+      token_type: tokenData.token_type || "Bearer",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      console.error("❌ [GoogleTasks] Failed to upsert tokens:", error);
+      throw error;
+    }
+
+    console.log("✅ [GoogleTasks] Tokens upserted successfully");
+  } catch (error) {
+    console.error("❌ [GoogleTasks] Error upserting tokens:", error);
+    throw error;
+  }
+}

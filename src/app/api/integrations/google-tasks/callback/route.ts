@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getServerSupabaseClient,
-  getServerSupabaseClientWithServiceRole,
-} from "@/lib/supabase/server";
+import { getServerSupabaseClient } from "@/lib/supabase/server";
+import { upsertGoogleTasksTokens } from "@/lib/integrations/google-tasks";
 
 export async function GET(req: NextRequest) {
   try {
@@ -64,44 +62,25 @@ export async function GET(req: NextRequest) {
         `${process.env.NEXT_PUBLIC_APP_URL}/integrations/google-tasks?error=User not authenticated`
       );
     }
-
-    // Store the token in database using service role
+    // Store the token in database using upsert function
     console.log(
       "🔐 [Google Tasks] Attempting to save token for user:",
       user.id
     );
-    console.log("🔐 [Google Tasks] Token data:", {
-      user_id: user.id,
-      provider: "google-tasks",
-      has_access_token: !!tokenData.access_token,
-      has_refresh_token: !!tokenData.refresh_token,
-      expires_at: expiresAt.toISOString(),
-      scope: tokenData.scope,
-    });
 
-    const supabaseAdmin = await getServerSupabaseClientWithServiceRole();
-    const { data: insertData, error: insertError } = await supabaseAdmin
-      .from("integration_tokens")
-      .upsert({
-        user_id: user.id,
-        provider: "google-tasks",
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token,
-        expires_at: expiresAt.toISOString(),
-        scope: tokenData.scope,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select();
-
-    if (insertError) {
-      console.error("❌ [Google Tasks] Failed to store token:", insertError);
+    try {
+      await upsertGoogleTasksTokens(user.id, tokenData);
+      console.log("✅ [Google Tasks] Token saved successfully");
+    } catch (dbError) {
+      console.error("❌ [Google Tasks] Failed to save token:", dbError);
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL}/integrations/google-tasks?error=Failed to store authentication token: ${insertError.message}`
+        `${
+          process.env.NEXT_PUBLIC_APP_URL
+        }/integrations/google-tasks?error=Failed to store authentication token: ${
+          dbError instanceof Error ? dbError.message : "Unknown error"
+        }`
       );
     }
-
-    console.log("✅ [Google Tasks] Token saved successfully:", insertData);
 
     // Redirect to success page
     return NextResponse.redirect(
