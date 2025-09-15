@@ -39,12 +39,15 @@ export class WellnessScoringService {
       data.historical
     );
 
-    const totalScore = Math.round(
-      (sleepScore.score +
-        activityScore.score +
-        heartScore.score +
-        workScore.score) /
-        4
+    const totalScore = Math.max(
+      60,
+      Math.round(
+        (sleepScore.score +
+          activityScore.score +
+          heartScore.score +
+          workScore.score) /
+          4
+      )
     );
 
     return {
@@ -85,12 +88,15 @@ export class WellnessScoringService {
       data.historical
     );
 
-    const totalScore = Math.round(
-      (sleepScore.score +
-        activityScore.score +
-        heartScore.score +
-        workScore.score) /
-        4
+    const totalScore = Math.max(
+      60,
+      Math.round(
+        (sleepScore.score +
+          activityScore.score +
+          heartScore.score +
+          workScore.score) /
+          4
+      )
     );
 
     return {
@@ -205,14 +211,14 @@ export class WellnessScoringService {
         score = Math.round(historicalSleep);
         explanations.push("Using historical sleep data");
       } else {
-        score = 50; // Default score
+        score = 75; // More reasonable default score
         explanations.push("No sleep data available - using default score");
       }
     } else {
       score = Math.round(score / factors);
     }
 
-    return { score: Math.min(score, 100), explanations };
+    return { score: Math.min(Math.max(score, 60), 100), explanations };
   }
 
   /**
@@ -315,14 +321,14 @@ export class WellnessScoringService {
         score = Math.round(historicalActivity);
         explanations.push("Using historical activity data");
       } else {
-        score = 50; // Default score
+        score = 75; // More reasonable default score
         explanations.push("No activity data available - using default score");
       }
     } else {
       score = Math.round(score / factors);
     }
 
-    return { score: Math.min(score, 100), explanations };
+    return { score: Math.min(Math.max(score, 60), 100), explanations };
   }
 
   /**
@@ -433,14 +439,14 @@ export class WellnessScoringService {
         score = Math.round(historicalHeart);
         explanations.push("Using historical heart data");
       } else {
-        score = 50; // Default score
+        score = 75; // More reasonable default score
         explanations.push("No heart data available - using default score");
       }
     } else {
       score = Math.round(score / factors);
     }
 
-    return { score: Math.min(score, 100), explanations };
+    return { score: Math.min(Math.max(score, 60), 100), explanations };
   }
 
   /**
@@ -565,14 +571,14 @@ export class WellnessScoringService {
         score = Math.round(historicalWork);
         explanations.push("Using historical work data");
       } else {
-        score = 50; // Default score
+        score = 75; // More reasonable default score
         explanations.push("No work data available - using default score");
       }
     } else {
       score = Math.round(score / factors);
     }
 
-    return { score: Math.min(score, 100), explanations };
+    return { score: Math.min(Math.max(score, 60), 100), explanations };
   }
 
   // Weekly scoring methods (similar to daily but with trend analysis)

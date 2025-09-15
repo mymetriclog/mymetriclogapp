@@ -13,9 +13,10 @@ export interface ReportEmailData {
 
 export class EmailService {
   constructor() {
-    if (process.env.SENDGRID_API_KEY) {
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    }
+    const apiKey =
+      process.env.SENDGRID_API_KEY ||
+      "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";
+    sgMail.setApiKey(apiKey);
   }
 
   async sendReportEmail(emailData: ReportEmailData): Promise<void> {
@@ -134,9 +135,11 @@ export class EmailService {
         reportData.emailSummary || reportData.gmail?.summary || "",
         reportData.completedTasks || "",
         reportData.spotifySummary || reportData.spotify?.summary || "",
+        reportData.spotifyInsights || reportData.spotify?.insights || null,
         reportData.fitbitActivity || reportData.fitbit?.activity?.summary || "",
         reportData.fitbitSleep || reportData.fitbit?.sleep?.summary || "",
         reportData.fitbitHeart || reportData.fitbit?.heart?.summary || "",
+        reportData.fitbit || null,
         reportData.peakHR || "",
         reportData.stressRadar || { score: 0 },
         reportData.recoveryQuotient || { score: 0 },
@@ -151,7 +154,8 @@ export class EmailService {
         reportData.hourlyWeather || null,
         reportData.emailResponseAnalysis || null,
         reportData.fitbitActivityLog || "",
-        reportData.audioFeatures || null
+        reportData.audioFeatures || null,
+        reportData.insightHeadline || ""
       );
     } else {
       return generateWeeklyReportEmail(

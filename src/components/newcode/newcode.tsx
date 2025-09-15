@@ -2671,7 +2671,7 @@ function generateStatusTag(label, score, isPercent, isMainScore) {
     status = "POOR";
     color = "#f4511e";
     bgColor = "#fbe9e7";
-  } else if (score >= 40) {
+  } else if (score >= 30) {
     status = "VERY POOR";
     color = "#ea4335";
     bgColor = "#fce8e6";

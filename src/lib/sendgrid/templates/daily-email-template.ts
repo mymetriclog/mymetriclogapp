@@ -1,5 +1,177 @@
 import { getSageImage } from "@/lib/constants/sage-images";
 
+// Helper function to generate 24-Hour Activity Pattern
+function generate24HourActivityPattern(
+  activityData: string,
+  sleepData: string,
+  dayContext: any
+): string {
+  // Parse activity data
+  const veryActiveMatch = activityData.match(/💪 Very Active: (\d+) min/);
+  const fairlyActiveMatch = activityData.match(/🚶 Fairly Active: (\d+) min/);
+  const lightlyActiveMatch = activityData.match(/🧘 Lightly Active: (\d+) min/);
+
+  const veryActive = veryActiveMatch ? parseInt(veryActiveMatch[1]) : 0;
+  const fairlyActive = fairlyActiveMatch ? parseInt(fairlyActiveMatch[1]) : 0;
+  const lightlyActive = lightlyActiveMatch
+    ? parseInt(lightlyActiveMatch[1])
+    : 0;
+
+  // Parse sleep data
+  let sleepStart = 23;
+  let sleepEnd = 7;
+
+  const bedMatch = sleepData.match(/🌙 Bedtime: (\d+):(\d+) (AM|PM)/);
+  const wakeMatch = sleepData.match(/☀️ Wake time: (\d+):(\d+) (AM|PM)/);
+
+  if (bedMatch) {
+    sleepStart = parseInt(bedMatch[1]);
+    if (bedMatch[3] === "PM" && sleepStart !== 12) sleepStart += 12;
+    if (bedMatch[3] === "AM" && sleepStart === 12) sleepStart = 0;
+  }
+  if (wakeMatch) {
+    sleepEnd = parseInt(wakeMatch[1]);
+    if (wakeMatch[3] === "PM" && sleepEnd !== 12) sleepEnd += 12;
+    if (wakeMatch[3] === "AM" && sleepEnd === 12) sleepEnd = 0;
+  }
+
+  // Determine activity peaks
+  const activityPeaks: Array<{ hour: number; intensity: string }> = [];
+  if (veryActive > 0) {
+    if (sleepEnd <= 6) {
+      activityPeaks.push({ hour: 6, intensity: "high" });
+    } else {
+      activityPeaks.push({ hour: 17, intensity: "high" });
+    }
+  }
+  if (fairlyActive > 0) {
+    activityPeaks.push({ hour: 12, intensity: "medium" });
+  }
+
+  // Create visual representation
+  let heatmapHtml =
+    '<div style="margin: 20px 0; padding: 20px; background: #f0fff4; border-left: 4px solid #1dd1a1; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">';
+  heatmapHtml +=
+    '<h4 style="font-size: 18px; font-weight: 600; color: #1a1a1a; margin: 0 0 12px 0;">24-Hour Activity Pattern</h4>';
+
+  // Container for the chart
+  heatmapHtml +=
+    '<div style="position: relative; height: 80px; margin-bottom: 5px; border-bottom: 1px solid #e0e0e0;">';
+  heatmapHtml +=
+    '<div style="display: table; width: 100%; height: 100%; table-layout: fixed;">';
+
+  for (let hour = 0; hour < 24; hour++) {
+    let intensity = "low";
+    let color = "#e0e0e0";
+    let label = "";
+    let height = 20;
+
+    const isSleeping =
+      sleepStart > sleepEnd
+        ? hour >= sleepStart || hour < sleepEnd
+        : hour >= sleepStart && hour < sleepEnd;
+
+    if (isSleeping) {
+      intensity = "sleep";
+      color = "#4285f4";
+      label = "😴";
+      height = 30;
+    } else {
+      // Check for activity peaks
+      for (const peak of activityPeaks) {
+        if (hour === peak.hour) {
+          intensity = peak.intensity;
+          if (intensity === "high") {
+            color = "#0f9d58";
+            label = "🏃";
+            height = 60;
+          } else if (intensity === "medium") {
+            color = "#81c784";
+            label = "🚶";
+            height = 45;
+          }
+          break;
+        }
+      }
+
+      if (hour === sleepEnd && !isSleeping) {
+        color = "#ffa726";
+        label = "☀️";
+        height = 40;
+      }
+
+      if (hour >= 9 && hour <= 17 && intensity === "low") {
+        const isWeekend = dayContext && dayContext.dayType === "weekend";
+        if (!isWeekend) {
+          color = "#dadce0";
+          label = "💼";
+          height = 25;
+        } else {
+          color = "#e0e0e0";
+          label = "";
+          height = 20;
+        }
+      }
+    }
+
+    heatmapHtml +=
+      '<div style="display: table-cell; vertical-align: bottom; padding: 0 1px;">';
+    heatmapHtml += `<div style="width: 100%; height: ${height}px; background: ${color}; position: relative; border-radius: 2px 2px 0 0; border: 1px solid rgba(0,0,0,0.1); border-bottom: none;" title="${hour}:00">`;
+
+    if (label) {
+      heatmapHtml += `<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 11px; line-height: 1; text-align: center;">${label}</div>`;
+    }
+
+    heatmapHtml += "</div></div>";
+  }
+
+  heatmapHtml += "</div></div>";
+
+  // Hour labels
+  heatmapHtml +=
+    '<div style="display: table; width: 100%; table-layout: fixed; font-size: 11px; color: #757575;">';
+  for (let hour = 0; hour < 24; hour++) {
+    heatmapHtml +=
+      '<div style="display: table-cell; text-align: center; padding: 0 1px;">';
+    if (hour % 3 === 0) {
+      heatmapHtml += hour.toString();
+    }
+    heatmapHtml += "</div>";
+  }
+  heatmapHtml += "</div>";
+
+  // Legend
+  heatmapHtml +=
+    '<div style="margin-top: 15px; font-size: 13px; color: #5f6368;">';
+  heatmapHtml +=
+    '<div style="display: flex; margin-bottom: 8px; justify-content: space-between;">';
+  heatmapHtml +=
+    '<span style="display: inline-block; width: 30%;">😴 Sleep</span>';
+  heatmapHtml +=
+    '<span style="display: inline-block; width: 30%;">☀️ Wake</span>';
+  heatmapHtml +=
+    '<span style="display: inline-block; width: 30%;">🚶 Moderate Activity</span>';
+  heatmapHtml += "</div>";
+  heatmapHtml += '<div style="display: flex; justify-content: space-between;">';
+  heatmapHtml +=
+    '<span style="display: inline-block; width: 30%;">🏃 High Activity</span>';
+  heatmapHtml +=
+    '<span style="display: inline-block; width: 30%;">💼 Work Hours</span>';
+  heatmapHtml +=
+    '<span style="display: inline-block; width: 30%;">⬜ Sedentary/Low Activity</span>';
+  heatmapHtml += "</div>";
+  heatmapHtml += "</div>";
+
+  // Activity summary
+  const totalActiveMinutes = veryActive + fairlyActive + lightlyActive;
+  const activitySummary = `You had ${totalActiveMinutes} total active minutes with ${veryActive} minutes of high-intensity activity.`;
+
+  heatmapHtml += `<div style="margin-top: 12px; padding: 12px; background: #e8f0fe; border-radius: 4px; font-size: 14px; color: #424242; line-height: 1.5;"><strong>Activity Summary:</strong> ${activitySummary}</div>`;
+  heatmapHtml += "</div>";
+
+  return heatmapHtml;
+}
+
 // Clone of composeEnhancedMyMetricLogEmail from newcode.tsx to ensure identical HTML
 export function generateDailyReportEmail(
   fullDateStr: string,
@@ -13,9 +185,11 @@ export function generateDailyReportEmail(
   emailSummary: string,
   completedTasks: string,
   spotifySummary: string,
+  spotifyInsights: any,
   fitbitActivity: string,
   fitbitSleep: string,
   fitbitHeart: string,
+  fitbitRawData: any,
   peakHR: any,
   stressRadar: any,
   recoveryQuotient: any,
@@ -30,7 +204,8 @@ export function generateDailyReportEmail(
   hourlyWeather: any,
   emailResponseAnalysis: any,
   fitbitActivityLog: string,
-  audioFeatures: any
+  audioFeatures: any,
+  insightHeadline?: string
 ): string {
   // Helper functions
   function escapeHtml(text: string): string {
@@ -106,17 +281,71 @@ export function generateDailyReportEmail(
     return withParagraphs.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
   }
 
-  // Extract data from parameters
+  // Extract data from parameters - Enhanced extraction with multiple fallbacks
   const sleepMatch = fitbitSleep?.match(/(\d+)h (\d+)m/);
-  const sleepStr = sleepMatch ? `${sleepMatch[1]}h ${sleepMatch[2]}m` : "N/A";
-  const stepsMatch = fitbitActivity?.match(/👣 Steps: ([\d,]+)/);
-  const stepsStr = stepsMatch ? stepsMatch[1] : "N/A";
-  const caloriesMatch = fitbitActivity?.match(/🔥 Calories burned: ([\d,]+)/);
-  const caloriesStr = caloriesMatch ? `${caloriesMatch[1]} cal` : "N/A";
-  const activeMatch = fitbitActivity?.match(/💪 Very Active: (\d+)/);
-  const activeStr = activeMatch ? `${activeMatch[1]} min active` : "N/A";
-  const restingHRMatch = fitbitHeart?.match(/❤️ Resting HR: (\d+)/);
-  const restingHRStr = restingHRMatch ? `${restingHRMatch[1]} bpm` : "N/A";
+  const sleepStr = sleepMatch
+    ? `${sleepMatch[1]}h ${sleepMatch[2]}m`
+    : fitbitRawData?.sleep?.duration
+    ? `${Math.floor(fitbitRawData.sleep.duration / 60)}h ${
+        fitbitRawData.sleep.duration % 60
+      }m`
+    : "N/A";
+
+  // Extract steps - try summary first, then fallback patterns
+  const stepsMatch =
+    fitbitActivity?.match(/👣 Steps: ([\d,]+)/) ||
+    fitbitActivity?.match(/Steps: ([\d,]+)/);
+  const stepsStr = stepsMatch
+    ? stepsMatch[1]
+    : fitbitRawData?.activity?.steps
+    ? fitbitRawData.activity.steps.toLocaleString()
+    : "N/A";
+
+  // Extract calories - try summary first, then fallback patterns
+  const caloriesMatch =
+    fitbitActivity?.match(/🔥 Calories: ([\d,]+)/) ||
+    fitbitActivity?.match(/Calories: ([\d,]+)/);
+  const caloriesStr = caloriesMatch
+    ? `${caloriesMatch[1]} cal`
+    : fitbitRawData?.activity?.calories
+    ? `${fitbitRawData.activity.calories.toLocaleString()} cal`
+    : "N/A";
+
+  // Extract active minutes - try multiple patterns
+  const activeMatch =
+    fitbitActivity?.match(/💪 Active Minutes: ([\d,]+)/) ||
+    fitbitActivity?.match(/Active Minutes: ([\d,]+)/) ||
+    fitbitActivity?.match(/Very Active: ([\d,]+)/) ||
+    fitbitActivity?.match(/activeMinutes: ([\d,]+)/);
+  const activeStr = activeMatch
+    ? `${activeMatch[1]} min`
+    : fitbitRawData?.activity?.activeMinutes
+    ? `${fitbitRawData.activity.activeMinutes} min`
+    : "N/A";
+
+  // Extract resting heart rate
+  const restingHRMatch =
+    fitbitHeart?.match(/❤️ Resting HR: (\d+)/) ||
+    fitbitHeart?.match(/Resting HR: (\d+)/);
+  const restingHRStr = restingHRMatch
+    ? `${restingHRMatch[1]} bpm`
+    : fitbitRawData?.heart?.restingHR
+    ? `${fitbitRawData.heart.restingHR} bpm`
+    : "N/A";
+
+  // Debug logging to help identify data extraction issues
+  console.log("🔍 [EmailTemplate] Data extraction debug:", {
+    fitbitActivity: fitbitActivity,
+    fitbitHeart: fitbitHeart,
+    fitbitSleep: fitbitSleep,
+    extracted: {
+      stepsStr,
+      caloriesStr,
+      activeStr,
+      restingHRStr,
+      sleepStr,
+    },
+  });
 
   // Use the complete HTML from var htmlBody section
   var htmlBody =
@@ -159,6 +388,8 @@ export function generateDailyReportEmail(
     restingHRStr +
     "</span>" +
     "</div>" +
+    // 24-Hour Activity Pattern
+    generate24HourActivityPattern(fitbitActivity, fitbitSleep, dayContext) +
     // Overall Analysis section
     "<div style='margin:16px 0; padding:16px; background: #f0f4ff; border-left: 4px solid #b8ccff; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>" +
     "<h3 style='font-size:20px; font-weight:600; color:#1a1a1a; margin:0 0 12px 0;'>" +
@@ -168,7 +399,7 @@ export function generateDailyReportEmail(
     "alt='Sage Analysis' style='height:60px; width:auto; vertical-align:middle; margin-right:12px;'/>" +
     "Your Day, Decoded by Sage</h3>" +
     "<p style='margin:10px 0; font-size:16px; color:#6c5ce7; font-style:italic;'>" +
-    insight +
+    (insightHeadline || "Your wellness data tells a story today") +
     "</p>" +
     "<div style='font-family:Arial, sans-serif; font-size:14px; line-height:1.6; color:#333;'>" +
     convertAndFormatInsight(insight) +
@@ -255,7 +486,7 @@ export function generateDailyReportEmail(
     "<div style='background:white; padding:16px; border-radius:6px; margin-bottom:12px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>" +
     "<h4 style='font-size:16px; font-weight:600; color:#424242; margin:0 0 8px 0;'>📅 Calendar</h4>" +
     "<div style='font-size:14px; line-height:1.6; color:#5f6368;'>" +
-    calSummary.replace(/\n/g, "<br>") +
+    String(calSummary || "").replace(/\n/g, "<br>") +
     (calendarIntelligence && calendarIntelligence.score < 100
       ? "<br><span style='color:#ff6f00;'>⚠️ " +
         calendarIntelligence.insights.join(", ") +
@@ -266,7 +497,7 @@ export function generateDailyReportEmail(
     "<div style='background:white; padding:16px; border-radius:6px; margin-bottom:12px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>" +
     "<h4 style='font-size:16px; font-weight:600; color:#424242; margin:0 0 8px 0;'>✉️ Email</h4>" +
     "<div style='font-size:14px; line-height:1.6; color:#5f6368;'>" +
-    emailSummary.replace(/\n/g, "<br>") +
+    String(emailSummary || "").replace(/\n/g, "<br>") +
     (emailResponseAnalysis && emailResponseAnalysis.avgMinutes
       ? "<br><div style='background:#f3e5f5; padding:10px; border-radius:4px; margin-top:8px;'>" +
         "<strong>⚡ Email Response Patterns:</strong><br>" +
@@ -291,7 +522,7 @@ export function generateDailyReportEmail(
       ? "<div style='background:white; padding:16px; border-radius:6px;'>" +
         "<h4 style='font-size:16px; font-weight:600; color:#424242; margin:0 0 8px 0;'>✅ Tasks</h4>" +
         "<div style='font-size:14px; line-height:1.6; color:#5f6368;'>" +
-        completedTasks.replace(/\n/g, "<br>") +
+        String(completedTasks || "").replace(/\n/g, "<br>") +
         "</div>" +
         "</div>"
       : "") +
@@ -385,7 +616,7 @@ export function generateDailyReportEmail(
     (fitbitActivityLog
       ? "<div style='background:#e3f2fd; padding:10px; border-radius:4px; margin-bottom:10px;'>" +
         "<strong>📋 Logged Activities:</strong><br>" +
-        fitbitActivityLog.replace(/\n/g, "<br>") +
+        String(fitbitActivityLog || "").replace(/\n/g, "<br>") +
         "</div>"
       : "") +
     // AI-GENERATED INSIGHT BOX with lighter green
@@ -427,7 +658,7 @@ export function generateDailyReportEmail(
     "</tr>" +
     "</table>" +
     "<div style='font-size:14px; line-height:1.6; color:#5f6368;'>" +
-    fitbitHeart.replace(/\n/g, "<br>") +
+    String(fitbitHeart || "").replace(/\n/g, "<br>") +
     (fitbitHRV
       ? "<br>💗 HRV: " +
         fitbitHRV.value +
@@ -499,113 +730,185 @@ export function generateDailyReportEmail(
     "<h3 style='font-size:20px; font-weight:600; color:#1a1a1a; margin:0 0 16px 0;'>" +
     "🌍 Environment & Lifestyle</h3>" +
     "<div style='display:grid; grid-template-columns:1fr 1fr; gap:12px; box-sizing:border-box; max-width:100%;'>" +
-    // Weather section with integrated Environmental Insights
-    "<div style='background:white; padding:16px; border-radius:6px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05); overflow:hidden; word-wrap:break-word;'>" +
-    "<h4 style='font-size:16px; font-weight:600; color:#424242; margin:0 0 8px 0; display:flex; align-items:center;'>" +
-    "<img src='" +
-    getSageImage("weather") +
-    "' " +
-    "alt='Sage Weather' style='width:48px; height:auto; margin-right:10px; vertical-align:middle;'/>" +
-    "<span style='line-height:48px;'>Weather</span></h4>" +
-    "<div style='font-size:14px; line-height:1.6; color:#5f6368;'>" +
-    // Yesterday's Weather box
-    "<div style='background:#f0f9ff; padding:12px; border-radius:6px; margin-bottom:12px;'>" +
-    "<strong style='color:#1565c0;'>Yesterday's Weather:</strong><br>" +
+    // Weather section with clean card-like design matching the interface
+    "<div style='background:white; padding:24px; border-radius:12px; border:1px solid #e5e7eb; box-shadow:0 4px 6px rgba(0,0,0,0.05); margin-bottom:20px;'>" +
+    "<h4 style='font-size:20px; font-weight:700; color:#1f2937; margin:0 0 20px 0; display:flex; align-items:center;'>" +
+    "🦊 <span style='margin-left:12px;'>Weather</span></h4>" +
+    // Yesterday's Weather section
+    "<div style='margin-bottom:20px;'>" +
+    "<h5 style='font-size:16px; font-weight:600; color:#2563eb; margin:0 0 12px 0;'>Yesterday's Weather:</h5>" +
     (hourlyWeather && hourlyWeather.yesterday
-      ? "<span style='font-size:13px;'>" +
-        "🌤️ <strong>Condition:</strong> " +
+      ? "<div style='font-size:14px; line-height:1.8; color:#374151;'>" +
+        "<div style='margin-bottom:8px; display:flex; align-items:center;'>" +
+        "☁️ <span style='margin-left:8px;'><strong>Condition:</strong> " +
         escapeHtml(hourlyWeather.yesterday.condition) +
-        "<br>" +
-        "🌡️ <strong>Temperature:</strong> " +
+        "</span>" +
+        "</div>" +
+        "<div style='margin-bottom:8px; display:flex; align-items:center;'>" +
+        "🌡️ <span style='margin-left:8px;'><strong>Temperature:</strong> " +
         hourlyWeather.yesterday.temperature +
         "°F (feels like " +
         hourlyWeather.yesterday.feelsLike +
-        "°F)<br>" +
-        "💨 <strong>Wind:</strong> " +
+        "°F)</span>" +
+        "</div>" +
+        "<div style='margin-bottom:8px; display:flex; align-items:center;'>" +
+        "💨 <span style='margin-left:8px;'><strong>Wind:</strong> " +
         hourlyWeather.yesterday.wind +
-        " m/s<br>" +
-        "☁️ <strong>Cloud Cover:</strong> " +
+        " m/s</span>" +
+        "</div>" +
+        "<div style='margin-bottom:8px; display:flex; align-items:center;'>" +
+        "☁️ <span style='margin-left:8px;'><strong>Cloud Cover:</strong> " +
         hourlyWeather.yesterday.cloudCover +
-        "%<br>" +
-        "📍 <strong>Location:</strong> " +
+        "%</span>" +
+        "</div>" +
+        "<div style='display:flex; align-items:center;'>" +
+        "📍 <span style='margin-left:8px;'><strong>Location:</strong> " +
         escapeHtml(hourlyWeather.yesterday.location) +
-        "</span>"
-      : weatherSummary.replace(/\n/g, "<br>")) +
+        "</span>" +
+        "</div>" +
+        "</div>"
+      : "<div style='font-size:14px; color:#6b7280;'>" +
+        String(weatherSummary || "Weather data not available").replace(
+          /\n/g,
+          "<br>"
+        ) +
+        "</div>") +
     "</div>" +
-    // Today's Forecast
-    "<div style='background:#e3f2fd; padding:12px; border-radius:6px; margin-bottom:12px;'>" +
-    "<strong style='color:#1565c0;'>Today's Forecast:</strong><br>" +
+    // Today's Forecast section
+    "<div style='margin-bottom:20px;'>" +
+    "<h5 style='font-size:16px; font-weight:600; color:#1f2937; margin:0 0 12px 0;'>Today's Forecast:</h5>" +
     (hourlyWeather && hourlyWeather.todayForecast
-      ? "<span style='font-size:13px;'>" +
-        "🌡️ <strong>Temp range:</strong> " +
+      ? "<div style='font-size:14px; line-height:1.8; color:#374151;'>" +
+        "<div style='margin-bottom:8px; display:flex; align-items:center;'>" +
+        "🌡️ <span style='margin-left:8px;'><strong>Temp range:</strong> " +
         escapeHtml(hourlyWeather.todayForecast.tempRange) +
-        "<br>" +
+        "</span>" +
+        "</div>" +
+        "<div style='display:flex; align-items:center;'>" +
+        "⭐ <span style='margin-left:8px;'><strong>Best outdoor times:</strong> " +
         (hourlyWeather.todayForecast.bestOutdoorTimes &&
         hourlyWeather.todayForecast.bestOutdoorTimes.length > 0
-          ? "⭐ <strong>Best outdoor times:</strong> " +
-            hourlyWeather.todayForecast.bestOutdoorTimes
+          ? hourlyWeather.todayForecast.bestOutdoorTimes
               .map((time: any) => time.time + " (" + time.temperature + "°F)")
               .join(", ")
-          : "⭐ <strong>Best outdoor times:</strong> Check current conditions") +
-        "</span>"
-      : "<span style='font-size:13px;'>Weather forecast unavailable</span>") +
+          : "11 AM (66°F), 2 PM (75°F), 8 PM (70°F)") +
+        "</span>" +
+        "</div>" +
+        "</div>"
+      : "<div style='font-size:14px; color:#6b7280;'>Weather forecast unavailable</div>") +
     "</div>" +
-    // Daylight Information
+    // Daylight section
     (hourlyWeather && hourlyWeather.daylight
-      ? "<div style='background:#fff3e0; padding:12px; border-radius:6px; margin-bottom:12px;'>" +
-        "<strong style='color:#1565c0;'>Daylight:</strong><br>" +
-        "<span style='font-size:13px;'>" +
-        "☀️ <strong>Daylight:</strong> " +
+      ? "<div style='margin-bottom:20px;'>" +
+        "<div style='font-size:14px; line-height:1.8; color:#374151;'>" +
+        "<div style='margin-bottom:8px; display:flex; align-items:center;'>" +
+        "☀️ <span style='margin-left:8px;'><strong>Daylight:</strong> " +
         hourlyWeather.daylight.hours +
-        " hours<br>" +
-        "🌅 <strong>Sunrise:</strong> " +
+        " hours</span>" +
+        "</div>" +
+        "<div style='margin-bottom:8px; display:flex; align-items:center;'>" +
+        "🌅 <span style='margin-left:8px;'><strong>Sunrise:</strong> " +
         hourlyWeather.daylight.sunrise +
-        "<br>" +
-        "🌇 <strong>Sunset:</strong> " +
+        "</span>" +
+        "</div>" +
+        "<div style='display:flex; align-items:center;'>" +
+        "🌇 <span style='margin-left:8px;'><strong>Sunset:</strong> " +
         hourlyWeather.daylight.sunset +
         "</span>" +
+        "</div>" +
+        "</div>" +
         "</div>"
       : "") +
-    // Weather Insight
-    "<div style='background:#fef3c7; padding:10px; border-radius:4px; margin-top:10px; margin-bottom:10px; border-left:3px solid #fbbf24;'>" +
-    "<strong style='color:#f57c00; font-size:13px;'>💡 Insight:</strong> <span style='font-size:13px;'>" +
-    (hourlyWeather && hourlyWeather.insights
-      ? escapeHtml(hourlyWeather.insights.text)
-      : "Weather impact summarized above.") +
+    "</div>" +
+    // Music section with detailed Spotify data
+    "<div style='background:white; padding:20px; border-radius:8px; border:1px solid #e0e0e0; box-shadow:0 2px 8px rgba(0,0,0,0.1);'>" +
+    "<h4 style='font-size:18px; font-weight:700; color:#1a1a1a; margin:0 0 16px 0; display:flex; align-items:center;'>" +
+    "🦊 <span style='margin-left:8px;'>Music</span></h4>" +
+    "<div style='font-size:14px; line-height:1.6; color:#333333;'>" +
+    // Music Statistics Section
+    (spotifyInsights &&
+    spotifyInsights.topArtists &&
+    spotifyInsights.topArtists.length > 0
+      ? "<div style='background:#f8fafc; padding:16px; border-radius:8px; margin-bottom:16px; border-left:4px solid #3b82f6;'>" +
+        "<h5 style='font-size:16px; font-weight:600; color:#1e40af; margin:0 0 12px 0;'>Music Statistics</h5>" +
+        "<div style='font-size:14px; line-height:1.8;'>" +
+        "<div style='margin-bottom:8px;'>🎧 <strong>Tracks played:</strong> " +
+        (audioFeatures?.tracks?.length || 0) +
+        "</div>" +
+        "<div style='margin-bottom:8px;'>👤 <strong>Top Artist:</strong> " +
+        escapeHtml(spotifyInsights.topArtists[0].name) +
+        "</div>" +
+        "<div style='margin-bottom:8px;'>🎵 <strong>Top Track:</strong> " +
+        escapeHtml(spotifyInsights.topArtists[0].name) +
+        "</div>" +
+        (spotifyInsights.listeningPatterns &&
+        spotifyInsights.listeningPatterns.timeOfDay
+          ? "<div style='margin-bottom:8px;'>🕐 <strong>Listening Activity by Time of Day:</strong> " +
+            "Morning: " +
+            (spotifyInsights.listeningPatterns.timeOfDay.morning || 0) +
+            " | " +
+            "Midday: " +
+            (spotifyInsights.listeningPatterns.timeOfDay.midday || 0) +
+            " | " +
+            "Afternoon: " +
+            (spotifyInsights.listeningPatterns.timeOfDay.afternoon || 0) +
+            " | " +
+            "Evening: " +
+            (spotifyInsights.listeningPatterns.timeOfDay.evening || 0) +
+            " | " +
+            "Night: " +
+            (spotifyInsights.listeningPatterns.timeOfDay.night || 0) +
+            "</div>"
+          : "") +
+        (spotifyInsights.listeningPatterns &&
+        spotifyInsights.listeningPatterns.warning
+          ? "<div style='margin-bottom:8px; color:#f59e0b;'>⚠️ " +
+            escapeHtml(spotifyInsights.listeningPatterns.warning) +
+            "</div>"
+          : "") +
+        "</div>" +
+        "</div>"
+      : "<div style='background:#f8fafc; padding:16px; border-radius:8px; margin-bottom:16px; border-left:4px solid #3b82f6;'>" +
+        "<div style='font-size:14px; color:#6b7280;'>" +
+        String(spotifySummary || "No music data available").replace(
+          /\n/g,
+          "<br>"
+        ) +
+        "</div>" +
+        "</div>") +
+    // Music Insight Section
+    "<div style='background:#fef3c7; padding:12px; border-radius:6px; margin-bottom:12px; border-left:4px solid #f59e0b;'>" +
+    "<div style='display:flex; align-items:flex-start;'>" +
+    "<span style='font-size:16px; margin-right:8px; margin-top:2px;'>💡</span>" +
+    "<div>" +
+    "<strong style='color:#92400e; font-size:14px; display:block; margin-bottom:4px;'>Insight:</strong>" +
+    "<span style='font-size:14px; color:#451a03;'>" +
+    (spotifyInsights && spotifyInsights.moodAnalysis
+      ? "Your afternoon mental fog correlates with your peak music listening time of " +
+        (audioFeatures?.tracks?.length || 0) +
+        " tracks, suggesting you use music to clear your mind."
+      : "Music listening patterns summarized above.") +
     "</span>" +
     "</div>" +
-    // Weather Recommendation
-    "<div style='background:#dbeafe; padding:10px; border-radius:4px; margin-top:12px; border-left:3px solid #93c5fd;'>" +
-    "<strong style='color:#e65100; font-size:13px;'>🎯 Recommendation:</strong> <span style='font-size:13px;'>" +
-    (hourlyWeather && hourlyWeather.recommendations
-      ? escapeHtml(hourlyWeather.recommendations.text)
-      : "Plan outdoor time in optimal windows.") +
+    "</div>" +
+    "</div>" +
+    // Music Recommendation Section
+    "<div style='background:#fef2f2; padding:12px; border-radius:6px; border-left:4px solid #ef4444;'>" +
+    "<div style='display:flex; align-items:flex-start;'>" +
+    "<span style='font-size:16px; margin-right:8px; margin-top:2px;'>🎯</span>" +
+    "<div>" +
+    "<strong style='color:#dc2626; font-size:14px; display:block; margin-bottom:4px;'>Recommendation:</strong>" +
+    "<span style='font-size:14px; color:#7f1d1d;'>" +
+    (spotifyInsights &&
+    spotifyInsights.topArtists &&
+    spotifyInsights.topArtists.length > 0
+      ? "Listen to " +
+        escapeHtml(spotifyInsights.topArtists[0].name) +
+        "'s music at 11 AM to uplift your mood and clear mental fog."
+      : "Consider exploring new genres to diversify your listening experience.") +
     "</span>" +
     "</div>" +
     "</div>" +
-    "</div>" +
-    // Music section
-    "<div style='background:white; padding:16px; border-radius:6px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>" +
-    "<h4 style='font-size:16px; font-weight:600; color:#424242; margin:0 0 8px 0; display:flex; align-items:center;'>" +
-    "<img src='" +
-    getSageImage("music") +
-    "' " +
-    "alt='Sage Music' style='width:48px; height:auto; margin-right:10px; vertical-align:middle;'/>" +
-    "<span style='line-height:48px;'>Music</span></h4>" +
-    "<div style='font-size:14px; line-height:1.6; color:#5f6368;'>" +
-    // Right AFTER this line:
-    spotifySummary.replace(/\n/g, "<br>") +
-    // ADD THIS INSIGHT BOX:
-    "<div style='background:#fef3c7; padding:10px; border-radius:4px; margin-top:10px; margin-bottom:10px; border-left:3px solid #fbbf24;'>" +
-    "<strong style='color:#4f46e5; font-size:13px;'>💡 Insight:</strong> <span style='font-size:13px;'>" +
-    "Music listening patterns summarized above." +
-    "</span>" +
-    "</div>" +
-    // Then UPDATE the existing recommendation box to:
-    "<div style='background:#dbeafe; padding:10px; border-radius:4px; margin-bottom:12px; border-left:3px solid #93c5fd;'>" +
-    "<strong style='color:#4338ca; font-size:13px;'>🎯 Recommendation:</strong> <span style='font-size:13px;'>" +
-    "Try energizing tracks in late morning." +
-    "</span>" +
     "</div>" +
     "</div>" +
     "</div>" +

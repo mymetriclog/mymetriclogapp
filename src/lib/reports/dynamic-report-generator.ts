@@ -179,9 +179,14 @@ export class DynamicReportGenerator {
             0.8, // Confidence score
             ["sleep_data", "heart_rate", "music_history", "activity_data"]
           );
-          console.log("✅ [DynamicReportGenerator] Mood data stored successfully");
+          console.log(
+            "✅ [DynamicReportGenerator] Mood data stored successfully"
+          );
         } catch (error) {
-          console.error("❌ [DynamicReportGenerator] Error storing mood data:", error);
+          console.error(
+            "❌ [DynamicReportGenerator] Error storing mood data:",
+            error
+          );
         }
       }
 
@@ -262,6 +267,13 @@ export class DynamicReportGenerator {
         balanceColor: aiInsights.balanceColor,
         balanceInsight: aiInsights.balanceInsight,
         aiMoodAndEnergy: aiInsights.moodAndEnergy,
+        insightHeadline:
+          aiInsights.insightHeadline ||
+          this.generateFallbackInsightHeadline(
+            scores,
+            aiInsights.stressRadar,
+            aiInsights.recoveryQuotient
+          ),
       };
 
       // Save report to database
@@ -436,6 +448,13 @@ export class DynamicReportGenerator {
         balanceColor: aiInsights.balanceColor,
         balanceInsight: aiInsights.balanceInsight,
         aiMoodAndEnergy: aiInsights.moodAndEnergy,
+        insightHeadline:
+          aiInsights.insightHeadline ||
+          this.generateFallbackInsightHeadline(
+            scores,
+            aiInsights.stressRadar,
+            aiInsights.recoveryQuotient
+          ),
       };
 
       // Save report to database
@@ -634,6 +653,75 @@ export class DynamicReportGenerator {
     } catch (error) {
       console.error(`❌ [DynamicReportGenerator] Failed to send email:`, error);
       // Don't throw error here as report generation should still succeed
+    }
+  }
+
+  // Generate fallback insight headline
+  private generateFallbackInsightHeadline(
+    scores: any,
+    stressRadar: any,
+    recoveryQuotient: any
+  ): string {
+    const totalScore = scores.total || 0;
+    const sleepScore = scores.sleep || 0;
+    const activityScore = scores.activity || 0;
+    const heartScore = scores.heart || 0;
+    const workScore = scores.work || 0;
+
+    // Find the most notable aspect of the day
+    const aspects = [];
+
+    if (totalScore >= 80) {
+      aspects.push("excellent performance");
+    } else if (totalScore >= 60) {
+      aspects.push("solid performance");
+    } else {
+      aspects.push("challenging day");
+    }
+
+    if (sleepScore < 50) {
+      aspects.push("sleep struggles");
+    } else if (sleepScore >= 80) {
+      aspects.push("restorative sleep");
+    }
+
+    if (activityScore >= 80) {
+      aspects.push("high energy");
+    } else if (activityScore < 50) {
+      aspects.push("low activity");
+    }
+
+    if (workScore >= 90) {
+      aspects.push("perfect work-life balance");
+    } else if (workScore < 40) {
+      aspects.push("work overload");
+    }
+
+    // Generate headline based on aspects
+    if (
+      aspects.includes("excellent performance") &&
+      aspects.includes("perfect work-life balance")
+    ) {
+      return "Your perfect work-life balance unlocked peak performance today";
+    } else if (
+      aspects.includes("sleep struggles") &&
+      aspects.includes("high energy")
+    ) {
+      return "Your body compensated for poor sleep with remarkable resilience";
+    } else if (
+      aspects.includes("challenging day") &&
+      aspects.includes("low activity")
+    ) {
+      return "A rest day that your body clearly needed";
+    } else if (
+      aspects.includes("restorative sleep") &&
+      aspects.includes("high energy")
+    ) {
+      return "Quality sleep fueled your best day yet";
+    } else if (aspects.includes("work overload")) {
+      return "Your dedication shows, but balance calls";
+    } else {
+      return "Your wellness data tells a story of steady progress";
     }
   }
 

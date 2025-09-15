@@ -12,6 +12,7 @@ export interface AIInsights {
   environmentalFactors: any;
   deepInsights: any;
   trends: any;
+  insightHeadline?: string;
   balanceLevel: string;
   balanceStatus: string;
   balanceColor: string;
