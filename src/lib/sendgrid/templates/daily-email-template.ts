@@ -1619,15 +1619,68 @@ function generateInsightHeadline(
   stressRadar: any,
   recoveryQuotient: any
 ): string {
-  return `<div style='font-size:18px; font-weight:600; color:#1a1a1a; margin:20px 0; text-align:center;'>
-    ${
-      (scores?.total || 0) >= 80
-        ? "🌟 Excellent day!"
-        : (scores?.total || 0) >= 60
-        ? "👍 Good progress!"
-        : "💪 Room for improvement!"
+  // Generate dynamic headlines based on data patterns - matching reportold.tsx
+  const totalScore = scores?.total || 0;
+  const sleepScore = scores?.sleep || 0;
+  const activityScore = scores?.activity || 0;
+  const heartScore = scores?.heart || 0;
+  const workScore = scores?.work || 0;
+
+  const stressLevel = stressRadar?.level || "unknown";
+  const recoveryLevel = recoveryQuotient?.readiness || "unknown";
+
+  // High performance patterns
+  if (totalScore >= 85) {
+    if (sleepScore >= 80 && activityScore >= 80) {
+      return "🌟 Peak performance day - your body and mind are perfectly synchronized!";
+    } else if (heartScore >= 85 && workScore >= 80) {
+      return "💪 Exceptional day - your heart and work rhythm created magic!";
+    } else {
+      return "🎯 Outstanding day - all systems firing on all cylinders!";
     }
-  </div>`;
+  }
+
+  // Good performance with specific strengths
+  if (totalScore >= 70) {
+    if (sleepScore >= 80) {
+      return "😴 Restorative day - quality sleep set the foundation for success!";
+    } else if (activityScore >= 80) {
+      return "🏃‍♂️ Energetic day - your movement created positive momentum!";
+    } else if (heartScore >= 80) {
+      return "❤️ Heart-strong day - your cardiovascular system is thriving!";
+    } else if (workScore >= 80) {
+      return "💼 Productive day - your work rhythm was perfectly tuned!";
+    } else {
+      return "👍 Solid day - consistent progress across all metrics!";
+    }
+  }
+
+  // Mixed performance patterns
+  if (totalScore >= 50) {
+    if (stressLevel === "high" && recoveryLevel === "low") {
+      return "⚡ High-energy day with recovery needs - your body worked hard!";
+    } else if (sleepScore < 60 && activityScore >= 70) {
+      return "🌙 Active but tired day - movement kept you going despite low sleep!";
+    } else if (heartScore < 60 && workScore >= 70) {
+      return "💼 Work-focused day - productivity despite lower heart health!";
+    } else {
+      return "📈 Building day - steady progress with room to optimize!";
+    }
+  }
+
+  // Challenging days
+  if (totalScore >= 30) {
+    if (sleepScore < 50 && activityScore < 50) {
+      return "😴 Rest day needed - your body is asking for recovery time!";
+    } else if (stressLevel === "high") {
+      return "🌪️ Stressful day - your resilience is being tested!";
+    } else {
+      return "💪 Challenging day - every small win counts!";
+    }
+  }
+
+  // Very low performance
+  return "🔄 Reset day - tomorrow is a fresh start to rebuild momentum!";
 }
 
 function generateEmailManagementInsight(emailStats: any): string {
