@@ -511,27 +511,75 @@ export function generateDailyReportEmail(
     // Yesterday's Weather box
     "<div style='background:#f0f9ff; padding:12px; border-radius:6px; margin-bottom:12px;'>" +
     "<strong style='color:#1565c0;'>Yesterday's Weather:</strong><br>" +
-    weatherSummary.replace(/\n/g, "<br>") +
+    (hourlyWeather && hourlyWeather.yesterday
+      ? "<span style='font-size:13px;'>" +
+        "🌤️ <strong>Condition:</strong> " +
+        escapeHtml(hourlyWeather.yesterday.condition) +
+        "<br>" +
+        "🌡️ <strong>Temperature:</strong> " +
+        hourlyWeather.yesterday.temperature +
+        "°F (feels like " +
+        hourlyWeather.yesterday.feelsLike +
+        "°F)<br>" +
+        "💨 <strong>Wind:</strong> " +
+        hourlyWeather.yesterday.wind +
+        " m/s<br>" +
+        "☁️ <strong>Cloud Cover:</strong> " +
+        hourlyWeather.yesterday.cloudCover +
+        "%<br>" +
+        "📍 <strong>Location:</strong> " +
+        escapeHtml(hourlyWeather.yesterday.location) +
+        "</span>"
+      : weatherSummary.replace(/\n/g, "<br>")) +
     "</div>" +
     // Today's Forecast
-    (hourlyWeather && hourlyWeather.summary
-      ? "<div style='background:#e3f2fd; padding:10px; border-radius:4px;'>" +
-        "<strong>Today's Forecast:</strong><br>" +
+    "<div style='background:#e3f2fd; padding:12px; border-radius:6px; margin-bottom:12px;'>" +
+    "<strong style='color:#1565c0;'>Today's Forecast:</strong><br>" +
+    (hourlyWeather && hourlyWeather.todayForecast
+      ? "<span style='font-size:13px;'>" +
+        "🌡️ <strong>Temp range:</strong> " +
+        escapeHtml(hourlyWeather.todayForecast.tempRange) +
+        "<br>" +
+        (hourlyWeather.todayForecast.bestOutdoorTimes &&
+        hourlyWeather.todayForecast.bestOutdoorTimes.length > 0
+          ? "⭐ <strong>Best outdoor times:</strong> " +
+            hourlyWeather.todayForecast.bestOutdoorTimes
+              .map((time: any) => time.time + " (" + time.temperature + "°F)")
+              .join(", ")
+          : "⭐ <strong>Best outdoor times:</strong> Check current conditions") +
+        "</span>"
+      : "<span style='font-size:13px;'>Weather forecast unavailable</span>") +
+    "</div>" +
+    // Daylight Information
+    (hourlyWeather && hourlyWeather.daylight
+      ? "<div style='background:#fff3e0; padding:12px; border-radius:6px; margin-bottom:12px;'>" +
+        "<strong style='color:#1565c0;'>Daylight:</strong><br>" +
         "<span style='font-size:13px;'>" +
-        hourlyWeather.summary.replace(/\n/g, "<br>") +
+        "☀️ <strong>Daylight:</strong> " +
+        hourlyWeather.daylight.hours +
+        " hours<br>" +
+        "🌅 <strong>Sunrise:</strong> " +
+        hourlyWeather.daylight.sunrise +
+        "<br>" +
+        "🌇 <strong>Sunset:</strong> " +
+        hourlyWeather.daylight.sunset +
         "</span>" +
         "</div>"
       : "") +
-    // ADD THIS INSIGHT BOX:
+    // Weather Insight
     "<div style='background:#fef3c7; padding:10px; border-radius:4px; margin-top:10px; margin-bottom:10px; border-left:3px solid #fbbf24;'>" +
     "<strong style='color:#f57c00; font-size:13px;'>💡 Insight:</strong> <span style='font-size:13px;'>" +
-    "Weather impact summarized above." +
+    (hourlyWeather && hourlyWeather.insights
+      ? escapeHtml(hourlyWeather.insights.text)
+      : "Weather impact summarized above.") +
     "</span>" +
     "</div>" +
-    // Then UPDATE the existing recommendation box to:
+    // Weather Recommendation
     "<div style='background:#dbeafe; padding:10px; border-radius:4px; margin-top:12px; border-left:3px solid #93c5fd;'>" +
     "<strong style='color:#e65100; font-size:13px;'>🎯 Recommendation:</strong> <span style='font-size:13px;'>" +
-    "Plan outdoor time in optimal windows." +
+    (hourlyWeather && hourlyWeather.recommendations
+      ? escapeHtml(hourlyWeather.recommendations.text)
+      : "Plan outdoor time in optimal windows.") +
     "</span>" +
     "</div>" +
     "</div>" +
