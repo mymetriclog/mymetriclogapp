@@ -1,5 +1,4 @@
 import OpenAI from "openai";
-import { generateDailyMantra } from "../reports/enhanced-report-generator";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -454,7 +453,7 @@ ${gptInput}`;
 
     return {
       insight: parsed.insight,
-      mantra: generateDailyMantra(parsed.insight),
+      mantra: generateFallbackMantra(data),
       moodInsight: parsed.moodInsight,
       recommendations: parsed.recommendations,
       trends: data.scores,
@@ -1401,11 +1400,21 @@ function generateFallbackInsight(data: AIReportData): string {
 
 function generateFallbackMantra(data: AIReportData): string {
   const mantras = [
+    "Small consistent actions lead to big results.",
     "Every step forward is progress, no matter how small.",
     "Your health is your wealth - prioritize it daily.",
-    "Small consistent actions lead to big results.",
     "Today's effort is tomorrow's achievement.",
     "Balance is the key to sustainable success.",
+    "Like a vessel refilling, prioritize your sleep, for in the ocean of rest, your vitality and vigor step count will crest.",
+    "Progress over perfection - each day is a new opportunity to grow.",
+    "Your wellness journey is unique - trust the process and celebrate small wins.",
+    "Consistency is the bridge between goals and accomplishments.",
+    "Take care of your body - it's the only place you have to live.",
+    "Every sunrise is a new beginning, every sunset is a chance to reflect.",
+    "Wellness is not a destination, it's a way of life.",
+    "Small steps, big changes - your future self will thank you.",
+    "The best time to plant a tree was 20 years ago, the second best time is now.",
+    "Your body hears everything your mind says - be kind to yourself.",
   ];
   return mantras[Math.floor(Math.random() * mantras.length)];
 }

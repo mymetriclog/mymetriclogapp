@@ -227,11 +227,17 @@ export class ComprehensiveIntegrationService {
       return anomalies;
     }
 
-    // Analyze heart rate anomalies
-    const currentRHR = this.extractRestingHeartRate(currentData.heart);
+    const currentRHR = this.extractRestingHeartRate(currentData?.heart);
     if (currentRHR > 0) {
+      console.log(
+        "🔍 detectBiometricAnomalies - historicalData length:",
+        historicalData.length
+      );
       const historicalRHR = historicalData
-        .map((d) => this.extractRestingHeartRate(d.heart))
+        .map((d, index) => {
+          console.log(`🔍 Historical data ${index}:`, d?.heart);
+          return this.extractRestingHeartRate(d?.heart);
+        })
         .filter((hr) => hr > 0);
 
       if (historicalRHR.length > 0) {
@@ -250,10 +256,10 @@ export class ComprehensiveIntegrationService {
     }
 
     // Analyze sleep anomalies
-    const currentSleep = this.extractSleepDuration(currentData.sleep);
+    const currentSleep = this.extractSleepDuration(currentData?.sleep);
     if (currentSleep > 0) {
       const historicalSleep = historicalData
-        .map((d) => this.extractSleepDuration(d.sleep))
+        .map((d) => this.extractSleepDuration(d?.sleep))
         .filter((s) => s > 0);
 
       if (historicalSleep.length > 0) {
@@ -281,11 +287,25 @@ export class ComprehensiveIntegrationService {
 
   // Helper methods for anomaly detection
   private static extractRestingHeartRate(heartText: string): number {
+    console.log(
+      "🔍 extractRestingHeartRate called with:",
+      typeof heartText,
+      heartText
+    );
+    if (!heartText || typeof heartText !== "string") {
+      console.log("⚠️ extractRestingHeartRate: Invalid input, returning 0");
+      return 0;
+    }
     const match = heartText.match(/❤️ Resting HR: (\d+)/);
-    return match ? parseInt(match[1]) : 0;
+    const result = match ? parseInt(match[1]) : 0;
+    console.log("✅ extractRestingHeartRate result:", result);
+    return result;
   }
 
   private static extractSleepDuration(sleepText: string): number {
+    if (!sleepText || typeof sleepText !== "string") {
+      return 0;
+    }
     const match = sleepText.match(/(\d+)h (\d+)m/);
     if (match) {
       return parseInt(match[1]) * 60 + parseInt(match[2]);
@@ -521,6 +541,9 @@ export class ComprehensiveIntegrationService {
   }
 
   private static calculateSleepRecoveryScore(sleep: string): number {
+    if (!sleep || typeof sleep !== "string") {
+      return 50;
+    }
     const durationMatch = sleep.match(/(\d+)h (\d+)m/);
     const efficiencyMatch = sleep.match(/😴 Efficiency: (\d+)%/);
 
@@ -554,6 +577,9 @@ export class ComprehensiveIntegrationService {
     heart: string,
     previousDayData: any
   ): number {
+    if (!heart || typeof heart !== "string") {
+      return 50;
+    }
     const rhrMatch = heart.match(/❤️ Resting HR: (\d+)/);
     if (!rhrMatch) return 50;
 
@@ -570,6 +596,9 @@ export class ComprehensiveIntegrationService {
   }
 
   private static calculateActiveRecoveryScore(activity: string): number {
+    if (!activity || typeof activity !== "string") {
+      return 50;
+    }
     const stepsMatch = activity.match(/👣 Steps: ([\d,]+)/);
     if (!stepsMatch) return 50;
 
@@ -587,6 +616,9 @@ export class ComprehensiveIntegrationService {
   }
 
   private static extractRHR(heart: string): number {
+    if (!heart || typeof heart !== "string") {
+      return 0;
+    }
     const match = heart.match(/❤️ Resting HR: (\d+)/);
     return match ? parseInt(match[1]) : 0;
   }

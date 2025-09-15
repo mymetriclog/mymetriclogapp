@@ -293,8 +293,6 @@ export async function getSpotifyStats(
       };
     }
 
-    console.log("🎵 Processing Spotify data with", tracks.length, "tracks");
-
     // Extract track IDs for audio features
     const trackIds = tracks.map((item: any) => item.track.id).slice(0, 20);
 

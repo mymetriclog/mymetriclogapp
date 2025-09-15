@@ -1,22 +1,22 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Button } from "@/components/ui/button"
-import { Menu, X, Search, Bell, User, Settings, LogOut } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { nameToColors, toInitials } from "@/lib/name-colors"
-import { usePathname } from "next/navigation"
-import Link from "next/link"
+import { useState } from "react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Menu, X, Search, Bell, User, Settings, LogOut } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { nameToColors, toInitials } from "@/lib/name-colors";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 
 type User = {
-  name: string
-  email: string
-  role?: string
-}
+  name: string;
+  email: string;
+  role?: string;
+};
 
 const mobileNavigationItems = [
   {
@@ -50,19 +50,19 @@ const mobileNavigationItems = [
     icon: "⚙️",
     label: "Settings",
   },
-]
+];
 
 interface MobileMenuProps {
-  user: User
-  onLogout: () => void
+  user: User;
+  onLogout: () => void;
 }
 
 export function MobileMenu({ user, onLogout }: MobileMenuProps) {
-  const [open, setOpen] = useState(false)
-  const pathname = usePathname()
+  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
 
-  const initials = toInitials(user.name, user.email)
-  const { gradient, fg } = nameToColors(user.name || user.email)
+  const initials = toInitials(user.name, user.email);
+  const { gradient, fg } = nameToColors(user.name || user.email);
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -108,11 +108,11 @@ export function MobileMenu({ user, onLogout }: MobileMenuProps) {
             <div className="space-y-2">
               {mobileNavigationItems.map((item) => {
                 // Skip admin-only items for non-admin users
-                if (item.adminOnly && user.role !== 'admin') {
-                  return null
+                if (item.adminOnly && user.role !== "admin") {
+                  return null;
                 }
 
-                const isActive = pathname === item.href
+                const isActive = pathname === item.href;
 
                 return (
                   <Link
@@ -133,7 +133,7 @@ export function MobileMenu({ user, onLogout }: MobileMenuProps) {
                       </Badge>
                     )}
                   </Link>
-                )
+                );
               })}
             </div>
           </div>
@@ -150,8 +150,12 @@ export function MobileMenu({ user, onLogout }: MobileMenuProps) {
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-slate-900 truncate">{user.name}</div>
-                <div className="text-sm text-slate-500 truncate">{user.email}</div>
+                <div className="font-medium text-slate-900 truncate">
+                  {user.name}
+                </div>
+                <div className="text-sm text-slate-500 truncate">
+                  {user.email}
+                </div>
                 {user.role && (
                   <Badge variant="secondary" className="text-xs mt-1">
                     {user.role}
@@ -178,8 +182,8 @@ export function MobileMenu({ user, onLogout }: MobileMenuProps) {
                 variant="ghost"
                 className="w-full justify-start text-rose-600 hover:text-rose-700 hover:bg-rose-50"
                 onClick={() => {
-                  setOpen(false)
-                  onLogout()
+                  setOpen(false);
+                  onLogout();
                 }}
               >
                 <LogOut className="mr-2 size-4" />
@@ -190,5 +194,5 @@ export function MobileMenu({ user, onLogout }: MobileMenuProps) {
         </div>
       </SheetContent>
     </Sheet>
-  )
+  );
 }
