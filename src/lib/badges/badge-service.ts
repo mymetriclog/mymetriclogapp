@@ -31,6 +31,7 @@ export interface DataSources {
   spotify: any;
   gmail: any;
   calendar: any;
+  googleTasks: any;
   historical: any[];
 }
 

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabaseClient } from "@/lib/supabase/server";
 import { DynamicReportGenerator } from "@/lib/reports/dynamic-report-generator";
+import {
+  reportExists,
+  getExistingReport,
+} from "@/lib/utils/report-duplicate-checker";
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,13 +30,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    const reportDate = new Date().toISOString().split("T")[0];
     const userData = {
       userId: user.id,
       userEmail: user.email!,
       userName: user.user_metadata?.full_name || user.email!.split("@")[0],
-      date: new Date().toISOString().split("T")[0],
+      date: reportDate,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
+
+    // Check if report already exists
+    const reportAlreadyExists = await reportExists(
+      user.id,
+      reportDate,
+      reportType as "daily" | "weekly"
+    );
+    if (reportAlreadyExists) {
+      const existingReport = await getExistingReport(
+        user.id,
+        reportDate,
+        reportType as "daily" | "weekly"
+      );
+      return NextResponse.json({
+        success: true,
+        reportId: existingReport?.id,
+        message: `${reportType} report already exists for ${reportDate}`,
+        isExisting: true,
+        reportData: existingReport,
+      });
+    }
 
     let report;
     if (reportType === "daily") {

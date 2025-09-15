@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabaseClient } from "@/lib/supabase/server";
 import { DynamicReportGenerator } from "@/lib/reports/dynamic-report-generator";
+import { hasValidIntegrations } from "@/lib/utils/integration-checker";
+import {
+  reportExists,
+  getExistingReport,
+} from "@/lib/utils/report-duplicate-checker";
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,6 +35,58 @@ export async function POST(request: NextRequest) {
 
     if (userError || !userData) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Check if user has valid integrations
+    const hasIntegrations = await hasValidIntegrations(userId);
+    if (!hasIntegrations) {
+      return NextResponse.json(
+        {
+          error: "No integrations connected",
+          message:
+            "Please connect at least one integration to generate reports",
+          availableIntegrations: [
+            "fitbit",
+            "spotify",
+            "gmail",
+            "google-calendar",
+            "google-tasks",
+          ],
+        },
+        { status: 400 }
+      );
+    }
+
+    // Check if report already exists for this user on this date
+    const reportAlreadyExists = await reportExists(
+      userId,
+      date,
+      reportType as "daily" | "weekly"
+    );
+    if (reportAlreadyExists) {
+      // Return existing report instead of generating a new one
+      const existingReport = await getExistingReport(
+        userId,
+        date,
+        reportType as "daily" | "weekly"
+      );
+      return NextResponse.json({
+        success: true,
+        report: existingReport
+          ? {
+              id: existingReport.id,
+              userId: existingReport.user_id,
+              userEmail: userData.email,
+              userName: userData.full_name || userData.email.split("@")[0],
+              date: existingReport.date,
+              kind: existingReport.kind,
+              score: existingReport.score,
+              created_at: existingReport.created_at,
+            }
+          : null,
+        message: `Report already exists for ${date}`,
+        isExisting: true,
+      });
     }
 
     // Create report generator
@@ -101,6 +158,58 @@ export async function GET(request: NextRequest) {
 
     if (userError || !userData) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Check if user has valid integrations
+    const hasIntegrations = await hasValidIntegrations(userId);
+    if (!hasIntegrations) {
+      return NextResponse.json(
+        {
+          error: "No integrations connected",
+          message:
+            "Please connect at least one integration to generate reports",
+          availableIntegrations: [
+            "fitbit",
+            "spotify",
+            "gmail",
+            "google-calendar",
+            "google-tasks",
+          ],
+        },
+        { status: 400 }
+      );
+    }
+
+    // Check if report already exists for this user on this date
+    const reportAlreadyExists = await reportExists(
+      userId,
+      date,
+      reportType as "daily" | "weekly"
+    );
+    if (reportAlreadyExists) {
+      // Return existing report instead of generating a new one
+      const existingReport = await getExistingReport(
+        userId,
+        date,
+        reportType as "daily" | "weekly"
+      );
+      return NextResponse.json({
+        success: true,
+        report: existingReport
+          ? {
+              id: existingReport.id,
+              userId: existingReport.user_id,
+              userEmail: userData.email,
+              userName: userData.full_name || userData.email.split("@")[0],
+              date: existingReport.date,
+              kind: existingReport.kind,
+              score: existingReport.score,
+              created_at: existingReport.created_at,
+            }
+          : null,
+        message: `Report already exists for ${date}`,
+        isExisting: true,
+      });
     }
 
     // Create report generator

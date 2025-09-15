@@ -1,5 +1,7 @@
 import sgMail from "@sendgrid/mail";
 import { SAGE_IMAGES, getSageImage } from "@/lib/constants/sage-images";
+import { generateDailyReportEmail } from "./templates/daily-email-template";
+import { generateWeeklyReportEmail } from "./templates/weekly-email-template";
 
 export interface ReportEmailData {
   to: string;
@@ -113,154 +115,56 @@ export class EmailService {
     reportData: any,
     userName: string
   ): string {
-    const scores = reportData.scores;
-    const aiInsights = reportData.aiInsights;
-    const badges = reportData.badges;
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>MyMetricLog ${
-          reportType === "daily" ? "Daily" : "Weekly"
-        } Report</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f8fafc; }
-          .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden; }
-          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
-          .header h1 { margin: 0; font-size: 28px; font-weight: 700; }
-          .content { padding: 30px; }
-          .score-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 20px; margin: 30px 0; }
-          .score-card { background: #f8fafc; border-radius: 8px; padding: 20px; text-align: center; border-left: 4px solid #667eea; }
-          .score-value { font-size: 32px; font-weight: 700; color: #667eea; margin: 0; }
-          .score-label { font-size: 14px; color: #64748b; margin: 5px 0 0 0; text-transform: uppercase; letter-spacing: 0.5px; }
-          .insights { background: #f1f5f9; border-radius: 8px; padding: 25px; margin: 30px 0; }
-          .insights h3 { margin: 0 0 15px 0; color: #1e293b; font-size: 20px; }
-          .insights p { margin: 0; color: #475569; line-height: 1.7; }
-          .badges { margin: 30px 0; }
-          .badges h3 { margin: 0 0 15px 0; color: #1e293b; font-size: 20px; }
-          .badge-list { display: flex; flex-wrap: wrap; gap: 10px; }
-          .badge { background: #667eea; color: white; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 500; }
-          .footer { background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }
-          .cta-button { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 20px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <img src="${getSageImage(
-              "greeting"
-            )}" alt="Sage" style="width: 80px; height: 80px; margin-bottom: 15px; border-radius: 50%;">
-            <h1>📊 MyMetricLog</h1>
-            <p>Your ${
-              reportType === "daily" ? "Daily" : "Weekly"
-            } Wellness Report</p>
-          </div>
-          
-          <div class="content">
-            <h2>Hello ${userName}! 👋</h2>
-            <p>Here's your personalized wellness report for ${new Date().toLocaleDateString(
-              "en-US",
-              {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              }
-            )}.</p>
-
-            <div class="score-grid">
-              <div class="score-card">
-                <img src="${getSageImage(
-                  "analysis"
-                )}" alt="Analysis" style="width: 40px; height: 40px; margin-bottom: 10px;">
-                <div class="score-value">${scores?.total || 0}</div>
-                <div class="score-label">Overall</div>
-              </div>
-              <div class="score-card">
-                <img src="${getSageImage(
-                  "sleep"
-                )}" alt="Sleep" style="width: 40px; height: 40px; margin-bottom: 10px;">
-                <div class="score-value">${scores?.sleep || 0}</div>
-                <div class="score-label">Sleep</div>
-              </div>
-              <div class="score-card">
-                <img src="${getSageImage(
-                  "active"
-                )}" alt="Activity" style="width: 40px; height: 40px; margin-bottom: 10px;">
-                <div class="score-value">${scores?.activity || 0}</div>
-                <div class="score-label">Activity</div>
-              </div>
-              <div class="score-card">
-                <img src="${getSageImage(
-                  "heart"
-                )}" alt="Heart" style="width: 40px; height: 40px; margin-bottom: 10px;">
-                <div class="score-value">${scores?.heart || 0}</div>
-                <div class="score-label">Heart</div>
-              </div>
-              <div class="score-card">
-                <img src="${getSageImage(
-                  "working"
-                )}" alt="Work" style="width: 40px; height: 40px; margin-bottom: 10px;">
-                <div class="score-value">${scores?.work || 0}</div>
-                <div class="score-label">Work</div>
-              </div>
-            </div>
-
-            ${
-              aiInsights?.summary
-                ? `
-              <div class="insights">
-                <img src="${getSageImage(
-                  "analysis"
-                )}" alt="AI Analysis" style="width: 30px; height: 30px; vertical-align: middle; margin-right: 10px;">
-                <h3 style="display: inline-block; margin: 0;">AI Insights</h3>
-                <p>${aiInsights.summary}</p>
-              </div>
-            `
-                : ""
-            }
-
-            ${
-              badges?.daily && badges.daily.length > 0
-                ? `
-              <div class="badges">
-                <img src="${getSageImage(
-                  "quickwin"
-                )}" alt="Badges" style="width: 30px; height: 30px; vertical-align: middle; margin-right: 10px;">
-                <h3 style="display: inline-block; margin: 0;">Badges Earned</h3>
-                <div class="badge-list">
-                  ${badges.daily
-                    .map(
-                      (badge: any) =>
-                        `<span class="badge">${badge.emoji} ${badge.name}</span>`
-                    )
-                    .join("")}
-                </div>
-              </div>
-            `
-                : ""
-            }
-
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${
-                process.env.NEXT_PUBLIC_APP_URL
-              }/dashboard" class="cta-button">
-                View Full Dashboard
-              </a>
-            </div>
-          </div>
-
-          <div class="footer">
-            <p>Keep up the great work on your wellness journey! 🌟</p>
-            <p>MyMetricLog - Your Personal Wellness Companion</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    if (reportType === "daily") {
+      return generateDailyReportEmail(
+        reportData.fullDateStr ||
+          new Date().toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          }),
+        reportData.dateStr || new Date().toISOString().split("T")[0],
+        reportData.scores,
+        reportData.insight || reportData.aiInsights?.summary || "",
+        reportData.mantra || reportData.aiInsights?.mantra || "",
+        reportData.moodInsight || reportData.aiInsights?.moodInsight || "",
+        reportData.weatherSummary || reportData.weather?.summary || "",
+        reportData.calSummary || reportData.calendar?.summary || "",
+        reportData.emailSummary || reportData.gmail?.summary || "",
+        reportData.completedTasks || "",
+        reportData.spotifySummary || reportData.spotify?.summary || "",
+        reportData.fitbitActivity || reportData.fitbit?.activity?.summary || "",
+        reportData.fitbitSleep || reportData.fitbit?.sleep?.summary || "",
+        reportData.fitbitHeart || reportData.fitbit?.heart?.summary || "",
+        reportData.peakHR || "",
+        reportData.stressRadar || { score: 0 },
+        reportData.recoveryQuotient || { score: 0 },
+        reportData.dayContext || { dayName: "Today" },
+        reportData.badges || { daily: [] },
+        reportData.streakBadges || [],
+        reportData.badgeNarrative || "",
+        reportData.nearMisses || [],
+        reportData.calendarAnalysis || {},
+        reportData.calendarIntelligence || {},
+        reportData.fitbitHRV || null,
+        reportData.hourlyWeather || null,
+        reportData.emailResponseAnalysis || null,
+        reportData.fitbitActivityLog || "",
+        reportData.audioFeatures || null
+      );
+    } else {
+      return generateWeeklyReportEmail(
+        reportData.startDate || "",
+        reportData.endDate || "",
+        reportData.weekStats || {},
+        reportData.insight || "",
+        reportData.recommendations || {},
+        reportData.trends || {},
+        reportData.badges || {},
+        reportData.patterns || {}
+      );
+    }
   }
 
   private generateTextContent(
@@ -386,5 +290,74 @@ Get started: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard
 Ready to start your wellness journey? Let's begin by connecting your first integration!
 
 MyMetricLog - Your Personal Wellness Companion`;
+  }
+
+  // Helper methods for detailed email generation (like newcode.tsx)
+  private getMainScoreColor(score: number): string {
+    if (score >= 90) return "#0f9d58"; // Green
+    if (score >= 80) return "#f9ab00"; // Yellow
+    if (score >= 70) return "#ff9800"; // Orange
+    if (score >= 60) return "#f44336"; // Red
+    return "#9e9e9e"; // Gray
+  }
+
+  private generateEnhancedBar(
+    score: number,
+    isInverted: boolean = false
+  ): string {
+    const percentage = Math.min(Math.max(score, 0), 100);
+    const color = this.getMainScoreColor(score);
+
+    return `
+      <div style="display:inline-block; width:100px; height:8px; background:#e0e0e0; border-radius:4px; margin:0 8px; vertical-align:middle; overflow:hidden;">
+        <div style="width:${percentage}%; height:100%; background:${color}; border-radius:4px; transition:width 0.3s ease;"></div>
+      </div>
+    `;
+  }
+
+  private generateStatusTag(
+    label: string,
+    score: number,
+    isPercent: boolean = false
+  ): string {
+    let status = "";
+    let color = "#666";
+
+    if (score >= 95) {
+      status = "AMAZING";
+      color = "#0f9d58";
+    } else if (score >= 90) {
+      status = "EXCELLENT";
+      color = "#0f9d58";
+    } else if (score >= 80) {
+      status = "GOOD";
+      color = "#f9ab00";
+    } else if (score >= 70) {
+      status = "FAIR";
+      color = "#ff9800";
+    } else if (score >= 60) {
+      status = "NEEDS WORK";
+      color = "#f44336";
+    } else {
+      status = "POOR";
+      color = "#f44336";
+    }
+
+    return `
+      <span style="background:${color}; color:white; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; margin-left:8px; vertical-align:middle;">
+        ${status}
+      </span>
+    `;
+  }
+
+  private escapeHtml(text: string): string {
+    const map: { [key: string]: string } = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;",
+    };
+    return text.replace(/[&<>"']/g, (m) => map[m]);
   }
 }

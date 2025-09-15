@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabaseClient } from "@/lib/supabase/server";
 import { DynamicReportGenerator } from "@/lib/reports/dynamic-report-generator";
+import { reportExists } from "@/lib/utils/report-duplicate-checker";
 
 export async function POST(request: NextRequest) {
   try {
@@ -83,15 +84,29 @@ export async function POST(request: NextRequest) {
         }
 
         // Prepare user data for report generation
+        const reportDate = new Date().toISOString().split("T")[0];
         const userReportData = {
           userId: user.id,
           userEmail: user.email,
           userName: user.full_name || user.email.split("@")[0],
-          date: new Date().toISOString().split("T")[0],
+          date: reportDate,
           timezone: user.timezone || "UTC",
           latitude: user.latitude,
           longitude: user.longitude,
         };
+
+        // Check if report already exists for today
+        const reportAlreadyExists = await reportExists(
+          user.id,
+          reportDate,
+          "daily"
+        );
+        if (reportAlreadyExists) {
+          console.log(
+            `⏭️ [Cron] Report already exists for ${user.email} on ${reportDate}, skipping`
+          );
+          continue;
+        }
 
         // Generate daily report
         const report = await reportGenerator.generateDailyReport(

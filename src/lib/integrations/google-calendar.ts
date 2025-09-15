@@ -18,7 +18,8 @@ export class GoogleCalendarService {
     try {
       const accessToken = await this.getValidAccessToken(userId);
       if (!accessToken) {
-        throw new Error("No valid Google Calendar access token found");
+        // No token connected; return graceful fallback without error
+        return this.getFallbackData();
       }
 
       const events = await this.fetchEvents(accessToken, startDate, endDate);
@@ -49,7 +50,8 @@ export class GoogleCalendarService {
     try {
       const accessToken = await this.getValidAccessToken(userId);
       if (!accessToken) {
-        throw new Error("No valid Google Calendar access token found");
+        // No token connected; return graceful fallback without error
+        return this.getFallbackData();
       }
 
       const events = await this.fetchEvents(accessToken, startDate, endDate);
@@ -80,8 +82,9 @@ export class GoogleCalendarService {
         .from("integration_tokens")
         .select("access_token, refresh_token, expires_at")
         .eq("user_id", userId)
-        .eq("provider", "google_calendar")
-        .single();
+        // Support both naming styles: "google-calendar" (DB) and "google_calendar" (legacy)
+        .in("provider", ["google-calendar", "google_calendar"])
+        .maybeSingle();
 
       if (!tokenData) return null;
 

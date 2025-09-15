@@ -19,7 +19,6 @@ import { getBrowserSupabaseClient } from "@/lib/supabase/client";
 import { ArrowLeft, Mail, CheckCircle2 } from "lucide-react";
 import Image from "next/image";
 import { LoadingOverlay } from "@/components/loading-overlay";
-import { notifications } from "@/lib/notifications";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -34,7 +33,7 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
 
     if (!email) {
-      notifications.error("Email Required", "Please enter your email address.");
+      console.error("Email Required", "Please enter your email address.");
       return;
     }
 
@@ -49,17 +48,17 @@ export default function ForgotPasswordPage() {
       setLoading(false);
 
       if (error) {
-        notifications.error("Reset Failed", error.message);
+        console.error("Reset Failed", error.message);
       } else {
         setEmailSent(true);
-        notifications.success(
+        console.log(
           "Reset Email Sent",
           "Please check your email for the password reset link."
         );
       }
     } catch (error) {
       setLoading(false);
-      notifications.error(
+      console.error(
         "Reset Failed",
         "An unexpected error occurred. Please try again."
       );

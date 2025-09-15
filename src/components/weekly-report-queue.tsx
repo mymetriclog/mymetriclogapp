@@ -155,8 +155,8 @@ export function WeeklyReportQueue() {
       setIsGenerating(true);
       console.log("🚀 Starting weekly report generation for all users...");
 
-      const response = await fetch("/api/cron/generate-reports", {
-        method: "POST",
+      const response = await fetch("/api/queue/schedule", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reportType: "weekly",

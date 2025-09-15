@@ -17,6 +17,7 @@ export interface DataSources {
   spotify: any;
   gmail: any;
   calendar: any;
+  googleTasks: any;
   weather: any;
   historical: any[];
 }

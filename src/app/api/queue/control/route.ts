@@ -28,21 +28,26 @@ export async function POST(req: NextRequest) {
         // Clear reports older than 30 days
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        
+
         const { error: deleteError } = await supabase
           .from("reports")
           .delete()
           .lt("created_at", thirtyDaysAgo.toISOString());
 
         if (deleteError) {
-          throw new Error(`Failed to clear old reports: ${deleteError.message}`);
+          throw new Error(
+            `Failed to clear old reports: ${deleteError.message}`
+          );
         }
 
         console.log("🧹 Old reports cleared");
         return NextResponse.json({
           success: true,
           message: "Old reports cleared successfully",
-          data: { action: "clear-old-reports", timestamp: new Date().toISOString() },
+          data: {
+            action: "clear-old-reports",
+            timestamp: new Date().toISOString(),
+          },
         });
 
       case "get-counts":
@@ -82,9 +87,13 @@ export async function POST(req: NextRequest) {
           .order("created_at", { ascending: false })
           .limit(100);
 
-        const averageScore = allReports && allReports.length > 0
-          ? Math.round(allReports.reduce((sum, r) => sum + r.score, 0) / allReports.length)
-          : 0;
+        const averageScore =
+          allReports && allReports.length > 0
+            ? Math.round(
+                allReports.reduce((sum, r) => sum + r.score, 0) /
+                  allReports.length
+              )
+            : 0;
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -155,7 +164,7 @@ export async function GET() {
 
     // Get report statistics from database
     const supabase = await getServerSupabaseClient();
-    
+
     const { count: totalReports } = await supabase
       .from("reports")
       .select("*", { count: "exact", head: true });

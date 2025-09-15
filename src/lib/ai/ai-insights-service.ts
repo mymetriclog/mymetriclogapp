@@ -24,6 +24,7 @@ export interface DataSources {
   spotify: any;
   gmail: any;
   calendar: any;
+  googleTasks: any;
   weather: any;
   historical: any[];
 }
@@ -50,8 +51,13 @@ export class AIInsightsService {
       // Generate daily mantra
       const mantra = await this.generateDailyMantra(context, data);
 
-      // Generate mood insight
-      const moodInsight = await this.generateMoodInsight(context, data);
+      // Generate mood insight using getPredictedMood
+      const moodInsight = await this.getPredictedMood(
+        data.fitbit?.sleep?.summary || "",
+        data.fitbit?.heart?.summary || "",
+        data.spotify?.summary || "",
+        data.spotify?.audioFeatures
+      );
 
       // Generate stress radar analysis
       const stressRadar = this.generateStressRadar(data);
@@ -1156,5 +1162,202 @@ Please respond with only the forecast text, no additional formatting.`;
       forecast: dailyForecast.forecast.replace("tomorrow", "next week"),
       factors: [...dailyForecast.factors, "Weekly pattern analysis"],
     };
+  }
+
+  /**
+   * Generate mood prediction based on sleep, heart rate, and music data
+   * Adapted from newcode.tsx getPredictedMood function
+   */
+  async getPredictedMood(
+    fitbitSleep: string,
+    fitbitHeart: string,
+    spotifyHistory: string,
+    audioFeatures?: any
+  ): Promise<string> {
+    try {
+      // Ensure parameters are strings and have fallback values
+      const sleepData = typeof fitbitSleep === "string" ? fitbitSleep : "";
+      const heartData = typeof fitbitHeart === "string" ? fitbitHeart : "";
+      const musicData =
+        typeof spotifyHistory === "string" ? spotifyHistory : "";
+
+      // Parse sleep data
+      const sleepMatch = sleepData.match(/(\d+)h (\d+)m/);
+      const sleepHours = sleepMatch
+        ? parseFloat(sleepMatch[1]) + parseFloat(sleepMatch[2]) / 60
+        : 0;
+
+      const efficiencyMatch = sleepData.match(/😴 Efficiency: (\d+)%/);
+      const efficiency = efficiencyMatch ? parseInt(efficiencyMatch[1]) : 0;
+
+      // Parse heart rate data
+      const rhrMatch = heartData.match(/❤️ Resting HR: (\d+)/);
+      const rhr = rhrMatch ? parseInt(rhrMatch[1]) : 65;
+
+      // Analyze music patterns from audio features or history
+      let musicEnergy = "moderate";
+      if (audioFeatures) {
+        // Use audio features if available
+        const avgEnergy = audioFeatures.energy || 0.5;
+        const avgValence = audioFeatures.valence || 0.5;
+
+        if (avgEnergy < 0.3 && avgValence < 0.3) {
+          musicEnergy = "calm";
+        } else if (avgEnergy > 0.7 || avgValence > 0.7) {
+          musicEnergy = "high";
+        }
+      } else if (musicData) {
+        // Fallback to text analysis
+        const history = musicData.toLowerCase();
+        if (history.includes("classical") || history.includes("ambient")) {
+          musicEnergy = "calm";
+        } else if (history.includes("rock") || history.includes("dance")) {
+          musicEnergy = "high";
+        }
+      }
+
+      // Calculate mood based on data
+      let mood = "";
+      let confidence = "";
+      let confidenceLevel = "likely"; // default
+
+      // Calculate confidence based on data quality and extremity
+      if (sleepHours > 0 && efficiency > 0 && rhr > 0) {
+        // Very high confidence scenarios
+        if (efficiency < 50 && sleepHours < 6) {
+          confidenceLevel = "very likely";
+          confidence =
+            "Low sleep efficiency (" +
+            efficiency +
+            "%) with short duration strongly indicates fatigue.";
+        } else if (efficiency > 90 && sleepHours >= 7.5) {
+          confidenceLevel = "very likely";
+          confidence =
+            "Excellent sleep quality sets you up for peak performance.";
+        }
+        // Moderate confidence scenarios
+        else if (efficiency > 80 && sleepHours >= 7) {
+          confidenceLevel = "likely";
+          confidence = "Good sleep metrics suggest stable energy levels.";
+        } else if (efficiency < 70) {
+          confidenceLevel = "may";
+          confidence = "Sleep disruptions could affect afternoon energy.";
+        }
+        // Low confidence scenarios
+        else {
+          confidenceLevel = "might";
+          confidence = "Mixed signals make prediction less certain.";
+        }
+      }
+
+      // Determine mood with softer language
+      if (sleepHours >= 7 && efficiency >= 85) {
+        mood = "energized and focused";
+      } else if (sleepHours >= 6.5 && efficiency >= 80) {
+        mood = "balanced and steady";
+      } else if (sleepHours < 6 || efficiency < 60) {
+        mood = "some mental fog";
+      } else if (efficiency < 75) {
+        mood = "occasional fatigue";
+      } else {
+        mood = "moderate energy";
+      }
+
+      // Adjust based on heart data
+      if (rhr > 65 && mood === "energized and focused") {
+        mood = "alert but slightly tense";
+        confidence =
+          "Elevated resting heart rate (" +
+          rhr +
+          " bpm) may indicate mild stress.";
+      } else if (rhr < 55 && mood !== "some mental fog") {
+        mood = "calm and recovered";
+        confidence =
+          "Excellent resting heart rate (" +
+          rhr +
+          " bpm) shows strong recovery.";
+      }
+
+      // Build the response with appropriate confidence language
+      let response = "";
+
+      if (mood === "some mental fog" || mood === "occasional fatigue") {
+        response =
+          "You may experience " +
+          mood +
+          " today, especially in the afternoon. ";
+      } else if (
+        mood === "energized and focused" ||
+        mood === "calm and recovered"
+      ) {
+        response =
+          "You're " + confidenceLevel + " to feel " + mood + " today. ";
+      } else {
+        response = "You'll " + confidenceLevel + " have " + mood + " today. ";
+      }
+
+      response += confidence;
+
+      // Music influence note
+      if (musicEnergy === "calm" && mood.indexOf("tense") !== -1) {
+        response +=
+          " Your calming music choices suggest you're already managing this well.";
+      } else if (musicEnergy === "high" && mood.indexOf("fog") !== -1) {
+        response += " High-energy music might help counteract the fatigue.";
+      }
+
+      // Try to enhance with GPT if available
+      try {
+        const gptResponse = await this.openai.chat.completions.create({
+          model: "gpt-4",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a wellness coach providing mood predictions. Use softer, probabilistic language. " +
+                "Never say someone WILL feel something definitively. Use 'may', 'likely', 'might', or " +
+                "'could' based on confidence. Always acknowledge uncertainty in predictions.",
+            },
+            {
+              role: "user",
+              content:
+                "Based on this data, provide a mood prediction in ONE sentence that includes confidence level:\n" +
+                "Sleep: " +
+                sleepHours.toFixed(1) +
+                " hours at " +
+                efficiency +
+                "% efficiency\n" +
+                "Resting HR: " +
+                rhr +
+                " bpm\n" +
+                "Music pattern: " +
+                musicEnergy +
+                "\n" +
+                "Initial prediction: " +
+                response +
+                "\n\n" +
+                "Keep it brief, conversational, and include why (based on the main factor affecting mood).",
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 100,
+        });
+
+        if (gptResponse.choices && gptResponse.choices.length > 0) {
+          return gptResponse.choices[0].message.content?.trim() || response;
+        }
+      } catch (gptError) {
+        console.log("❌ GPT mood prediction failed, using fallback:", gptError);
+      }
+
+      // Fallback to our calculated response
+      return response;
+    } catch (error) {
+      console.error(
+        "❌ [AIInsightsService] Error generating mood prediction:",
+        error
+      );
+      return "Unable to predict mood due to insufficient data.";
+    }
   }
 }

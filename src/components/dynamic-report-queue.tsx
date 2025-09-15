@@ -122,9 +122,13 @@ export function DynamicReportQueue() {
       setIsGenerating(true);
       console.log("🚀 Starting report generation for all users...");
 
-      const response = await fetch("/api/cron/generate-reports", {
-        method: "POST",
+      const response = await fetch("/api/queue/schedule", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportType: "daily",
+          testingMode: false,
+        }),
       });
 
       if (response.ok) {

@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { LoadingOverlay } from "@/components/loading-overlay";
-import { notifications } from "@/lib/notifications";
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -115,7 +114,7 @@ function ResetPasswordForm() {
     e.preventDefault();
 
     if (!passwordValidation.isValid) {
-      notifications.error(
+      console.error(
         "Invalid Password",
         "Please ensure your password meets all requirements."
       );
@@ -123,7 +122,7 @@ function ResetPasswordForm() {
     }
 
     if (!passwordsMatch) {
-      notifications.error(
+      console.error(
         "Passwords Don't Match",
         "Please ensure both passwords are identical."
       );
@@ -141,10 +140,10 @@ function ResetPasswordForm() {
       setLoading(false);
 
       if (error) {
-        notifications.error("Reset Failed", error.message);
+        console.error("Reset Failed", error.message);
       } else {
         setPasswordReset(true);
-        notifications.success(
+        console.log(
           "Password Updated",
           "Your password has been successfully updated."
         );
@@ -157,7 +156,7 @@ function ResetPasswordForm() {
       }
     } catch (error) {
       setLoading(false);
-      notifications.error(
+      console.error(
         "Reset Failed",
         "An unexpected error occurred. Please try again."
       );

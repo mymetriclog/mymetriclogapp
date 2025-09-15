@@ -4,11 +4,13 @@ import { FitbitService } from "@/lib/integrations/fitbit";
 import { SpotifyService } from "@/lib/integrations/spotify";
 import { GmailService } from "@/lib/integrations/gmail";
 import { GoogleCalendarService } from "@/lib/integrations/google-calendar";
+import { GoogleTasksService } from "@/lib/integrations/google-tasks";
 import { WeatherService } from "@/lib/weather/weather-service";
 import { WellnessScoringService } from "@/lib/scoring/wellness-scoring";
 import { BadgeService } from "@/lib/badges/badge-service";
 import { AIInsightsService } from "@/lib/ai/ai-insights-service";
 import { getSageImage } from "@/lib/constants/sage-images";
+import { emailAlreadySent } from "@/lib/utils/report-duplicate-checker";
 
 export interface UserReportData {
   userId: string;
@@ -40,6 +42,8 @@ export interface GeneratedReport {
   calSummary?: string;
   emailSummary?: string;
   completedTasks?: string;
+  googleTasksData?: any;
+  googleTasksSummary?: string;
   spotifySummary?: string;
   spotifyInsights?: any;
   fitbitActivity?: any;
@@ -125,6 +129,7 @@ export class DynamicReportGenerator {
         spotifyData,
         gmailData,
         calendarData,
+        googleTasksData,
         weatherData,
         historicalData,
       ] = await Promise.all([
@@ -132,6 +137,7 @@ export class DynamicReportGenerator {
         this.fetchSpotifyData(userId, yesterday),
         this.fetchGmailData(userId, twoDaysAgo, yesterday),
         this.fetchCalendarData(userId, twoDaysAgo, yesterday),
+        this.fetchGoogleTasksData(userId, twoDaysAgo, yesterday),
         this.fetchWeatherData(latitude, longitude, timezone, yesterday),
         this.fetchHistoricalData(userId, 30), // Last 30 days
       ]);
@@ -142,6 +148,7 @@ export class DynamicReportGenerator {
         spotify: spotifyData,
         gmail: gmailData,
         calendar: calendarData,
+        googleTasks: googleTasksData,
         weather: weatherData,
         historical: historicalData,
       });
@@ -153,6 +160,7 @@ export class DynamicReportGenerator {
         spotify: spotifyData,
         gmail: gmailData,
         calendar: calendarData,
+        googleTasks: googleTasksData,
         weather: weatherData,
         historical: historicalData,
       });
@@ -164,12 +172,13 @@ export class DynamicReportGenerator {
         spotify: spotifyData,
         gmail: gmailData,
         calendar: calendarData,
+        googleTasks: googleTasksData,
         historical: historicalData,
       });
 
       // Generate comprehensive report data
       const reportData = {
-        id: `daily-${userId}-${date}`,
+        id: crypto.randomUUID(),
         userId,
         userEmail,
         userName,
@@ -185,6 +194,7 @@ export class DynamicReportGenerator {
           spotify: spotifyData,
           gmail: gmailData,
           calendar: calendarData,
+          googleTasks: googleTasksData,
           weather: weatherData,
           historical: historicalData,
         },
@@ -200,6 +210,8 @@ export class DynamicReportGenerator {
         completedTasks: Array.isArray(gmailData.completedTasks)
           ? gmailData.completedTasks.join(", ")
           : gmailData.completedTasks || "",
+        googleTasksData: googleTasksData,
+        googleTasksSummary: googleTasksData.summary,
         spotifySummary: spotifyData.summary,
         spotifyInsights: spotifyData.insights,
         fitbitActivity: fitbitData.activity,
@@ -286,6 +298,7 @@ export class DynamicReportGenerator {
         spotifyData,
         gmailData,
         calendarData,
+        googleTasksData,
         weatherData,
         historicalData,
       ] = await Promise.all([
@@ -293,6 +306,7 @@ export class DynamicReportGenerator {
         this.fetchSpotifyWeeklyData(userId, weekStart, weekEnd),
         this.fetchGmailWeeklyData(userId, weekStart, weekEnd),
         this.fetchCalendarWeeklyData(userId, weekStart, weekEnd),
+        this.fetchGoogleTasksData(userId, weekStart, weekEnd),
         this.fetchWeatherWeeklyData(
           latitude,
           longitude,
@@ -309,6 +323,7 @@ export class DynamicReportGenerator {
         spotify: spotifyData,
         gmail: gmailData,
         calendar: calendarData,
+        googleTasks: googleTasksData,
         weather: weatherData,
         historical: historicalData,
       });
@@ -320,6 +335,7 @@ export class DynamicReportGenerator {
         spotify: spotifyData,
         gmail: gmailData,
         calendar: calendarData,
+        googleTasks: googleTasksData,
         weather: weatherData,
         historical: historicalData,
       });
@@ -331,12 +347,13 @@ export class DynamicReportGenerator {
         spotify: spotifyData,
         gmail: gmailData,
         calendar: calendarData,
+        googleTasks: googleTasksData,
         historical: historicalData,
       });
 
       // Generate comprehensive weekly report data
       const reportData = {
-        id: `weekly-${userId}-${date}`,
+        id: crypto.randomUUID(),
         userId,
         userEmail,
         userName,
@@ -367,6 +384,8 @@ export class DynamicReportGenerator {
         completedTasks: Array.isArray(gmailData.completedTasks)
           ? gmailData.completedTasks.join(", ")
           : gmailData.completedTasks || "",
+        googleTasksData: googleTasksData,
+        googleTasksSummary: googleTasksData.summary,
         spotifySummary: spotifyData.summary,
         spotifyInsights: spotifyData.insights,
         fitbitActivity: fitbitData.activity,
@@ -440,7 +459,24 @@ export class DynamicReportGenerator {
     startDate: Date,
     endDate: Date
   ) {
-    return await this.calendarService.getDailyData(userId, startDate, endDate);
+    try {
+      return await this.calendarService.getDailyData(
+        userId,
+        startDate,
+        endDate
+      );
+    } catch (error) {
+      console.warn(
+        `⚠️ [DynamicReportGenerator] Calendar data unavailable for ${userId}. Proceeding without it.`,
+        error
+      );
+      return {
+        summary: "",
+        analysis: null,
+        intelligence: null,
+        events: [],
+      } as any;
+    }
   }
 
   private async fetchWeatherData(
@@ -450,6 +486,15 @@ export class DynamicReportGenerator {
     date: Date
   ) {
     return await this.weatherService.getDailyData(lat, lon, timezone, date);
+  }
+
+  private async fetchGoogleTasksData(
+    userId: string,
+    startDate: Date,
+    endDate: Date
+  ) {
+    const googleTasksService = new GoogleTasksService();
+    return await googleTasksService.getDailyData(userId, startDate, endDate);
   }
 
   private async fetchHistoricalData(userId: string, days: number) {
@@ -523,12 +568,8 @@ export class DynamicReportGenerator {
     const { error } = await supabase.from("reports").upsert({
       id: reportData.id,
       user_id: reportData.userId,
-      user_email: reportData.userEmail,
-      user_name: reportData.userName,
       report_date: reportData.date,
       report_type: reportData.kind,
-      score: reportData.score,
-      html: reportData.html,
       report_data: reportData.json,
       ai_insights: reportData.ai_insights,
       created_at: reportData.created_at,
@@ -545,6 +586,20 @@ export class DynamicReportGenerator {
     reportData: GeneratedReport
   ) {
     try {
+      // Check if email was already sent for this user on this date
+      const emailSent = await emailAlreadySent(
+        userData.userId,
+        userData.date,
+        reportData.kind as "daily" | "weekly"
+      );
+
+      if (emailSent) {
+        console.log(
+          `⚠️ [DynamicReportGenerator] Email already sent for ${userData.userEmail} on ${userData.date}, skipping email`
+        );
+        return;
+      }
+
       await this.emailService.sendReportEmail({
         to: userData.userEmail,
         userName: userData.userName,
@@ -552,6 +607,10 @@ export class DynamicReportGenerator {
         reportData: reportData.json,
         reportId: reportData.id,
       });
+
+      console.log(
+        `✅ [DynamicReportGenerator] Email sent successfully to ${userData.userEmail}`
+      );
     } catch (error) {
       console.error(`❌ [DynamicReportGenerator] Failed to send email:`, error);
       // Don't throw error here as report generation should still succeed
