@@ -8,7 +8,6 @@ import { WeatherCard } from "@/components/weather-card";
 import { WeatherForecastCard } from "@/components/weather-forecast-card";
 import { WeatherLocationButton } from "@/components/weather-location-button";
 import { GoogleTasksCard } from "@/components/google-tasks-card";
-import { SpotifyMusicCard } from "@/components/spotify-music-card";
 import { DashboardClientWrapper } from "@/components/dashboard-client-wrapper";
 import { IntegrationTokenNotifications } from "@/components/integration-token-notifications";
 

@@ -434,7 +434,7 @@ function calculateWorkScore(
     tasksScore;
 
   // Normalize to 100
-  return Math.min(100, totalScore);
+    return Math.min(100, totalScore);
 }
 
 /**
