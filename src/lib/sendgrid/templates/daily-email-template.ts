@@ -117,6 +117,8 @@ export interface DailyReportData {
       description: string;
     };
   };
+  // Previous day's mood - matching reportold.tsx
+  previousMood?: string;
 }
 
 // Complete enhanced email composition function with all features integrated (from code.js)
@@ -175,7 +177,9 @@ export function composeEnhancedMyMetricLogEmail(
       level: string;
       description: string;
     };
-  }
+  },
+  // Previous day's mood - matching reportold.tsx
+  previousMood?: string
 ): string {
   // Parse sleep efficiency at the start
   const sleepEfficiencyMatch = (fitbitSleep || "").match(
@@ -416,6 +420,13 @@ export function composeEnhancedMyMetricLogEmail(
     <span style='font-size:15px; color:#424242; line-height:1.6;'>
       ${sleepStr} sleep | ${stepsStr} steps | ${caloriesStr} | ${activeStr} | ${restingHRStr}
     </span>
+    <br><br>
+    <span style='font-size:14px; color:#666;'>
+      Yesterday's (${dayContext?.dayName || "day"}) mood: ${
+    previousMood || "Unknown"
+  }<br>
+      Note: Sleep data reflects last night's rest (affecting today's energy)
+    </span>
   </div>
   
   <!-- Intraday Visualization -->
@@ -473,8 +484,20 @@ export function composeEnhancedMyMetricLogEmail(
   </div>
   
 
-  <!-- AI-Generated Mood Card with Energy Forecast -->
-  ${moodCard}
+  <!-- Mood Reflection Section - Matching reportold.tsx -->
+  <div style='background:#f0f4ff; padding:20px; border-radius:8px; margin:20px 0; border-left: 4px solid #b8ccff;'>
+    <h3 style='font-size:20px; font-weight:600; color:#1a1a1a; margin:0 0 16px 0;'>
+      <img src='${getSageImage(
+        "meditation"
+      )}' alt='Sage Meditation' style='height:60px; width:auto; vertical-align:middle; margin-right:12px;'/>
+      😊 Mood Reflection
+    </h3>
+    <div style='background:white; padding:16px; border-radius:6px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
+      <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
+        ${moodInsight}
+      </div>
+    </div>
+  </div>
   
   <!-- Badge Section -->
   ${generateBadgeSection(badges, [], badgeNarrative)}
@@ -969,6 +992,9 @@ export function generateDailyReportEmail(data: any): string {
     },
   };
 
+  // Previous day's mood - matching reportold.tsx
+  const previousMood = data.previousMood || "Unknown";
+
   // Convert DailyReportData to the format expected by composeEnhancedMyMetricLogEmail
   return composeEnhancedMyMetricLogEmail(
     fullDateStr,
@@ -1012,7 +1038,9 @@ export function generateDailyReportEmail(data: any): string {
     balanceColor,
     balanceInsight,
     // AI Mood and Energy Forecast
-    aiMoodAndEnergy
+    aiMoodAndEnergy,
+    // Previous day's mood - matching reportold.tsx
+    previousMood
   );
 }
 
@@ -1426,9 +1454,10 @@ function generateMoodCard(moodInsight: string, scores: any): string {
     calm: "🧘",
     focused: "🎯",
     restless: "😣",
-    balanced: "😊",
+    balanced: "⚖️",
   };
 
+  // Extract mood keyword from insight - matching reportold.tsx logic
   let moodKeyword = "balanced";
   const lowerInsight = moodInsight.toLowerCase();
   const feelMatch = lowerInsight.match(/feel (\w+)/);
@@ -1444,7 +1473,7 @@ function generateMoodCard(moodInsight: string, scores: any): string {
     }
   }
 
-  const emoji = moodEmojis[moodKeyword] || "😊";
+  const emoji = moodEmojis[moodKeyword] || "⚖️";
   const borderColor =
     scores?.total >= 80
       ? "#0b8043"
@@ -1455,7 +1484,7 @@ function generateMoodCard(moodInsight: string, scores: any): string {
 
   return `<div style='background: white; border: 2px solid ${borderColor}; border-radius: 12px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
     <div style='display: flex; align-items: center; margin-bottom: 15px;'>
-      <span style='font-size: 32px; margin-right: 15px;'>⚖️</span>
+      <span style='font-size: 32px; margin-right: 15px;'>${emoji}</span>
       <div>
         <h3 style='margin: 0; font-size: 18px; color: #1a73e8; font-weight: bold;'>Today's Mood: ${capitalizeFirstLetter(
           moodKeyword
@@ -1463,7 +1492,7 @@ function generateMoodCard(moodInsight: string, scores: any): string {
         <p style='margin: 5px 0 0 0; color: #5f6368; font-size: 14px; line-height: 1.4;'>${moodInsight}</p>
       </div>
     </div>
-    <div style='background: #f8f9fa; border-radius: 8px; padding: 12px; margin-top: 15px; border-left: 4px solid ${borderColor};'>
+    <div style='background: rgba(255,255,255,0.8); border-radius: 8px; padding: 12px; margin-top: 15px; border-left: 4px solid ${borderColor};'>
       <div style='display: flex; align-items: center; margin-bottom: 8px;'>
         <span style='font-size: 16px; margin-right: 8px;'>📊</span>
         <strong style='color: #1a73e8; font-size: 14px;'>Energy Forecast:</strong>

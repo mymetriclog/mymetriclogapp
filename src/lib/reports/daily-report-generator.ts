@@ -489,7 +489,7 @@ export async function generateDailyReport(
     date: dateStr,
     reportType: "daily",
     dayContext,
-    previousMood: moodInsight,
+    previousMood: previousMood,
     stressRadar,
     recoveryQuotient,
     anomalies,
@@ -591,6 +591,8 @@ export async function generateDailyReport(
     balanceInsight,
     // AI Mood and Energy Forecast
     aiMoodAndEnergy,
+    // Previous day's mood - matching reportold.tsx
+    previousMood,
   };
 
   // Save to database - save the complete report data instead of formatted data
