@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  getServerSupabaseClient,
+  getServerSupabaseClientWithServiceRole,
+} from "@/lib/supabase/server";
 
 export async function GET(req: NextRequest) {
   try {
@@ -62,8 +65,22 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Store the token in database
-    const { error: insertError } = await supabase
+    // Store the token in database using service role
+    console.log(
+      "🔐 [Google Tasks] Attempting to save token for user:",
+      user.id
+    );
+    console.log("🔐 [Google Tasks] Token data:", {
+      user_id: user.id,
+      provider: "google-tasks",
+      has_access_token: !!tokenData.access_token,
+      has_refresh_token: !!tokenData.refresh_token,
+      expires_at: expiresAt.toISOString(),
+      scope: tokenData.scope,
+    });
+
+    const supabaseAdmin = await getServerSupabaseClientWithServiceRole();
+    const { data: insertData, error: insertError } = await supabaseAdmin
       .from("integration_tokens")
       .upsert({
         user_id: user.id,
@@ -74,14 +91,17 @@ export async function GET(req: NextRequest) {
         scope: tokenData.scope,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      });
+      })
+      .select();
 
     if (insertError) {
-      console.error("Failed to store Google Tasks token:", insertError);
+      console.error("❌ [Google Tasks] Failed to store token:", insertError);
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL}/integrations/google-tasks?error=Failed to store authentication token`
+        `${process.env.NEXT_PUBLIC_APP_URL}/integrations/google-tasks?error=Failed to store authentication token: ${insertError.message}`
       );
     }
+
+    console.log("✅ [Google Tasks] Token saved successfully:", insertData);
 
     // Redirect to success page
     return NextResponse.redirect(
