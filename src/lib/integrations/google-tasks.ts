@@ -391,8 +391,34 @@ export class GoogleTasksService {
 export async function getGoogleTasksAccessToken(
   userId: string
 ): Promise<string | null> {
-  const service = new GoogleTasksService();
-  return await service["getValidAccessToken"](userId);
+  try {
+    const supabase = await getServerSupabaseClient();
+    const { data, error } = await supabase
+      .from("integration_tokens")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("provider", "google-tasks")
+      .single();
+
+    if (error || !data) {
+      console.log("❌ [GoogleTasks] No token found for user:", userId);
+      return null;
+    }
+
+    // Check if token is expired
+    const now = new Date();
+    const expiresAt = new Date(data.expires_at);
+
+    if (expiresAt <= now) {
+      console.log("❌ [GoogleTasks] Token expired for user:", userId);
+      return null;
+    }
+
+    return data.access_token;
+  } catch (error) {
+    console.error("❌ [GoogleTasks] Error getting access token:", error);
+    return null;
+  }
 }
 
 export async function getGoogleTasksStats(accessToken: string): Promise<any> {

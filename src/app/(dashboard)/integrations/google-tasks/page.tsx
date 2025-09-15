@@ -48,6 +48,7 @@ export default function GoogleTasksIntegrationPage() {
   const [data, setData] = useState<GoogleTasksData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -57,10 +58,12 @@ export default function GoogleTasksIntegrationPage() {
   const fetchGoogleTasksData = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await fetch("/api/integrations/google-tasks/stats");
 
       if (!response.ok) {
         if (response.status === 403) {
+          setIsConnected(false);
           setError(
             "Google Tasks not connected. Please connect your account first."
           );
@@ -71,8 +74,10 @@ export default function GoogleTasksIntegrationPage() {
 
       const result = await response.json();
       setData(result);
+      setIsConnected(true);
     } catch (err) {
       console.error("Error fetching Google Tasks data:", err);
+      setIsConnected(false);
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
@@ -100,6 +105,25 @@ export default function GoogleTasksIntegrationPage() {
       console.error("Error connecting Google Tasks:", error);
       setError("Failed to connect Google Tasks. Please try again.");
     }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      const res = await fetch("/api/integrations/google-tasks/disconnect", {
+        method: "POST",
+      });
+      if (res.ok) {
+        setIsConnected(false);
+        setData(null);
+        setError(null);
+      }
+    } catch (error) {
+      console.error("Error disconnecting Google Tasks:", error);
+    }
+  };
+
+  const handleRefresh = () => {
+    fetchGoogleTasksData();
   };
 
   if (loading) {

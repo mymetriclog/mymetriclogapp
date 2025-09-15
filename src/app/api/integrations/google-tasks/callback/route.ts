@@ -34,7 +34,9 @@ export async function GET(req: NextRequest) {
         client_secret: process.env.GOOGLE_CLIENT_SECRET!,
         code,
         grant_type: "authorization_code",
-        redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/google-tasks/callback`,
+        redirect_uri:
+          process.env.GOOGLE_TASK_REDIRECT_URL ||
+          `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/google-tasks/callback`,
       }),
     });
 
