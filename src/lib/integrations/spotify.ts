@@ -1,401 +1,424 @@
 import { getServerSupabaseClient } from "@/lib/supabase/server";
-import {
-  analyzeAdvancedAudioFeatures,
-  generateAudioAnalysisInsights,
-  analyzeIndividualTracks,
-  AdvancedAudioFeatures,
-  AudioAnalysisInsights,
-  TrackAnalysis,
-} from "../spotify/advanced-audio-analysis";
 
-type TokenResponse = {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-  refresh_token?: string;
-  scope?: string;
-};
-
-type SpotifyProfile = {
-  id: string;
-  display_name: string;
-  email: string;
-  images: Array<{
-    url: string;
-    height: number;
-    width: number;
-  }>;
-  followers: {
-    total: number;
-  };
-  country: string;
-  product: string;
-};
-
-type SpotifyStats = {
-  tracksPlayed: number;
-  topGenre: string;
-  mood: string;
-  topArtists: string[];
-  topTracks: string[];
-  listeningTime: number;
-  audioFeatures: {
-    energy: number;
-    valence: number;
-    tempo: number;
-    danceability: number;
-  };
-  // Enhanced audio analysis
-  advancedFeatures: AdvancedAudioFeatures;
-  audioInsights: AudioAnalysisInsights;
-  trackAnalysis: TrackAnalysis[];
+export interface SpotifyData {
   summary: string;
-};
-
-export async function upsertSpotifyTokens(userId: string, tok: TokenResponse) {
-  // Validate token data
-  if (!tok.access_token || !tok.access_token.trim()) {
-    throw new Error("Invalid access token");
-  }
-
-  if (!tok.scope || !tok.scope.trim()) {
-    console.log("❌ No scope received from Spotify");
-    throw new Error("No scope received");
-  }
-
-  const supabase = await getServerSupabaseClient();
-  const now = Math.floor(Date.now() / 1000);
-  const expires_at = now + (tok.expires_in ?? 3600) - 60; // 1 hour default
-
-  console.log(
-    "📅 Token expires at:",
-    new Date(expires_at * 1000).toISOString()
-  );
-
-  const { data: existing } = await supabase
-    .from("integration_tokens")
-    .select("refresh_token")
-    .eq("user_id", userId)
-    .eq("provider", "spotify")
-    .maybeSingle();
-
-  const { error } = await supabase.from("integration_tokens").upsert(
-    {
-      user_id: userId,
-      provider: "spotify",
-      access_token: tok.access_token.trim(),
-      refresh_token: tok.refresh_token ?? existing?.refresh_token ?? null,
-      scope: tok.scope.trim(),
-      token_type: tok.token_type ?? "Bearer",
-      expires_at,
-    },
-    { onConflict: "user_id,provider" }
-  );
-
-  if (error) {
-    console.log("❌ Error storing tokens:", error);
-    throw error;
-  }
+  totalListeningTime: number;
+  tracks: any[];
+  audioFeatures: any;
+  insights: any;
 }
 
-export async function getSpotifyAccessToken(
-  userId: string
-): Promise<string | null> {
-  try {
-    const { getServerSupabaseClientWithServiceRole } = await import(
-      "@/lib/supabase/server"
-    );
-    const supabase = await getServerSupabaseClientWithServiceRole();
+export class SpotifyService {
+  private baseUrl = "https://api.spotify.com/v1";
 
-    const { data, error } = await supabase
-      .from("integration_tokens")
-      .select("access_token, refresh_token, expires_at")
-      .eq("user_id", userId)
-      .eq("provider", "spotify")
-      .maybeSingle();
+  async getDailyData(userId: string, date: Date): Promise<SpotifyData> {
+    try {
+      const accessToken = await this.getValidAccessToken(userId);
+      if (!accessToken) {
+        throw new Error("No valid Spotify access token found");
+      }
 
-    if (error) {
-      console.log("❌ Spotify token query error:", error);
-      return null;
-    }
+      const tracks = await this.fetchRecentTracks(accessToken, 50);
+      const dailyTracks = tracks.filter((track) => {
+        const playedAt = new Date(track.played_at);
+        return (
+          playedAt.toISOString().split("T")[0] ===
+          date.toISOString().split("T")[0]
+        );
+      });
 
-    if (!data) {
-      console.log("❌ No Spotify token data found for user:", userId);
-      return null;
-    }
+      const audioFeatures = await this.getAudioFeatures(
+        accessToken,
+        dailyTracks
+      );
+      const insights = this.calculateInsights(dailyTracks, audioFeatures);
+      const summary = this.generateSummary(
+        dailyTracks,
+        audioFeatures,
+        insights
+      );
 
-    const now = Math.floor(Date.now() / 1000);
-
-    if (data.expires_at && data.expires_at > now && data.access_token) {
-      return data.access_token;
-    }
-
-    if (!data.refresh_token) {
-      console.log("❌ No refresh token available for Spotify");
-      return null;
-    }
-    const refreshed = await refreshSpotifyToken(data.refresh_token);
-    if (!refreshed) {
-      console.log("❌ Failed to refresh Spotify token");
-      return null;
-    }
-
-    await upsertSpotifyTokens(userId, refreshed);
-    return refreshed.access_token;
-  } catch (error) {
-    console.error("❌ Error in getSpotifyAccessToken:", error);
-    return null;
-  }
-}
-
-async function refreshSpotifyToken(
-  refreshToken: string
-): Promise<TokenResponse | null> {
-  try {
-    const clientId = process.env.SPOTIFY_CLIENT_ID;
-    const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
-
-    if (!clientId || !clientSecret) {
-      return null;
-    }
-
-    const response = await fetch("https://accounts.spotify.com/api/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${Buffer.from(
-          `${clientId}:${clientSecret}`
-        ).toString("base64")}`,
-      },
-      body: new URLSearchParams({
-        grant_type: "refresh_token",
-        refresh_token: refreshToken,
-      }),
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const tokenData = await response.json();
-    return {
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token || refreshToken,
-      expires_in: tokenData.expires_in,
-      token_type: tokenData.token_type || "Bearer",
-      scope: tokenData.scope,
-    };
-  } catch (error) {
-    return null;
-  }
-}
-
-export async function getSpotifyProfile(
-  accessToken: string
-): Promise<SpotifyProfile | null> {
-  try {
-    const response = await fetch("https://api.spotify.com/v1/me", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const profile = await response.json();
-    return profile;
-  } catch (error) {
-    return null;
-  }
-}
-
-export async function getSpotifyStats(
-  accessToken: string,
-  date?: Date
-): Promise<SpotifyStats | null> {
-  try {
-    // Get recently played tracks (filter by date if provided)
-    let url = "https://api.spotify.com/v1/me/player/recently-played?limit=50";
-    if (date) {
-      // Use a broader range: from 2 days ago to now to catch any tracks
-      const twoDaysAgo = new Date(date.getTime() - 2 * 24 * 60 * 60 * 1000);
-      const timestamp = Math.floor(twoDaysAgo.getTime() / 1000);
-      url += `&after=${timestamp}`;
-    }
-
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = await response.json();
-    const tracks = data.items || [];
-
-    if (tracks.length === 0) {
       return {
-        tracksPlayed: 0,
-        topGenre: "Unknown",
-        mood: "Neutral",
-        topArtists: [],
-        topTracks: [],
-        listeningTime: 0,
-        audioFeatures: {
-          energy: 0,
-          valence: 0,
-          tempo: 0,
-          danceability: 0,
-        },
-        advancedFeatures: {
-          energy: 0,
-          valence: 0,
-          tempo: 0,
-          danceability: 0,
-          acousticness: 0,
-          instrumentalness: 0,
-          liveness: 0,
-          speechiness: 0,
-          loudness: 0,
-          key: 0,
-          mode: 0,
-          timeSignature: 0,
-          duration: 0,
-          mood: "Unknown",
-          energyLevel: "Unknown",
-          tempoCategory: "Unknown",
-          genre: "Unknown",
-          listeningPattern: "Unknown",
-          focusScore: 0,
-          relaxationScore: 0,
-          motivationScore: 0,
-          creativityScore: 0,
-        },
-        audioInsights: {
-          overallMood: "No data available",
-          energyProfile: "No data available",
-          listeningHabits: "No data available",
-          focusPattern: "No data available",
-          stressIndicators: [],
-          wellnessCorrelations: [],
-          recommendations: [],
-          audioSummary: "No Spotify data available",
-        },
-        trackAnalysis: [],
-        summary: "No Spotify data available",
+        summary,
+        totalListeningTime: this.calculateTotalListeningTime(dailyTracks),
+        tracks: dailyTracks,
+        audioFeatures,
+        insights,
       };
+    } catch (error) {
+      console.error("❌ [SpotifyService] Error fetching daily data:", error);
+      return this.getFallbackData();
     }
+  }
 
-    console.log("🎵 Processing Spotify data with", tracks.length, "tracks");
+  async getWeeklyData(
+    userId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<SpotifyData> {
+    try {
+      const accessToken = await this.getValidAccessToken(userId);
+      if (!accessToken) {
+        throw new Error("No valid Spotify access token found");
+      }
 
-    // Extract track IDs for audio features
-    const trackIds = tracks.map((item: any) => item.track.id).slice(0, 20);
+      const tracks = await this.fetchRecentTracks(accessToken, 200);
+      const weeklyTracks = tracks.filter((track) => {
+        const playedAt = new Date(track.played_at);
+        return playedAt >= startDate && playedAt <= endDate;
+      });
 
-    // Get audio features for tracks
-    let audioFeatures = null;
-    if (trackIds.length > 0) {
-      const featuresResponse = await fetch(
-        `https://api.spotify.com/v1/audio-features?ids=${trackIds.join(",")}`,
+      const audioFeatures = await this.getAudioFeatures(
+        accessToken,
+        weeklyTracks
+      );
+      const insights = this.calculateInsights(weeklyTracks, audioFeatures);
+      const summary = this.generateSummary(
+        weeklyTracks,
+        audioFeatures,
+        insights
+      );
+
+      return {
+        summary,
+        totalListeningTime: this.calculateTotalListeningTime(weeklyTracks),
+        tracks: weeklyTracks,
+        audioFeatures,
+        insights,
+      };
+    } catch (error) {
+      console.error("❌ [SpotifyService] Error fetching weekly data:", error);
+      return this.getFallbackData();
+    }
+  }
+
+  private async getValidAccessToken(userId: string): Promise<string | null> {
+    try {
+      const supabase = await getServerSupabaseClient();
+
+      const { data: tokenData } = await supabase
+        .from("integration_tokens")
+        .select("access_token, refresh_token, expires_at")
+        .eq("user_id", userId)
+        .eq("provider", "spotify")
+        .single();
+
+      if (!tokenData) return null;
+
+      const now = Math.floor(Date.now() / 1000);
+      if (tokenData.expires_at && tokenData.expires_at < now) {
+        const refreshedToken = await this.refreshAccessToken(
+          tokenData.refresh_token
+        );
+        if (refreshedToken) {
+          await supabase
+            .from("integration_tokens")
+            .update({
+              access_token: refreshedToken.access_token,
+              refresh_token: refreshedToken.refresh_token,
+              expires_at: refreshedToken.expires_at,
+            })
+            .eq("user_id", userId)
+            .eq("provider", "spotify");
+
+          return refreshedToken.access_token;
+        }
+        return null;
+      }
+
+      return tokenData.access_token;
+    } catch (error) {
+      console.error("❌ [SpotifyService] Error getting access token:", error);
+      return null;
+    }
+  }
+
+  private async refreshAccessToken(refreshToken: string): Promise<any> {
+    try {
+      const response = await fetch("https://accounts.spotify.com/api/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: `Basic ${Buffer.from(
+            `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
+          ).toString("base64")}`,
+        },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          refresh_token: refreshToken,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Token refresh failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return {
+        access_token: data.access_token,
+        refresh_token: data.refresh_token || refreshToken,
+        expires_at: Math.floor(Date.now() / 1000) + data.expires_in,
+      };
+    } catch (error) {
+      console.error("❌ [SpotifyService] Error refreshing token:", error);
+      return null;
+    }
+  }
+
+  private async fetchRecentTracks(
+    accessToken: string,
+    limit: number = 50
+  ): Promise<any[]> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/me/player/recently-played?limit=${limit}`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
-          cache: "no-store",
         }
       );
 
-      if (featuresResponse.ok) {
-        const featuresData = await featuresResponse.json();
-        audioFeatures = featuresData.audio_features;
+      if (!response.ok) {
+        throw new Error(`Recent tracks API error: ${response.status}`);
       }
+
+      const data = await response.json();
+      return data.items || [];
+    } catch (error) {
+      console.error("❌ [SpotifyService] Error fetching recent tracks:", error);
+      return [];
+    }
+  }
+
+  private async getAudioFeatures(
+    accessToken: string,
+    tracks: any[]
+  ): Promise<any> {
+    if (tracks.length === 0) {
+      return {
+        energy: 0.5,
+        valence: 0.5,
+        danceability: 0.5,
+        acousticness: 0.5,
+        instrumentalness: 0.5,
+        liveness: 0.5,
+        speechiness: 0.5,
+        tempo: 120,
+      };
     }
 
-    // Calculate stats
-    const tracksPlayed = tracks.length;
-    const topArtists = [
-      ...new Set(tracks.map((item: any) => item.track.artists[0].name)),
-    ].slice(0, 5) as string[];
-    const topTracks = tracks
-      .map((item: any) => item.track.name)
-      .slice(0, 5) as string[];
+    try {
+      const trackIds = tracks.map((track) => track.track.id).filter((id) => id);
 
-    // Calculate average audio features
-    let avgEnergy = 0,
-      avgValence = 0,
-      avgTempo = 0,
-      avgDanceability = 0;
-    if (audioFeatures) {
-      const validFeatures = audioFeatures.filter((f: any) => f !== null);
-      if (validFeatures.length > 0) {
-        avgEnergy =
-          validFeatures.reduce((sum: number, f: any) => sum + f.energy, 0) /
-          validFeatures.length;
-        avgValence =
-          validFeatures.reduce((sum: number, f: any) => sum + f.valence, 0) /
-          validFeatures.length;
-        avgTempo =
-          validFeatures.reduce((sum: number, f: any) => sum + f.tempo, 0) /
-          validFeatures.length;
-        avgDanceability =
-          validFeatures.reduce(
-            (sum: number, f: any) => sum + f.danceability,
+      if (trackIds.length === 0) {
+        return this.getDefaultAudioFeatures();
+      }
+
+      const response = await fetch(
+        `${this.baseUrl}/audio-features?ids=${trackIds.join(",")}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Audio features API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const features = data.audio_features.filter((f: any) => f !== null);
+
+      if (features.length === 0) {
+        return this.getDefaultAudioFeatures();
+      }
+
+      return {
+        energy:
+          features.reduce((sum: number, f: any) => sum + f.energy, 0) /
+          features.length,
+        valence:
+          features.reduce((sum: number, f: any) => sum + f.valence, 0) /
+          features.length,
+        danceability:
+          features.reduce((sum: number, f: any) => sum + f.danceability, 0) /
+          features.length,
+        acousticness:
+          features.reduce((sum: number, f: any) => sum + f.acousticness, 0) /
+          features.length,
+        instrumentalness:
+          features.reduce(
+            (sum: number, f: any) => sum + f.instrumentalness,
             0
-          ) / validFeatures.length;
-      }
+          ) / features.length,
+        liveness:
+          features.reduce((sum: number, f: any) => sum + f.liveness, 0) /
+          features.length,
+        speechiness:
+          features.reduce((sum: number, f: any) => sum + f.speechiness, 0) /
+          features.length,
+        tempo:
+          features.reduce((sum: number, f: any) => sum + f.tempo, 0) /
+          features.length,
+      };
+    } catch (error) {
+      console.error(
+        "❌ [SpotifyService] Error fetching audio features:",
+        error
+      );
+      return this.getDefaultAudioFeatures();
+    }
+  }
+
+  private calculateInsights(tracks: any[], audioFeatures: any): any {
+    return {
+      topArtists: this.getTopArtists(tracks),
+      moodAnalysis: this.analyzeMood(audioFeatures),
+      energyLevel: this.analyzeEnergy(audioFeatures),
+      listeningPatterns: this.analyzeListeningPatterns(tracks),
+      recommendations: this.generateRecommendations(audioFeatures),
+    };
+  }
+
+  private generateSummary(
+    tracks: any[],
+    audioFeatures: any,
+    insights: any
+  ): string {
+    if (tracks.length === 0) {
+      return "No music data available";
     }
 
-    // Determine mood based on valence
-    let mood = "Neutral";
-    if (avgValence > 0.6) mood = "Positive";
-    else if (avgValence < 0.4) mood = "Melancholic";
-    else mood = "Neutral";
+    const hours = Math.floor(this.calculateTotalListeningTime(tracks) / 60);
+    const minutes = this.calculateTotalListeningTime(tracks) % 60;
 
-    // Determine top genre (simplified - would need artist genre lookup for accuracy)
-    const topGenre = "Pop"; // Placeholder
+    let summary = `🎵 Listened to ${tracks.length} tracks (${hours}h ${minutes}m)`;
 
-    // Calculate listening time (estimated)
-    const listeningTime = tracksPlayed * 3.5; // Average 3.5 minutes per track
+    if (insights.topArtists.length > 0) {
+      summary += ` • Top artist: ${insights.topArtists[0].name}`;
+    }
 
-    // Perform advanced audio analysis
-    const advancedFeatures = analyzeAdvancedAudioFeatures(
-      tracks,
-      audioFeatures
-    );
-    const audioInsights = generateAudioAnalysisInsights(
-      advancedFeatures,
-      tracks
-    );
-    const trackAnalysis = analyzeIndividualTracks(tracks, audioFeatures);
+    if (insights.moodAnalysis) {
+      summary += ` • Mood: ${insights.moodAnalysis}`;
+    }
 
-    const spotifyStats = {
-      tracksPlayed,
-      topGenre: advancedFeatures.genre,
-      mood: advancedFeatures.mood,
-      topArtists,
-      topTracks,
-      listeningTime,
-      audioFeatures: {
-        energy: avgEnergy,
-        valence: avgValence,
-        tempo: avgTempo,
-        danceability: avgDanceability,
-      },
-      advancedFeatures,
-      audioInsights,
-      trackAnalysis,
-      summary: audioInsights.audioSummary,
+    return summary;
+  }
+
+  private calculateTotalListeningTime(tracks: any[]): number {
+    return tracks.reduce((total, track) => {
+      return total + track.track.duration_ms / 1000 / 60;
+    }, 0);
+  }
+
+  private getTopArtists(tracks: any[]): any[] {
+    const artistCount: { [key: string]: { name: string; count: number } } = {};
+
+    tracks.forEach((track) => {
+      track.track.artists.forEach((artist: any) => {
+        if (artistCount[artist.id]) {
+          artistCount[artist.id].count++;
+        } else {
+          artistCount[artist.id] = { name: artist.name, count: 1 };
+        }
+      });
+    });
+
+    return Object.values(artistCount)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }
+
+  private analyzeMood(audioFeatures: any): string {
+    const { valence, energy } = audioFeatures;
+
+    if (valence >= 0.7 && energy >= 0.6) return "Happy & Energetic";
+    if (valence >= 0.7 && energy < 0.6) return "Happy & Calm";
+    if (valence < 0.3 && energy >= 0.6) return "Sad & Energetic";
+    if (valence < 0.3 && energy < 0.6) return "Sad & Calm";
+    if (valence >= 0.5) return "Positive";
+    return "Neutral";
+  }
+
+  private analyzeEnergy(audioFeatures: any): string {
+    const { energy } = audioFeatures;
+
+    if (energy >= 0.8) return "Very High";
+    if (energy >= 0.6) return "High";
+    if (energy >= 0.4) return "Medium";
+    if (energy >= 0.2) return "Low";
+    return "Very Low";
+  }
+
+  private analyzeListeningPatterns(tracks: any[]): any {
+    const hourlyCount: { [key: number]: number } = {};
+
+    tracks.forEach((track) => {
+      const hour = new Date(track.played_at).getHours();
+      hourlyCount[hour] = (hourlyCount[hour] || 0) + 1;
+    });
+
+    const peakHour = Object.entries(hourlyCount).sort(
+      ([, a], [, b]) => b - a
+    )[0];
+
+    return {
+      peakHour: peakHour ? parseInt(peakHour[0]) : 0,
+      totalHours: Object.keys(hourlyCount).length,
+      distribution: hourlyCount,
     };
+  }
 
-    return spotifyStats;
-  } catch (error) {
-    console.error("❌ Error in getSpotifyStats:", error);
-    return null;
+  private generateRecommendations(audioFeatures: any): string[] {
+    const recommendations = [];
+
+    if (audioFeatures.valence < 0.3) {
+      recommendations.push(
+        "Try listening to more upbeat music to improve your mood"
+      );
+    }
+
+    if (audioFeatures.energy < 0.3) {
+      recommendations.push(
+        "Consider adding some high-energy tracks to boost your energy"
+      );
+    }
+
+    if (audioFeatures.danceability < 0.3) {
+      recommendations.push("Try some more danceable music to get moving");
+    }
+
+    return recommendations;
+  }
+
+  private getDefaultAudioFeatures(): any {
+    return {
+      energy: 0.5,
+      valence: 0.5,
+      danceability: 0.5,
+      acousticness: 0.5,
+      instrumentalness: 0.5,
+      liveness: 0.5,
+      speechiness: 0.5,
+      tempo: 120,
+    };
+  }
+
+  private getFallbackData(): SpotifyData {
+    return {
+      summary: "No music data available",
+      totalListeningTime: 0,
+      tracks: [],
+      audioFeatures: this.getDefaultAudioFeatures(),
+      insights: {
+        topArtists: [],
+        moodAnalysis: "Unknown",
+        energyLevel: "Unknown",
+        listeningPatterns: { peakHour: 0, totalHours: 0, distribution: {} },
+        recommendations: [],
+      },
+    };
   }
 }

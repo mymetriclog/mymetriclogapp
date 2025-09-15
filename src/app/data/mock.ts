@@ -77,7 +77,7 @@ export const mockReports: ReportItem[] = [
 ];
 
 export type IntegrationItem = {
-  key: "spotify" | "fitbit" | "google-calendar" | "gmail";
+  key: "spotify" | "fitbit" | "google-calendar" | "gmail" | "google-tasks";
   name: string;
   status: "connected" | "disconnected" | "error";
   lastSync?: string;
@@ -115,5 +115,13 @@ export const mockIntegrations: IntegrationItem[] = [
     status: "connected",
     lastSync: "2 hours ago",
     created_at: "2025-08-10 09:15:22",
+  },
+  {
+    key: "google-tasks",
+    name: "Google Tasks",
+    status: "connected",
+    lastSync: "just now",
+    created_at: "2025-08-12 08:30:15",
+    notes: "Tracking task completion and productivity patterns",
   },
 ];

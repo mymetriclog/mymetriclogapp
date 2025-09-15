@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { notifications } from "@/lib/notifications";
 
 interface TokenStatus {
   provider: string;
@@ -39,7 +38,7 @@ export function IntegrationTokenNotifications({
       ) {
         // Delay each notification to show them one by one
         setTimeout(() => {
-          notifications.integrationExpired(token.provider);
+          console.warn(token.provider);
         }, 1000 + tokenStatuses.indexOf(token) * 2000); // 1s + 2s per token
 
         setShownNotifications((prev) =>
@@ -55,10 +54,7 @@ export function IntegrationTokenNotifications({
       ) {
         // Delay each notification to show them one by one
         setTimeout(() => {
-          notifications.integrationExpiringSoon(
-            token.provider,
-            token.daysUntilExpiry
-          );
+          console.warn(token.provider, token.daysUntilExpiry);
         }, 2000 + tokenStatuses.indexOf(token) * 2000); // 2s + 2s per token
 
         setShownNotifications((prev) =>

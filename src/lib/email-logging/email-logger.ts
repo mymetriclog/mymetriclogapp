@@ -4,44 +4,71 @@ export interface EmailLogData {
   user_id: string;
   recipient_email: string;
   sender_email: string;
-  email_type: "daily_report" | "weekly_report" | "verification" | "custom";
+  email_type: "daily_report" | "weekly_report";
   subject: string;
-  message_id?: string;
-  status: "pending" | "sent" | "delivered" | "failed" | "bounced";
-  report_date?: string;
-  report_type?: "daily" | "weekly";
-  failure_reason?: string;
+  status: "pending" | "sent" | "failed";
+  report_date: string;
+  report_type: "daily" | "weekly";
   metadata?: any;
+}
+
+export interface EmailLogResult {
+  success: boolean;
+  logId?: string;
+  error?: string;
+}
+
+export interface EmailLogsResult {
+  success: boolean;
+  logs?: any[];
+  error?: string;
+  message?: string;
 }
 
 export class EmailLogger {
   /**
-   * Log email activity to database
+   * Log an email attempt to the database
    */
-  static async logEmail(logData: EmailLogData) {
+  static async logEmail(logData: EmailLogData): Promise<EmailLogResult> {
     try {
       const supabase = await getServerSupabaseClientWithServiceRole();
 
       const { data, error } = await supabase
         .from("email_logs")
-        .insert([logData])
-        .select()
+        .insert([
+          {
+            user_id: logData.user_id,
+            recipient_email: logData.recipient_email,
+            sender_email: logData.sender_email,
+            email_type: logData.email_type,
+            subject: logData.subject,
+            status: logData.status,
+            report_date: logData.report_date,
+            report_type: logData.report_type,
+            metadata: logData.metadata,
+            created_at: new Date().toISOString(),
+          },
+        ])
+        .select("id")
         .single();
 
       if (error) {
-        throw new Error(`Failed to log email: ${error.message}`);
+        console.error("❌ [EmailLogger] Error logging email:", error);
+        return {
+          success: false,
+          error: error.message,
+        };
       }
 
       return {
         success: true,
         logId: data.id,
-        message: "Email logged successfully",
       };
     } catch (error) {
+      console.error("❌ [EmailLogger] Error logging email:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
-        message: "Failed to log email",
       };
     }
   }
@@ -51,9 +78,9 @@ export class EmailLogger {
    */
   static async updateEmailStatus(
     logId: string,
-    status: "sent" | "delivered" | "failed" | "bounced",
-    failure_reason?: string
-  ) {
+    status: "sent" | "failed",
+    errorMessage?: string
+  ): Promise<EmailLogResult> {
     try {
       const supabase = await getServerSupabaseClientWithServiceRole();
 
@@ -62,70 +89,69 @@ export class EmailLogger {
         updated_at: new Date().toISOString(),
       };
 
-      if (status === "delivered") {
-        updateData.delivered_at = new Date().toISOString();
-      } else if (status === "failed" || status === "bounced") {
-        updateData.failed_at = new Date().toISOString();
-        updateData.failure_reason = failure_reason;
+      if (status === "failed" && errorMessage) {
+        updateData.error_message = errorMessage;
       }
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("email_logs")
         .update(updateData)
-        .eq("id", logId)
-        .select()
-        .single();
+        .eq("id", logId);
 
       if (error) {
-        throw new Error(`Failed to update email status: ${error.message}`);
+        console.error("❌ [EmailLogger] Error updating email status:", error);
+        return {
+          success: false,
+          error: error.message,
+        };
       }
 
       return {
         success: true,
-        message: "Email status updated successfully",
       };
     } catch (error) {
+      console.error("❌ [EmailLogger] Error updating email status:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
-        message: "Failed to update email status",
       };
     }
   }
 
   /**
-   * Update email with message ID
+   * Update email message ID
    */
-  static async updateEmailMessageId(logId: string, messageId: string) {
+  static async updateEmailMessageId(
+    logId: string,
+    messageId: string
+  ): Promise<EmailLogResult> {
     try {
       const supabase = await getServerSupabaseClientWithServiceRole();
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("email_logs")
         .update({
           message_id: messageId,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", logId)
-        .select()
-        .single();
+        .eq("id", logId);
 
       if (error) {
-        console.error(`❌ Failed to update message ID in database:`, error);
-        throw new Error(`Failed to update message ID: ${error.message}`);
+        console.error("❌ [EmailLogger] Error updating message ID:", error);
+        return {
+          success: false,
+          error: error.message,
+        };
       }
 
-      // console.log(`✅ Message ID updated successfully: ${messageId}`);
       return {
         success: true,
-        message: "Message ID updated successfully",
       };
     } catch (error) {
-      console.error(`❌ Message ID update failed:`, error);
+      console.error("❌ [EmailLogger] Error updating message ID:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
-        message: "Failed to update message ID",
       };
     }
   }
@@ -133,7 +159,10 @@ export class EmailLogger {
   /**
    * Get email logs for a user
    */
-  static async getUserEmailLogs(userId: string, limit: number = 50) {
+  static async getUserEmailLogs(
+    userId: string,
+    limit: number = 50
+  ): Promise<EmailLogsResult> {
     try {
       const supabase = await getServerSupabaseClientWithServiceRole();
 
@@ -141,72 +170,29 @@ export class EmailLogger {
         .from("email_logs")
         .select("*")
         .eq("user_id", userId)
-        .order("sent_at", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(limit);
 
       if (error) {
-        throw new Error(`Failed to fetch email logs: ${error.message}`);
+        console.error("❌ [EmailLogger] Error fetching email logs:", error);
+        return {
+          success: false,
+          error: error.message,
+          message: "Failed to fetch email logs",
+        };
       }
 
       return {
         success: true,
         logs: data || [],
-        message: "Email logs fetched successfully",
+        message: `Found ${data?.length || 0} email logs`,
       };
     } catch (error) {
+      console.error("❌ [EmailLogger] Error fetching email logs:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
         message: "Failed to fetch email logs",
-      };
-    }
-  }
-
-  /**
-   * Get email statistics for a user
-   */
-  static async getUserEmailStats(userId: string) {
-    try {
-      const supabase = await getServerSupabaseClientWithServiceRole();
-
-      const { data, error } = await supabase
-        .from("email_logs")
-        .select("status, email_type, sent_at")
-        .eq("user_id", userId);
-
-      if (error) {
-        throw new Error(`Failed to fetch email stats: ${error.message}`);
-      }
-
-      const stats = {
-        total: data?.length || 0,
-        sent: data?.filter((log: any) => log.status === "sent").length || 0,
-        delivered:
-          data?.filter((log: any) => log.status === "delivered").length || 0,
-        failed: data?.filter((log: any) => log.status === "failed").length || 0,
-        bounced:
-          data?.filter((log: any) => log.status === "bounced").length || 0,
-        dailyReports:
-          data?.filter((log: any) => log.email_type === "daily_report")
-            .length || 0,
-        weeklyReports:
-          data?.filter((log: any) => log.email_type === "weekly_report")
-            .length || 0,
-        verifications:
-          data?.filter((log: any) => log.email_type === "verification")
-            .length || 0,
-      };
-
-      return {
-        success: true,
-        stats,
-        message: "Email statistics fetched successfully",
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-        message: "Failed to fetch email statistics",
       };
     }
   }

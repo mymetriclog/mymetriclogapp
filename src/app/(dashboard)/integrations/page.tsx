@@ -71,7 +71,8 @@ async function getIntegrationsData() {
       it.key === "spotify" ||
       it.key === "fitbit" ||
       it.key === "google-calendar" ||
-      it.key === "gmail"
+      it.key === "gmail" ||
+      it.key === "google-tasks"
     ) {
       // If token is expired but has refresh token, show as connected (will auto-refresh)
       if (

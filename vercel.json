@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/cron",
+      "path": "/api/cron/generate-reports",
       "schedule": "0 12 * * *"
     },
     {
@@ -10,13 +10,16 @@
     }
   ],
   "functions": {
-    "src/app/api/queue/generate-report/route.ts": {
+    "src/app/api/queue/schedule/route.ts": {
       "maxDuration": 600
     },
-    "src/app/api/queue/start/route.ts": {
+    "src/app/api/queue/process-upstash/route.ts": {
       "maxDuration": 600
     },
     "src/app/api/email/send-report/route.ts": {
+      "maxDuration": 600
+    },
+    "src/app/api/cron/generate-reports/route.ts": {
       "maxDuration": 600
     },
     "src/app/api/cron/weekly/route.ts": {

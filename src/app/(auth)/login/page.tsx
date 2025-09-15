@@ -19,7 +19,6 @@ import { getBrowserSupabaseClient } from "@/lib/supabase/client";
 import { LogIn, Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
 import { LoadingOverlay } from "@/components/loading-overlay";
-import { notifications } from "@/lib/notifications";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -65,16 +64,13 @@ export default function LoginPage() {
     });
     if (error) {
       setLoading(false);
-      notifications.error("Authentication Error", error.message);
+      console.error("Authentication Error:", error.message);
     }
   }
 
   async function resendVerificationEmail() {
     if (!email) {
-      notifications.error(
-        "Email Required",
-        "Please enter your email address first."
-      );
+      console.error("Email Required", "Please enter your email address first.");
       return;
     }
 
@@ -89,9 +85,9 @@ export default function LoginPage() {
     setLoading(false);
 
     if (error) {
-      notifications.error("Failed to Send", error.message);
+      console.error("Failed to Send", error.message);
     } else {
-      notifications.success(
+      console.log(
         "Verification Email Sent",
         "Please check your inbox and spam folder for the verification link."
       );
@@ -112,28 +108,28 @@ export default function LoginPage() {
     if (error) {
       // Handle specific error cases
       if (error.message.includes("Email not confirmed")) {
-        notifications.error(
+        console.error(
           "Email Not Verified",
           "Please check your email and click the verification link before signing in. Check your spam folder if you don't see the email."
         );
         setShowResendButton(true);
       } else if (error.message.includes("Invalid login credentials")) {
-        notifications.error(
+        console.error(
           "Invalid Credentials",
           "Please check your email and password and try again."
         );
       } else if (error.message.includes("Too many requests")) {
-        notifications.error(
+        console.error(
           "Too Many Attempts",
           "Please wait a few minutes before trying again."
         );
       } else {
-        notifications.error("Login Failed", error.message);
+        console.error("Login Failed", error.message);
       }
     } else {
       // Check if email is verified
       if (data.user && !data.user.email_confirmed_at) {
-        notifications.error(
+        console.error(
           "Email Not Verified",
           "Please verify your email address before signing in. Check your inbox for the verification link."
         );
@@ -141,7 +137,7 @@ export default function LoginPage() {
         return;
       }
 
-      notifications.success("Login Successful", "Welcome back!");
+      console.log("Login Successful", "Welcome back!");
       // Always redirect to dashboard after successful login
       router.replace("/dashboard");
     }

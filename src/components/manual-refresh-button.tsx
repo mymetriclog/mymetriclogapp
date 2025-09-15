@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
-import { notifications } from "@/lib/notifications";
 
 export function ManualRefreshButton() {
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -15,7 +14,7 @@ export function ManualRefreshButton() {
 
     try {
       // Show loading notification
-      const loadingToast = notifications.loading(
+      const loadingToast = console.log(
         "🔄 Manually Refreshing Tokens",
         "Checking and refreshing expired/expiring tokens..."
       );
@@ -31,11 +30,11 @@ export function ManualRefreshButton() {
         const result = await response.json();
 
         // Dismiss loading toast
-        notifications.dismissById(loadingToast);
+        console.log(loadingToast);
 
         if (result.summary.successful > 0 && result.summary.failed === 0) {
           // All tokens refreshed successfully
-          notifications.success(
+          console.log(
             "✅ Manual Refresh Complete",
             `Successfully refreshed ${result.summary.successful} integration tokens.`
           );
@@ -46,7 +45,7 @@ export function ManualRefreshButton() {
           }, 2000);
         } else if (result.summary.successful > 0 && result.summary.failed > 0) {
           // Partial success
-          notifications.warning(
+          console.warn(
             "⚠️ Partial Refresh Complete",
             `Refreshed ${result.summary.successful} tokens successfully, but ${result.summary.failed} failed.`
           );
@@ -57,7 +56,7 @@ export function ManualRefreshButton() {
           }, 2000);
         } else if (result.summary.successful === 0) {
           // All tokens failed to refresh
-          notifications.error(
+          console.error(
             "❌ Manual Refresh Failed",
             "No tokens were refreshed. All integrations may need manual reconnection."
           );
@@ -65,8 +64,8 @@ export function ManualRefreshButton() {
       } else if (response.status === 429) {
         // Rate limited
         const errorData = await response.json();
-        notifications.dismissById(loadingToast);
-        notifications.warning(
+        console.log(loadingToast);
+        console.warn(
           "⏳ Rate Limited",
           errorData.message || "Please wait before trying again."
         );
@@ -75,7 +74,7 @@ export function ManualRefreshButton() {
       }
     } catch (error) {
       console.error("❌ Manual refresh failed:", error);
-      notifications.error(
+      console.error(
         "❌ Manual Refresh Failed",
         "Failed to refresh tokens. Please try again or reconnect integrations manually."
       );

@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/supabase/server";
 import { isUserAdmin } from "@/lib/auth/admin-check";
-import {
-  pauseQueue,
-  resumeQueue,
-  cleanQueue,
-  getQueueStats,
-} from "@/lib/queue/upstash-queue-service";
+import { getServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,67 +21,100 @@ export async function POST(req: NextRequest) {
     }
 
     const { action } = await req.json();
+    const supabase = await getServerSupabaseClient();
 
     switch (action) {
-      case "pause":
-        await pauseQueue();
-        console.log("⏸️ Queue paused");
-        return NextResponse.json({
-          success: true,
-          message: "Queue paused successfully",
-          data: { action: "pause", timestamp: new Date().toISOString() },
-        });
+      case "clear-old-reports":
+        // Clear reports older than 30 days
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      case "resume":
-        await resumeQueue();
-        console.log("▶️ Queue resumed");
-        return NextResponse.json({
-          success: true,
-          message: "Queue resumed successfully",
-          data: { action: "resume", timestamp: new Date().toISOString() },
-        });
+        const { error: deleteError } = await supabase
+          .from("reports")
+          .delete()
+          .lt("created_at", thirtyDaysAgo.toISOString());
 
-      case "clear-completed":
-        await userReportQueue.clean(0, "completed");
-        console.log("🧹 Completed jobs cleared");
+        if (deleteError) {
+          throw new Error(
+            `Failed to clear old reports: ${deleteError.message}`
+          );
+        }
+
+        console.log("🧹 Old reports cleared");
         return NextResponse.json({
           success: true,
-          message: "Completed jobs cleared successfully",
+          message: "Old reports cleared successfully",
           data: {
-            action: "clear-completed",
+            action: "clear-old-reports",
             timestamp: new Date().toISOString(),
           },
         });
 
-      case "clear-failed":
-        await userReportQueue.clean(0, "failed");
-        console.log("🧹 Failed jobs cleared");
-        return NextResponse.json({
-          success: true,
-          message: "Failed jobs cleared successfully",
-          data: { action: "clear-failed", timestamp: new Date().toISOString() },
-        });
-
-      case "clear-all":
-        await cleanQueue();
-        console.log("🧹 All jobs cleared");
-        return NextResponse.json({
-          success: true,
-          message: "All jobs cleared successfully",
-          data: { action: "clear-all", timestamp: new Date().toISOString() },
-        });
-
       case "get-counts":
-        const stats = await getQueueStats();
+        // Get report counts from database
+        const { count: totalReports } = await supabase
+          .from("reports")
+          .select("*", { count: "exact", head: true });
+
+        const { count: dailyReports } = await supabase
+          .from("reports")
+          .select("*", { count: "exact", head: true })
+          .eq("report_type", "daily");
+
+        const { count: weeklyReports } = await supabase
+          .from("reports")
+          .select("*", { count: "exact", head: true })
+          .eq("report_type", "weekly");
+
         return NextResponse.json({
           success: true,
           data: {
             action: "get-counts",
-            jobCounts: {
-              waiting: stats.waiting,
-              active: stats.active,
-              completed: stats.completed,
-              failed: stats.failed,
+            reportCounts: {
+              total: totalReports || 0,
+              daily: dailyReports || 0,
+              weekly: weeklyReports || 0,
+            },
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+      case "get-stats":
+        // Get comprehensive statistics
+        const { data: allReports } = await supabase
+          .from("reports")
+          .select("score, created_at, report_type")
+          .order("created_at", { ascending: false })
+          .limit(100);
+
+        const averageScore =
+          allReports && allReports.length > 0
+            ? Math.round(
+                allReports.reduce((sum, r) => sum + r.score, 0) /
+                  allReports.length
+              )
+            : 0;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const { count: todayReports } = await supabase
+          .from("reports")
+          .select("*", { count: "exact", head: true })
+          .gte("created_at", today.toISOString())
+          .lt("created_at", tomorrow.toISOString());
+
+        return NextResponse.json({
+          success: true,
+          data: {
+            action: "get-stats",
+            stats: {
+              totalReports: allReports?.length || 0,
+              todayReports: todayReports || 0,
+              averageScore,
+              lastUpdated: new Date().toISOString(),
             },
             timestamp: new Date().toISOString(),
           },
@@ -97,7 +125,7 @@ export async function POST(req: NextRequest) {
           {
             error: "Invalid action",
             message:
-              "Supported actions: pause, resume, clear-completed, clear-failed, clear-all, get-counts",
+              "Supported actions: clear-old-reports, get-counts, get-stats",
           },
           { status: 400 }
         );
@@ -134,23 +162,34 @@ export async function GET() {
       );
     }
 
-    // Get queue information
-    const stats = await getQueueStats();
-    // Upstash QStash doesn't support pause/resume - it's always active
-    const isPaused = false;
+    // Get report statistics from database
+    const supabase = await getServerSupabaseClient();
+
+    const { count: totalReports } = await supabase
+      .from("reports")
+      .select("*", { count: "exact", head: true });
+
+    const { count: dailyReports } = await supabase
+      .from("reports")
+      .select("*", { count: "exact", head: true })
+      .eq("report_type", "daily");
+
+    const { count: weeklyReports } = await supabase
+      .from("reports")
+      .select("*", { count: "exact", head: true })
+      .eq("report_type", "weekly");
 
     return NextResponse.json({
       success: true,
       data: {
         queueInfo: {
-          name: "user-report-generation",
-          isActive: true, // Bull queue is always active when connected
-          isPaused,
-          jobCounts: {
-            waiting: stats.waiting,
-            active: stats.active,
-            completed: stats.completed,
-            failed: stats.failed,
+          name: "dynamic-report-generation",
+          isActive: true, // New system is always active
+          isPaused: false, // Not applicable for new system
+          reportCounts: {
+            total: totalReports || 0,
+            daily: dailyReports || 0,
+            weekly: weeklyReports || 0,
           },
           clientStatus: "ready",
         },

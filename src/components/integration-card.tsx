@@ -13,6 +13,7 @@ import {
   Calendar,
   Mail,
   Clock,
+  CheckSquare,
 } from "lucide-react";
 import type { IntegrationItem } from "@/app/data/mock";
 
@@ -21,6 +22,7 @@ const iconMap: Record<IntegrationItem["key"], any> = {
   fitbit: Watch,
   "google-calendar": Calendar,
   gmail: Mail,
+  "google-tasks": CheckSquare,
 };
 
 export function IntegrationCard({
@@ -79,11 +81,12 @@ export function IntegrationCard({
         return "/integrations/spotify";
       case "fitbit":
         return "/integrations/fitbit";
-
       case "gmail":
         return "/integrations/gmail";
       case "google-calendar":
         return "/integrations/google-calendar";
+      case "google-tasks":
+        return "/integrations/google-tasks";
 
       default:
         return "/integrations";
@@ -96,7 +99,8 @@ export function IntegrationCard({
     key === "spotify" ||
     key === "fitbit" ||
     key === "gmail" ||
-    key === "google-calendar";
+    key === "google-calendar" ||
+    key === "google-tasks";
 
   return (
     <Card className="h-full flex flex-col min-h-[200px]">

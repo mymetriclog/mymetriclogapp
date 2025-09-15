@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { X, Download } from "lucide-react";
 import { generateDailyReportEmail } from "@/lib/sendgrid/templates/daily-email-template";
+import { generateWeeklyReportEmail } from "@/lib/sendgrid/templates/weekly-email-template";
 
 interface ReportData {
   id: string;
@@ -558,8 +559,38 @@ export function ReportViewerModal({
       }
     }
 
-    // Generate the email template HTML
-    const emailHTML = generateDailyReportEmail(dailyReportData);
+    // Generate the email template HTML using the same template as emails
+    const emailHTML = generateDailyReportEmail(
+      dailyReportData.fullDateStr,
+      dailyReportData.date,
+      dailyReportData.scores,
+      dailyReportData.insight,
+      dailyReportData.mantra,
+      dailyReportData.moodInsight,
+      dailyReportData.weatherSummary,
+      dailyReportData.calSummary,
+      dailyReportData.emailSummary,
+      dailyReportData.completedTasks,
+      dailyReportData.spotifySummary,
+      dailyReportData.fitbitActivity,
+      dailyReportData.fitbitSleep,
+      dailyReportData.fitbitHeart,
+      dailyReportData.peakHR,
+      dailyReportData.stressRadar,
+      dailyReportData.recoveryQuotient,
+      dailyReportData.dayContext,
+      dailyReportData.badges,
+      dailyReportData.streakBadges,
+      dailyReportData.badgeNarrative,
+      dailyReportData.nearMisses,
+      dailyReportData.calendarAnalysis,
+      dailyReportData.calendarIntelligence,
+      dailyReportData.fitbitHRV,
+      dailyReportData.hourlyWeather,
+      dailyReportData.emailResponseAnalysis,
+      dailyReportData.fitbitActivityLog,
+      dailyReportData.audioFeatures
+    );
 
     // Debug: Check if Environment & Lifestyle section exists in HTML
     console.log(
