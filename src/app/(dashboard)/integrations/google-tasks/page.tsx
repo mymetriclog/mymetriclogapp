@@ -1,232 +1,254 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
+  CheckSquare,
+  RefreshCw,
+  AlertCircle,
   CheckCircle,
+  Circle,
   Clock,
-  AlertTriangle,
-  List,
-  Calendar,
-  TrendingUp,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
-type GoogleTasksData = {
-  account: {
-    totalLists: number;
-    totalTasks: number;
-    completedTasks: number;
-    pendingTasks: number;
-    overdueTasks: number;
-    completionRate: number;
-    lastSync: string;
-  };
-  stats: {
-    totalLists: number;
-    totalTasks: number;
-    completedTasks: number;
-    pendingTasks: number;
-    overdueTasks: number;
-    completionRate: number;
-    tasksToday: number;
-  };
-  tasks: any[];
-  lists: any[];
-};
+interface GoogleTasksStats {
+  totalTasks: number;
+  completedTasks: number;
+  pendingTasks: number;
+  overdueTasks: number;
+  completionRate: number;
+  tasksByList: Array<{
+    listId: string;
+    listTitle: string;
+    total: number;
+    completed: number;
+    pending: number;
+  }>;
+  recentTasks: Array<{
+    id: string;
+    title: string;
+    status: "needsAction" | "completed";
+    due?: string;
+    completed?: string;
+    notes?: string;
+  }>;
+  productivityScore: number;
+  summary: string;
+}
 
-export default function GoogleTasksIntegrationPage() {
-  const [data, setData] = useState<GoogleTasksData | null>(null);
+export default function GoogleTasksPage() {
+  const [stats, setStats] = useState<GoogleTasksStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const router = useRouter();
+  const [refreshing, setRefreshing] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
-    fetchGoogleTasksData();
+    fetchGoogleTasksStats();
   }, []);
 
-  const fetchGoogleTasksData = async () => {
+  const fetchGoogleTasksStats = async () => {
     try {
       setLoading(true);
-      setError(null);
       const response = await fetch("/api/integrations/google-tasks/stats");
 
-      if (!response.ok) {
-        if (response.status === 403) {
-          setIsConnected(false);
-          setError(
-            "Google Tasks not connected. Please connect your account first."
-          );
-          return;
-        }
-        throw new Error("Failed to fetch Google Tasks data");
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data.stats);
+        setError(null);
+      } else if (response.status === 400) {
+        setError("Google Tasks not connected");
+      } else {
+        setError("Failed to fetch task data");
       }
-
-      const result = await response.json();
-      setData(result);
-      setIsConnected(true);
     } catch (err) {
-      console.error("Error fetching Google Tasks data:", err);
-      setIsConnected(false);
-      setError(err instanceof Error ? err.message : "An error occurred");
+      setError("Failed to load task data");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleConnect = async () => {
-    try {
-      // Get the OAuth URL from the backend to ensure consistent client ID usage
-      const response = await fetch("/api/integrations/google-tasks/connect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (response.ok) {
-        const { authUrl } = await response.json();
-        window.location.href = authUrl;
-      } else {
-        const errorData = await response.json();
-        setError(
-          errorData.error || "Failed to initiate Google Tasks connection"
-        );
-      }
-    } catch (error) {
-      console.error("Error connecting Google Tasks:", error);
-      setError("Failed to connect Google Tasks. Please try again.");
-    }
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchGoogleTasksStats();
+    setRefreshing(false);
+    toast({
+      title: "Tasks Refreshed",
+      description: "Google Tasks data has been updated.",
+    });
   };
 
-  const handleDisconnect = async () => {
-    try {
-      const res = await fetch("/api/integrations/google-tasks/disconnect", {
-        method: "POST",
-      });
-      if (res.ok) {
-        setIsConnected(false);
-        setData(null);
-        setError(null);
-      }
-    } catch (error) {
-      console.error("Error disconnecting Google Tasks:", error);
-    }
+  const handleConnect = () => {
+    window.location.href = "/api/integrations/google-tasks/connect";
   };
 
-  const handleRefresh = () => {
-    fetchGoogleTasksData();
+  const getProductivityColor = (score: number) => {
+    if (score >= 80) return "text-green-600";
+    if (score >= 60) return "text-yellow-600";
+    return "text-red-600";
+  };
+
+  const getProductivityBg = (score: number) => {
+    if (score >= 80) return "bg-green-100";
+    if (score >= 60) return "bg-yellow-100";
+    return "bg-red-100";
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "No due date";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p>Loading Google Tasks data...</p>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Google Tasks
+            </h1>
+            <p className="text-muted-foreground">
+              Manage your task productivity
+            </p>
           </div>
         </div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <div className="h-4 bg-gray-200 rounded animate-pulse" />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="h-3 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-3 bg-gray-200 rounded animate-pulse w-2/3" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error === "Google Tasks not connected") {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Google Tasks
+            </h1>
+            <p className="text-muted-foreground">
+              Manage your task productivity
+            </p>
+          </div>
+        </div>
+
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <CheckSquare className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Connect Google Tasks</h3>
+            <p className="text-muted-foreground text-center mb-6 max-w-md">
+              Connect your Google Tasks account to track your productivity, task
+              completion rates, and get insights into your work patterns.
+            </p>
+            <Button
+              onClick={handleConnect}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Connect Google Tasks
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Google Tasks
+            </h1>
+            <p className="text-muted-foreground">
+              Manage your task productivity
+            </p>
+          </div>
+        </div>
+
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <List className="h-5 w-5" />
-              Google Tasks Integration
-            </CardTitle>
-            <CardDescription>
-              Connect your Google Tasks account to track your productivity
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-8">
-              <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">
-                Connection Required
-              </h3>
-              <p className="text-gray-600 mb-4">{error}</p>
-              <Button
-                onClick={handleConnect}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                Connect Google Tasks
-              </Button>
-            </div>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Error Loading Tasks</h3>
+            <p className="text-muted-foreground text-center mb-6">{error}</p>
+            <Button onClick={handleRefresh} variant="outline">
+              Try Again
+            </Button>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  if (!data) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="text-center py-8">
-          <p>No data available</p>
-        </div>
-      </div>
-    );
+  if (!stats) {
+    return null;
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Google Tasks Integration</h1>
-          <p className="text-gray-600">
-            Track your task productivity and completion rates
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Google Tasks
+          </h1>
+          <p className="text-muted-foreground">
+            Track your productivity and task completion
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={handleRefresh} variant="outline">
-            Refresh Data
-          </Button>
-          <Button onClick={handleDisconnect} variant="destructive">
-            Disconnect
-          </Button>
-        </div>
+        <Button onClick={handleRefresh} disabled={refreshing}>
+          <RefreshCw
+            className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`}
+          />
+          Refresh
+        </Button>
       </div>
 
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Overview Stats */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
-            <List className="h-4 w-4 text-muted-foreground" />
+            <CheckSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.stats.totalTasks}</div>
-            <p className="text-xs text-muted-foreground">
-              Across {data.stats.totalLists} lists
-            </p>
+            <div className="text-2xl font-bold">{stats.totalTasks}</div>
+            <p className="text-xs text-muted-foreground">Tasks for today</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Completed</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
+            <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {data.stats.completedTasks}
+              {stats.completedTasks}
             </div>
             <p className="text-xs text-muted-foreground">
-              {data.stats.completionRate}% completion rate
+              {stats.completionRate}% completion rate
             </p>
           </CardContent>
         </Card>
@@ -234,183 +256,161 @@ export default function GoogleTasksIntegrationPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
+            <Circle className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
-              {data.stats.pendingTasks}
+            <div className="text-2xl font-bold text-orange-600">
+              {stats.pendingTasks}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {data.stats.tasksToday} due today
-            </p>
+            <p className="text-xs text-muted-foreground">Tasks remaining</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Overdue</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-600" />
+            <CardTitle className="text-sm font-medium">
+              Productivity Score
+            </CardTitle>
+            <Badge
+              className={`${getProductivityBg(
+                stats.productivityScore
+              )} ${getProductivityColor(stats.productivityScore)}`}
+            >
+              {stats.productivityScore}/100
+            </Badge>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {data.stats.overdueTasks}
-            </div>
-            <p className="text-xs text-muted-foreground">Need attention</p>
+            <div className="text-2xl font-bold">{stats.productivityScore}</div>
+            <p className="text-xs text-muted-foreground">
+              Overall productivity
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Progress Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Task Completion Progress
-          </CardTitle>
-          <CardDescription>
-            Your overall task completion rate and productivity metrics
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+      {/* Overdue Tasks Alert */}
+      {stats.overdueTasks > 0 && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="flex items-center gap-3 py-4">
+            <AlertCircle className="h-5 w-5 text-red-500" />
             <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span>Completion Rate</span>
-                <span>{data.stats.completionRate}%</span>
-              </div>
-              <Progress value={data.stats.completionRate} className="h-2" />
+              <h3 className="font-medium text-red-800">Overdue Tasks</h3>
+              <p className="text-sm text-red-700">
+                You have {stats.overdueTasks} overdue task
+                {stats.overdueTasks > 1 ? "s" : ""} that need attention.
+              </p>
             </div>
+          </CardContent>
+        </Card>
+      )}
 
-            <div className="grid grid-cols-2 gap-4 pt-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {data.stats.completedTasks}
-                </div>
-                <div className="text-sm text-gray-600">Completed</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-yellow-600">
-                  {data.stats.pendingTasks}
-                </div>
-                <div className="text-sm text-gray-600">Pending</div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Task Lists */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Task Lists
-          </CardTitle>
-          <CardDescription>
-            Your Google Tasks lists and their task counts
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {data.lists.map((list) => {
-              const listTasks = data.tasks.filter(
-                (task) => task.listId === list.id
-              );
-              const completedCount = listTasks.filter(
-                (task) => task.status === "completed"
-              ).length;
-              const pendingCount = listTasks.filter(
-                (task) => task.status === "needsAction"
-              ).length;
-
-              return (
+      {/* Tasks by List */}
+      {stats.tasksByList.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Tasks by List</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {stats.tasksByList.map((list) => (
                 <div
-                  key={list.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
+                  key={list.listId}
+                  className="flex items-center justify-between p-3 border rounded-lg"
                 >
                   <div>
-                    <h3 className="font-semibold">{list.title}</h3>
-                    <p className="text-sm text-gray-600">
-                      {listTasks.length} tasks
+                    <h4 className="font-medium">{list.listTitle}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {list.completed} of {list.total} completed
                     </p>
                   </div>
-                  <div className="flex gap-2">
-                    <Badge
-                      variant="secondary"
-                      className="bg-green-100 text-green-800"
-                    >
-                      {completedCount} completed
-                    </Badge>
-                    <Badge
-                      variant="secondary"
-                      className="bg-yellow-100 text-yellow-800"
-                    >
-                      {pendingCount} pending
-                    </Badge>
+                  <div className="flex items-center gap-2">
+                    <div className="w-24 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                        style={{
+                          width: `${
+                            list.total > 0
+                              ? (list.completed / list.total) * 100
+                              : 0
+                          }%`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium">
+                      {list.total > 0
+                        ? Math.round((list.completed / list.total) * 100)
+                        : 0}
+                      %
+                    </span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recent Tasks */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Tasks</CardTitle>
-          <CardDescription>
-            Your most recent tasks across all lists
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {data.tasks.slice(0, 10).map((task) => (
-              <div
-                key={task.id}
-                className="flex items-center justify-between p-3 border rounded-lg"
-              >
-                <div className="flex items-center gap-3">
+      {stats.recentTasks.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Tasks</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {stats.recentTasks.slice(0, 10).map((task) => (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-3 p-3 border rounded-lg"
+                >
                   {task.status === "completed" ? (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                   ) : (
-                    <Clock className="h-5 w-5 text-yellow-600" />
+                    <Circle className="h-5 w-5 text-gray-400 flex-shrink-0" />
                   )}
-                  <div>
-                    <p
+                  <div className="flex-1 min-w-0">
+                    <h4
                       className={`font-medium ${
                         task.status === "completed"
-                          ? "line-through text-gray-500"
+                          ? "line-through text-muted-foreground"
                           : ""
                       }`}
                     >
                       {task.title}
-                    </p>
-                    <p className="text-sm text-gray-600">{task.listTitle}</p>
+                    </h4>
+                    {task.notes && (
+                      <p className="text-sm text-muted-foreground truncate">
+                        {task.notes}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    {task.due && (
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        <span>{formatDate(task.due)}</span>
+                      </div>
+                    )}
+                    {task.completed && (
+                      <span className="text-green-600">
+                        Completed {formatDate(task.completed)}
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div className="text-right">
-                  {task.due && (
-                    <p className="text-sm text-gray-600">
-                      Due: {new Date(task.due).toLocaleDateString()}
-                    </p>
-                  )}
-                  <Badge
-                    variant={
-                      task.status === "completed" ? "default" : "secondary"
-                    }
-                    className={
-                      task.status === "completed"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }
-                  >
-                    {task.status === "completed" ? "Completed" : "Pending"}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Today's Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">{stats.summary}</p>
         </CardContent>
       </Card>
     </div>

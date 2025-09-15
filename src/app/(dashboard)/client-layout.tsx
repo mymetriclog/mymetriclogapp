@@ -37,6 +37,7 @@ import { Badge } from "@/components/ui/badge";
 
 import { getBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { notifications } from "@/lib/notifications";
 import { nameToColors, toInitials } from "@/lib/name-colors";
 import Image from "next/image";
 
@@ -100,10 +101,28 @@ export default function DashboardClientLayout({
 
   async function onLogout() {
     try {
+      // Show loading toast
+      const loadingToast = notifications.loading(
+        "Signing out...",
+        "Please wait while we sign you out."
+      );
+
       await supabase.auth.signOut();
+
+      // Show success toast
+      notifications.dismissById(loadingToast);
+      notifications.success(
+        "👋 Signed Out Successfully!",
+        "You have been signed out of your account."
+      );
+
       router.push("/login");
     } catch (error) {
       console.error("Logout error:", error);
+      notifications.error(
+        "❌ Logout Failed",
+        "There was an error signing you out. Please try again."
+      );
     }
   }
 

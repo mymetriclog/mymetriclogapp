@@ -11,8 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { FileText, Eye, Download, Code, Check, Copy } from "lucide-react";
 import { ReportViewerModal } from "@/components/reports/report-viewer-modal";
-import { getScoreBasedStyling } from "@/lib/scoring/wellness-scoring";
 import { generateDailyReportEmail } from "@/lib/sendgrid/templates/daily-email-template";
+import { getScoreBasedStyling } from "@/lib/scoring/wellness-scoring";
 
 interface ReportData {
   id: string;
@@ -278,38 +278,7 @@ export function RecentReportCard({ report, userName }: RecentReportCardProps) {
           ],
       };
 
-      // Generate the email template HTML using the same template as emails
-      return generateDailyReportEmail(
-        dailyReportData.fullDateStr,
-        dailyReportData.date,
-        dailyReportData.scores,
-        dailyReportData.insight,
-        dailyReportData.mantra,
-        dailyReportData.moodInsight,
-        dailyReportData.weatherSummary,
-        dailyReportData.calSummary,
-        dailyReportData.emailSummary,
-        dailyReportData.completedTasks,
-        dailyReportData.spotifySummary,
-        dailyReportData.fitbitActivity,
-        dailyReportData.fitbitSleep,
-        dailyReportData.fitbitHeart,
-        dailyReportData.peakHR,
-        dailyReportData.stressRadar,
-        dailyReportData.recoveryQuotient,
-        dailyReportData.dayContext,
-        dailyReportData.badges,
-        dailyReportData.streakBadges,
-        dailyReportData.badgeNarrative,
-        dailyReportData.nearMisses,
-        dailyReportData.calendarAnalysis,
-        dailyReportData.calendarIntelligence,
-        dailyReportData.fitbitHRV,
-        dailyReportData.hourlyWeather,
-        dailyReportData.emailResponseAnalysis,
-        dailyReportData.fitbitActivityLog,
-        dailyReportData.audioFeatures
-      );
+      return generateDailyReportEmail(dailyReportData);
     };
 
     // Generate the HTML content

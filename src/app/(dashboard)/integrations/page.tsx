@@ -31,79 +31,34 @@ async function getIntegrationsData() {
   let expiredTokens: string[] = [];
 
   if (session) {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("integration_tokens")
       .select("provider, created_at, expires_at, refresh_token")
       .eq("user_id", session.user.id);
 
-    console.log("🔍 [Integrations] Database query result:", { data, error });
-
-    if (error) {
-      console.error("❌ [Integrations] Database error:", error);
-    }
-
     if (data) {
       const now = Math.floor(Date.now() / 1000);
-      console.log("🔍 [Integrations] Current timestamp:", now);
-      console.log("🔍 [Integrations] Found tokens:", data.length);
 
       data.forEach((d) => {
-        // Handle both Unix timestamp (number) and ISO string formats
-        let expiresAtUnix: number | null = null;
-        if (d.expires_at !== null && d.expires_at !== undefined) {
-          if (typeof d.expires_at === "number") {
-            expiresAtUnix = d.expires_at;
-          } else if (typeof d.expires_at === "string") {
-            // Convert ISO string to Unix timestamp
-            expiresAtUnix = Math.floor(new Date(d.expires_at).getTime() / 1000);
-          }
-        }
-
-        console.log(`🔍 [Integrations] Processing ${d.provider}:`, {
-          expires_at: d.expires_at,
-          expires_at_type: typeof d.expires_at,
-          expiresAtUnix,
-          hasRefreshToken: !!d.refresh_token,
-          isExpired: expiresAtUnix ? expiresAtUnix < now : false,
-        });
-
-        const isExpired = expiresAtUnix ? expiresAtUnix < now : false;
+        const isExpired = d.expires_at && d.expires_at < now;
         const hasRefreshToken = !!d.refresh_token;
-
-        // If no expires_at is set, consider the token as valid (legacy tokens)
-        const isLegacyToken =
-          d.expires_at === null || d.expires_at === undefined;
 
         // Only consider it truly expired if there's no refresh token for auto-refresh
         const needsManualReconnection = isExpired && !hasRefreshToken;
 
-        if (isLegacyToken || !isExpired || hasRefreshToken) {
+        if (!isExpired || hasRefreshToken) {
           connectedProviders.push(d.provider);
-          console.log(
-            `✅ [Integrations] ${d.provider} marked as connected (legacy: ${isLegacyToken}, expired: ${isExpired}, hasRefresh: ${hasRefreshToken})`
-          );
         } else {
           expiredTokens.push(d.provider);
-          console.log(`❌ [Integrations] ${d.provider} marked as expired`);
         }
 
         tokenData[d.provider] = {
           created_at: d.created_at,
-          expires_at: expiresAtUnix || undefined,
+          expires_at: d.expires_at,
           refresh_token: d.refresh_token,
         };
       });
-
-      console.log(
-        "🔍 [Integrations] Final connected providers:",
-        connectedProviders
-      );
-      console.log("🔍 [Integrations] Final expired tokens:", expiredTokens);
-    } else {
-      console.log("❌ [Integrations] No data returned from database");
     }
-  } else {
-    console.log("❌ [Integrations] No session found");
   }
 
   const items: IntegrationItem[] = mockIntegrations.map((it) => {
@@ -111,14 +66,6 @@ async function getIntegrationsData() {
     const isExpired = expiredTokens.includes(it.key);
     const realTokenData = tokenData[it.key];
     const hasRefreshToken = realTokenData?.refresh_token;
-
-    console.log(`🔍 [Integrations] Mapping ${it.key}:`, {
-      isConnected,
-      isExpired,
-      hasRealTokenData: !!realTokenData,
-      hasRefreshToken,
-      realTokenData,
-    });
 
     if (
       it.key === "spotify" ||
@@ -133,9 +80,6 @@ async function getIntegrationsData() {
         realTokenData.expires_at < Math.floor(Date.now() / 1000) &&
         hasRefreshToken
       ) {
-        console.log(
-          `✅ [Integrations] ${it.key} - Auto-refreshing (expired but has refresh token)`
-        );
         return {
           ...it,
           status: "connected",
@@ -145,17 +89,13 @@ async function getIntegrationsData() {
         };
       }
 
-      const finalStatus = isExpired
-        ? "error"
-        : isConnected
-        ? "connected"
-        : "disconnected";
-
-      console.log(`🔍 [Integrations] ${it.key} - Final status: ${finalStatus}`);
-
       return {
         ...it,
-        status: finalStatus,
+        status: isExpired
+          ? "error"
+          : isConnected
+          ? "connected"
+          : "disconnected",
         lastSync: isExpired ? "Token expired" : isConnected ? "just now" : "—",
         created_at: realTokenData ? realTokenData.created_at : it.created_at,
         notes: isExpired

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/supabase/server";
 import { isUserAdmin } from "@/lib/auth/admin-check";
-import { getServerSupabaseClient } from "@/lib/supabase/server";
+import { getQueueStats } from "@/lib/queue/upstash-queue-service";
 
 // Simple in-memory tracking for development mode
 let directProcessingStats = {
@@ -39,39 +39,8 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Get report statistics from database
-    const supabase = await getServerSupabaseClient();
-
-    // Get total reports count
-    const { count: totalReports } = await supabase
-      .from("reports")
-      .select("*", { count: "exact", head: true });
-
-    // Get today's reports count
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const { count: todayReports } = await supabase
-      .from("reports")
-      .select("*", { count: "exact", head: true })
-      .gte("created_at", today.toISOString())
-      .lt("created_at", tomorrow.toISOString());
-
-    // Get recent reports for success rate calculation
-    const { data: recentReports } = await supabase
-      .from("reports")
-      .select("score")
-      .order("created_at", { ascending: false })
-      .limit(100);
-
-    const successRate =
-      recentReports && recentReports.length > 0
-        ? (recentReports.filter((r) => r.score > 0).length /
-            recentReports.length) *
-          100
-        : 0;
+    // Get Bull queue statistics
+    const stats = await getQueueStats();
 
     // Check if we're in development mode with direct processing
     const isLocalhost =
@@ -96,13 +65,13 @@ export async function GET(req: NextRequest) {
       };
     } else {
       summary = {
-        total: totalReports || 0,
-        pending: 0, // Not applicable for new system
-        processing: 0, // Not applicable for new system
-        completed: totalReports || 0,
-        failed: 0, // Not applicable for new system
-        skipped: 0,
-        successRate: successRate,
+        total: stats.total,
+        pending: stats.waiting,
+        processing: stats.active,
+        completed: stats.completed,
+        failed: stats.failed,
+        skipped: 0, // Bull doesn't track skipped separately
+        successRate: stats.successRate,
       };
     }
 

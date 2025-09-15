@@ -1,9 +1,8 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/supabase/server";
 import {
-  getGoogleTasksAccessToken,
   getGoogleTasksStats,
-  getGoogleTasksWithDetails,
+  getGoogleTasksAccessToken,
 } from "@/lib/integrations/google-tasks";
 
 export async function GET(req: NextRequest) {
@@ -17,87 +16,27 @@ export async function GET(req: NextRequest) {
     if (!accessToken) {
       return NextResponse.json(
         { error: "Google Tasks not connected" },
-        { status: 403 }
+        { status: 400 }
       );
     }
 
-    // Get task lists statistics
-    const stats = await getGoogleTasksStats(accessToken);
+    const url = new URL(req.url);
+    const dateParam = url.searchParams.get("date");
+    const date = dateParam ? new Date(dateParam) : new Date();
+
+    const stats = await getGoogleTasksStats(accessToken, date);
     if (!stats) {
       return NextResponse.json(
-        { error: "Failed to fetch Google Tasks statistics" },
+        { error: "Failed to fetch Google Tasks data" },
         { status: 500 }
       );
     }
 
-    // Get tasks from all lists
-    const allTasks = [];
-    for (const list of stats.lists) {
-      const tasks = await getGoogleTasksWithDetails(accessToken, list.id);
-      allTasks.push(
-        ...tasks.map((task) => ({
-          ...task,
-          listTitle: list.title,
-          listId: list.id,
-        }))
-      );
-    }
-
-    // Calculate additional metrics
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const todayEnd = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-
-    const tasksToday = allTasks.filter((task) => {
-      if (!task.due) return false;
-      const taskDate = new Date(task.due);
-      return taskDate >= today && taskDate < todayEnd;
-    });
-
-    const completedTasks = allTasks.filter(
-      (task) => task.status === "completed"
-    );
-    const pendingTasks = allTasks.filter(
-      (task) => task.status === "needsAction"
-    );
-    const overdueTasks = allTasks.filter((task) => {
-      if (!task.due || task.status === "completed") return false;
-      return new Date(task.due) < now;
-    });
-
-    const completionRate =
-      allTasks.length > 0 ? (completedTasks.length / allTasks.length) * 100 : 0;
-
-    const result = {
-      account: {
-        totalLists: stats.totalLists,
-        totalTasks: allTasks.length,
-        completedTasks: completedTasks.length,
-        pendingTasks: pendingTasks.length,
-        overdueTasks: overdueTasks.length,
-        completionRate: Math.round(completionRate),
-        lastSync: new Date().toISOString(),
-      },
-      stats: {
-        totalLists: stats.totalLists,
-        totalTasks: allTasks.length,
-        completedTasks: completedTasks.length,
-        pendingTasks: pendingTasks.length,
-        overdueTasks: overdueTasks.length,
-        completionRate: Math.round(completionRate),
-        tasksToday: tasksToday.length,
-      },
-      tasks: allTasks,
-      lists: stats.lists,
-    };
-
-    return NextResponse.json(result);
+    return NextResponse.json({ stats });
   } catch (error) {
-    console.error("❌ [GoogleTasksAPI] Error:", error);
+    console.error("❌ Google Tasks stats API error:", error);
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Internal server error",
-      },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

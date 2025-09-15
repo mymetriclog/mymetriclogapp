@@ -1,365 +1,534 @@
 import { getServerSupabaseClient } from "@/lib/supabase/server";
 
-export interface CalendarData {
+type TokenResponse = {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  refresh_token?: string;
+  scope?: string;
+};
+
+type GoogleCalendarProfile = {
+  id: string;
   summary: string;
-  events: any[];
-  analysis: any;
-  intelligence: any;
+  description?: string;
+  timeZone: string;
+  primary?: boolean;
+};
+
+type GoogleCalendarEvent = {
+  id: string;
+  summary: string;
+  description?: string;
+  start: {
+    dateTime?: string;
+    date?: string;
+    timeZone?: string;
+  };
+  end: {
+    dateTime?: string;
+    date?: string;
+    timeZone?: string;
+  };
+  attendees?: Array<{
+    email: string;
+    displayName?: string;
+    responseStatus?: string;
+  }>;
+  organizer?: {
+    email: string;
+    displayName?: string;
+  };
+  status: string;
+  htmlLink: string;
+  created: string;
+  updated: string;
+  reminders?: {
+    useDefault: boolean;
+    overrides?: Array<{
+      method: string;
+      minutes: number;
+    }>;
+  };
+};
+
+type GoogleCalendarList = {
+  items: GoogleCalendarProfile[];
+};
+
+function requiredEnv(name: string) {
+  const v = process.env[name];
+  if (!v) throw new Error(`Missing env: ${name}`);
+  return v;
 }
 
-export class GoogleCalendarService {
-  private baseUrl = "https://www.googleapis.com/calendar/v3";
+export async function upsertGoogleCalendarTokens(
+  userId: string,
+  tok: TokenResponse
+) {
+  try {
+    console.log("upsertGoogleCalendarTokens called for user:", userId);
 
-  async getDailyData(
-    userId: string,
-    startDate: Date,
-    endDate: Date
-  ): Promise<CalendarData> {
-    try {
-      const accessToken = await this.getValidAccessToken(userId);
-      if (!accessToken) {
-        // No token connected; return graceful fallback without error
-        return this.getFallbackData();
-      }
+    const supabase = await getServerSupabaseClient();
+    const now = Math.floor(Date.now() / 1000);
+    const expires_at = now + (tok.expires_in ?? 3600) - 60;
 
-      const events = await this.fetchEvents(accessToken, startDate, endDate);
-      const analysis = this.analyzeEvents(events);
-      const intelligence = this.analyzeCalendarIntelligence(events);
-      const summary = this.generateSummary(events, analysis);
+    console.log("Token expiry calculation:", {
+      now,
+      expires_in: tok.expires_in,
+      expires_at,
+    });
 
-      return {
-        summary,
-        events,
-        analysis,
-        intelligence,
-      };
-    } catch (error) {
-      console.error(
-        "❌ [GoogleCalendarService] Error fetching daily data:",
-        error
-      );
-      return this.getFallbackData();
+    const { data: existing, error: selectError } = await supabase
+      .from("integration_tokens")
+      .select("refresh_token")
+      .eq("user_id", userId)
+      .eq("provider", "google-calendar")
+      .maybeSingle();
+
+    if (selectError) {
+      console.error("Error selecting existing token:", selectError);
+      throw selectError;
     }
-  }
 
-  async getWeeklyData(
-    userId: string,
-    startDate: Date,
-    endDate: Date
-  ): Promise<CalendarData> {
-    try {
-      const accessToken = await this.getValidAccessToken(userId);
-      if (!accessToken) {
-        // No token connected; return graceful fallback without error
-        return this.getFallbackData();
-      }
+    console.log("Existing token check:", {
+      hasExisting: !!existing,
+      hasRefreshToken: !!existing?.refresh_token,
+    });
 
-      const events = await this.fetchEvents(accessToken, startDate, endDate);
-      const analysis = this.analyzeEvents(events);
-      const intelligence = this.analyzeCalendarIntelligence(events);
-      const summary = this.generateSummary(events, analysis);
+    const { error } = await supabase.from("integration_tokens").upsert(
+      {
+        user_id: userId,
+        provider: "google-calendar",
+        access_token: tok.access_token,
+        refresh_token: tok.refresh_token ?? existing?.refresh_token ?? null,
+        scope: tok.scope ?? null,
+        token_type: tok.token_type ?? "Bearer",
+        expires_at,
+      },
+      { onConflict: "user_id,provider" }
+    );
 
-      return {
-        summary,
-        events,
-        analysis,
-        intelligence,
-      };
-    } catch (error) {
-      console.error(
-        "❌ [GoogleCalendarService] Error fetching weekly data:",
-        error
-      );
-      return this.getFallbackData();
+    if (error) {
+      console.error("Error upserting token:", error);
+      throw error;
     }
+
+    console.log("Token upserted successfully");
+  } catch (error) {
+    console.error("upsertGoogleCalendarTokens failed:", error);
+    throw error;
   }
+}
 
-  private async getValidAccessToken(userId: string): Promise<string | null> {
-    try {
-      const supabase = await getServerSupabaseClient();
+export async function getGoogleCalendarAccessToken(
+  userId: string
+): Promise<string | null> {
+  try {
+    console.log("🔍 Getting Google Calendar access token for user:", userId);
 
-      const { data: tokenData } = await supabase
-        .from("integration_tokens")
-        .select("access_token, refresh_token, expires_at")
-        .eq("user_id", userId)
-        // Support both naming styles: "google-calendar" (DB) and "google_calendar" (legacy)
-        .in("provider", ["google-calendar", "google_calendar"])
-        .maybeSingle();
+    const { getServerSupabaseClientWithServiceRole } = await import(
+      "@/lib/supabase/server"
+    );
+    const supabase = await getServerSupabaseClientWithServiceRole();
 
-      if (!tokenData) return null;
+    const { data, error } = await supabase
+      .from("integration_tokens")
+      .select("access_token, refresh_token, expires_at")
+      .eq("user_id", userId)
+      .eq("provider", "google-calendar")
+      .maybeSingle();
 
-      const now = Math.floor(Date.now() / 1000);
-      if (tokenData.expires_at && tokenData.expires_at < now) {
-        const refreshedToken = await this.refreshAccessToken(
-          tokenData.refresh_token
-        );
-        if (refreshedToken) {
-          await supabase
-            .from("integration_tokens")
-            .update({
-              access_token: refreshedToken.access_token,
-              refresh_token: refreshedToken.refresh_token,
-              expires_at: refreshedToken.expires_at,
-            })
-            .eq("user_id", userId)
-            .eq("provider", "google_calendar");
-
-          return refreshedToken.access_token;
-        }
-        return null;
-      }
-
-      return tokenData.access_token;
-    } catch (error) {
-      console.error(
-        "❌ [GoogleCalendarService] Error getting access token:",
-        error
-      );
+    if (error) {
+      console.log("❌ Google Calendar token query error:", error);
       return null;
     }
-  }
+    if (!data) {
+      console.log("❌ No Google Calendar token data found for user:", userId);
+      return null;
+    }
 
-  private async refreshAccessToken(refreshToken: string): Promise<any> {
-    try {
-      const response = await fetch("https://oauth2.googleapis.com/token", {
-        method: "POST",
+    const now = Math.floor(Date.now() / 1000);
+
+    if (data.expires_at && data.expires_at > now && data.access_token) {
+      console.log("✅ Google Calendar token is valid and not expired");
+      return data.access_token;
+    }
+
+    if (!data.refresh_token) {
+      console.log("❌ No refresh token available for Google Calendar");
+      return null;
+    }
+
+    const refreshed = await refreshGoogleCalendarToken(data.refresh_token);
+    if (!refreshed) {
+      console.log("❌ Failed to refresh Google Calendar token");
+      return null;
+    }
+
+    await upsertGoogleCalendarTokens(userId, refreshed);
+    return refreshed.access_token;
+  } catch (error) {
+    console.error("❌ Error in getGoogleCalendarAccessToken:", error);
+    return null;
+  }
+}
+
+export async function refreshGoogleCalendarToken(
+  refreshToken: string
+): Promise<TokenResponse | null> {
+  const clientId = requiredEnv("GOOGLE_CLIENT_ID");
+  const clientSecret = requiredEnv("GOOGLE_CLIENT_SECRET");
+
+  const body = new URLSearchParams();
+  body.set("grant_type", "refresh_token");
+  body.set("refresh_token", refreshToken);
+  body.set("client_id", clientId);
+  body.set("client_secret", clientSecret);
+
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+    cache: "no-store",
+  });
+
+  if (!tokenRes.ok) return null;
+
+  const tok = (await tokenRes.json()) as TokenResponse;
+  return tok;
+}
+
+export async function getGoogleCalendarProfile(
+  accessToken: string
+): Promise<GoogleCalendarProfile | null> {
+  try {
+    const response = await fetch(
+      "https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=1",
+      {
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: `Bearer ${accessToken}`,
         },
-        body: new URLSearchParams({
-          client_id: process.env.GOOGLE_CLIENT_ID!,
-          client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-          refresh_token: refreshToken,
-          grant_type: "refresh_token",
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Token refresh failed: ${response.status}`);
+        cache: "no-store",
       }
+    );
 
-      const data = await response.json();
-      return {
-        access_token: data.access_token,
-        refresh_token: data.refresh_token || refreshToken,
-        expires_at: Math.floor(Date.now() / 1000) + data.expires_in,
-      };
-    } catch (error) {
-      console.error(
-        "❌ [GoogleCalendarService] Error refreshing token:",
-        error
-      );
+    if (!response.ok) {
       return null;
     }
-  }
 
-  private async fetchEvents(
-    accessToken: string,
-    startDate: Date,
-    endDate: Date
-  ): Promise<any[]> {
-    try {
-      const timeMin = startDate.toISOString();
-      const timeMax = endDate.toISOString();
-
-      const response = await fetch(
-        `${this.baseUrl}/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Calendar API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.items || [];
-    } catch (error) {
-      console.error("❌ [GoogleCalendarService] Error fetching events:", error);
-      return [];
-    }
-  }
-
-  private analyzeEvents(events: any[]): any {
-    const totalEvents = events.length;
-    let meetingTime = 0;
-    let focusTime = 0;
-
-    events.forEach((event) => {
-      const start = new Date(event.start.dateTime || event.start.date);
-      const end = new Date(event.end.dateTime || event.end.date);
-      const duration = (end.getTime() - start.getTime()) / (1000 * 60); // minutes
-
-      if (this.isMeeting(event)) {
-        meetingTime += duration;
-      } else if (this.isFocusTime(event)) {
-        focusTime += duration;
-      }
-    });
-
-    const totalTime = meetingTime + focusTime;
-    const meetingEfficiency =
-      totalTime > 0 ? Math.round((meetingTime / totalTime) * 100) : 0;
-
-    return {
-      totalEvents,
-      meetingTime: Math.round(meetingTime),
-      focusTime: Math.round(focusTime),
-      meetingEfficiency,
-    };
-  }
-
-  private analyzeCalendarIntelligence(events: any[]): any {
-    return {
-      productivity: this.calculateProductivityScore(events),
-      workLifeBalance: this.calculateWorkLifeBalance(events),
-      meetingQuality: this.analyzeMeetingQuality(events),
-      recommendations: this.generateCalendarRecommendations(events),
-    };
-  }
-
-  private generateSummary(events: any[], analysis: any): string {
-    const parts = [];
-
-    parts.push(`📅 Events: ${analysis.totalEvents}`);
-
-    if (analysis.meetingTime > 0) {
-      parts.push(
-        `🤝 Meetings: ${Math.floor(analysis.meetingTime / 60)}h ${
-          analysis.meetingTime % 60
-        }m`
-      );
+    const data: GoogleCalendarList = await response.json();
+    if (data.items && data.items.length > 0) {
+      return data.items[0];
     }
 
-    if (analysis.focusTime > 0) {
-      parts.push(
-        `🎯 Focus Time: ${Math.floor(analysis.focusTime / 60)}h ${
-          analysis.focusTime % 60
-        }m`
-      );
-    }
-
-    return parts.join(" • ");
+    return null;
+  } catch (error) {
+    return null;
   }
+}
 
-  private isMeeting(event: any): boolean {
-    const title = event.summary?.toLowerCase() || "";
-    const meetingKeywords = [
-      "meeting",
-      "call",
-      "conference",
-      "standup",
-      "sync",
-    ];
-    return meetingKeywords.some((keyword) => title.includes(keyword));
-  }
-
-  private isFocusTime(event: any): boolean {
-    const title = event.summary?.toLowerCase() || "";
-    const focusKeywords = ["focus", "deep work", "coding", "writing"];
-    return focusKeywords.some((keyword) => title.includes(keyword));
-  }
-
-  private calculateProductivityScore(events: any[]): number {
-    const analysis = this.analyzeEvents(events);
-    let score = 50;
-
-    if (analysis.focusTime > 0) {
-      score += Math.min(analysis.focusTime / 10, 30);
-    }
-
-    if (analysis.meetingTime > 480) {
-      score -= 20;
-    }
-
-    return Math.min(Math.max(score, 0), 100);
-  }
-
-  private calculateWorkLifeBalance(events: any[]): number {
-    const workEvents = events.filter((event) => {
-      const title = event.summary?.toLowerCase() || "";
-      return !title.includes("personal") && !title.includes("family");
-    });
-
-    const totalEvents = events.length;
-    if (totalEvents === 0) return 50;
-
-    const workRatio = workEvents.length / totalEvents;
-    return Math.round(100 - Math.abs(workRatio - 0.7) * 200);
-  }
-
-  private analyzeMeetingQuality(events: any[]): any {
-    const meetings = events.filter((event) => this.isMeeting(event));
-
-    if (meetings.length === 0) {
-      return { score: 0, insights: ["No meetings scheduled"] };
-    }
-
-    const avgDuration =
-      meetings.reduce((sum, meeting) => {
-        const start = new Date(meeting.start.dateTime || meeting.start.date);
-        const end = new Date(meeting.end.dateTime || meeting.end.date);
-        return sum + (end.getTime() - start.getTime()) / (1000 * 60);
-      }, 0) / meetings.length;
-
-    let score = 50;
-    const insights = [];
-
-    if (avgDuration <= 30) {
-      score += 20;
-      insights.push("Short, focused meetings");
-    } else if (avgDuration > 60) {
-      score -= 10;
-      insights.push("Long meetings detected");
-    }
-
-    return {
-      score: Math.min(Math.max(score, 0), 100),
-      insights,
-      avgDuration: Math.round(avgDuration),
-      totalMeetings: meetings.length,
-    };
-  }
-
-  private generateCalendarRecommendations(events: any[]): string[] {
-    const recommendations = [];
-    const analysis = this.analyzeEvents(events);
-
-    if (analysis.meetingTime > 480) {
-      recommendations.push("Consider reducing meeting time to improve focus");
-    }
-
-    if (analysis.focusTime === 0) {
-      recommendations.push("Schedule dedicated focus time blocks");
-    }
-
-    return recommendations;
-  }
-
-  private getFallbackData(): CalendarData {
-    return {
-      summary: "No calendar data available",
-      events: [],
-      analysis: {
-        totalEvents: 0,
-        meetingTime: 0,
-        focusTime: 0,
-        meetingEfficiency: 0,
-      },
-      intelligence: {
-        productivity: 50,
-        workLifeBalance: 50,
-        meetingQuality: {
-          score: 0,
-          insights: [],
-          avgDuration: 0,
-          totalMeetings: 0,
+export async function getGoogleCalendarList(
+  accessToken: string
+): Promise<GoogleCalendarProfile[]> {
+  try {
+    const response = await fetch(
+      "https://www.googleapis.com/calendar/v3/users/me/calendarList",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
         },
-        recommendations: [],
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) return [];
+
+    const data: GoogleCalendarList = await response.json();
+    return data.items || [];
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function getGoogleCalendarEvents(
+  accessToken: string,
+  calendarId: string = "primary",
+  maxResults: number = 50,
+  timeMin?: string,
+  timeMax?: string
+): Promise<GoogleCalendarEvent[]> {
+  try {
+    let url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
+      calendarId
+    )}/events?maxResults=${maxResults}&singleEvents=true&orderBy=startTime`;
+
+    if (timeMin) {
+      url += `&timeMin=${encodeURIComponent(timeMin)}`;
+    }
+    if (timeMax) {
+      url += `&timeMax=${encodeURIComponent(timeMax)}`;
+    }
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
       },
+      cache: "no-store",
+    });
+
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    return data.items || [];
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function getGoogleCalendarEventsWithDetails(
+  accessToken: string,
+  calendarId: string = "primary",
+  maxResults: number = 50
+): Promise<
+  Array<{
+    id: string;
+    summary: string;
+    description: string;
+    start: string;
+    end: string;
+    duration: string;
+    attendees: string[];
+    organizer: string;
+    status: string;
+    isAllDay: boolean;
+    hasReminders: boolean;
+    created: string;
+    updated: string;
+  }>
+> {
+  try {
+    // Get events for the next 30 days
+    const now = new Date();
+    const thirtyDaysFromNow = new Date(
+      now.getTime() + 30 * 24 * 60 * 60 * 1000
+    );
+
+    const timeMin = now.toISOString();
+    const timeMax = thirtyDaysFromNow.toISOString();
+
+    const events = await getGoogleCalendarEvents(
+      accessToken,
+      calendarId,
+      maxResults,
+      timeMin,
+      timeMax
+    );
+
+    return events.map((event) => {
+      const start = event.start.dateTime || event.start.date || "";
+      const end = event.end.dateTime || event.end.date || "";
+
+      // Calculate duration
+      let duration = "";
+      if (start && end) {
+        if (event.start.dateTime && event.end.dateTime) {
+          const startDate = new Date(start);
+          const endDate = new Date(end);
+          const diffMs = endDate.getTime() - startDate.getTime();
+          const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+          const diffMinutes = Math.floor(
+            (diffMs % (1000 * 60 * 60)) / (1000 * 60)
+          );
+
+          if (diffHours > 0) {
+            duration = `${diffHours}h ${diffMinutes}m`;
+          } else {
+            duration = `${diffMinutes}m`;
+          }
+        } else {
+          duration = "All day";
+        }
+      }
+
+      const isAllDay = !event.start.dateTime;
+      const hasReminders = !!(
+        event.reminders?.overrides && event.reminders.overrides.length > 0
+      );
+
+      return {
+        id: event.id,
+        summary: event.summary || "No Title",
+        description: event.description || "No description",
+        start: start,
+        end: end,
+        duration: duration,
+        attendees: event.attendees?.map((a) => a.displayName || a.email) || [],
+        organizer:
+          event.organizer?.displayName || event.organizer?.email || "Unknown",
+        status: event.status,
+        isAllDay,
+        hasReminders,
+        created: event.created,
+        updated: event.updated,
+      };
+    });
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function getGoogleCalendarStats(accessToken: string, date?: Date) {
+  try {
+    const profile = await getGoogleCalendarProfile(accessToken);
+    if (!profile) {
+      return null;
+    }
+
+    // Get events for the specified date (or next 30 days if no date provided)
+    const now = date || new Date();
+    const thirtyDaysFromNow = new Date(
+      now.getTime() + 30 * 24 * 60 * 60 * 1000
+    );
+
+    const timeMin = now.toISOString();
+    const timeMax = thirtyDaysFromNow.toISOString();
+
+    const events = await getGoogleCalendarEvents(
+      accessToken,
+      "primary",
+      1000, // Get more events for accurate stats
+      timeMin,
+      timeMax
+    );
+
+    // Calculate statistics
+    const totalEvents = events.length;
+    const today = new Date();
+    const todayStart = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    );
+    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+
+    const eventsToday = events.filter((event) => {
+      const eventStart = event.start.dateTime || event.start.date;
+      if (!eventStart) return false;
+
+      const eventDate = new Date(eventStart);
+      return eventDate >= todayStart && eventDate < todayEnd;
+    }).length;
+
+    const upcomingEvents = events.filter((event) => {
+      const eventStart = event.start.dateTime || event.start.date;
+      if (!eventStart) return false;
+
+      const eventDate = new Date(eventStart);
+      return eventDate > now;
+    }).length;
+
+    const allDayEvents = events.filter((event) => !event.start.dateTime).length;
+    const timedEvents = events.filter((event) => event.start.dateTime).length;
+
+    // Calculate average events per day (last 30 days)
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const eventsLast30Days = events.filter((event) => {
+      const eventStart = event.start.dateTime || event.start.date;
+      if (!eventStart) return false;
+
+      const eventDate = new Date(eventStart);
+      return eventDate >= thirtyDaysAgo;
+    }).length;
+
+    const avgEventsPerDay = Math.round((eventsLast30Days / 30) * 10) / 10;
+
+    const stats = {
+      totalEvents,
+      eventsToday,
+      upcomingEvents,
+      allDayEvents,
+      timedEvents,
+      avgEventsPerDay,
+      primaryCalendar: profile.summary,
+      timeZone: profile.timeZone,
     };
+
+    return stats;
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function getGoogleCalendarUpcomingEvents(
+  accessToken: string,
+  calendarId: string = "primary",
+  maxResults: number = 10
+): Promise<
+  Array<{
+    id: string;
+    summary: string;
+    start: string;
+    end: string;
+    duration: string;
+    attendees: string[];
+    isAllDay: boolean;
+  }>
+> {
+  try {
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    const timeMin = now.toISOString();
+    const timeMax = sevenDaysFromNow.toISOString();
+
+    const events = await getGoogleCalendarEvents(
+      accessToken,
+      calendarId,
+      maxResults,
+      timeMin,
+      timeMax
+    );
+
+    return events.map((event) => {
+      const start = event.start.dateTime || event.start.date || "";
+      const end = event.end.dateTime || event.end.date || "";
+
+      // Calculate duration
+      let duration = "";
+      if (start && end) {
+        if (event.start.dateTime && event.end.dateTime) {
+          const startDate = new Date(start);
+          const endDate = new Date(end);
+          const diffMs = endDate.getTime() - startDate.getTime();
+          const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+          const diffMinutes = Math.floor(
+            (diffMs % (1000 * 60 * 60)) / (1000 * 60)
+          );
+
+          if (diffHours > 0) {
+            duration = `${diffHours}h ${diffMinutes}m`;
+          } else {
+            duration = `${diffMinutes}m`;
+          }
+        } else {
+          duration = "All day";
+        }
+      }
+
+      return {
+        id: event.id,
+        summary: event.summary || "No Title",
+        start: start,
+        end: end,
+        duration: duration,
+        attendees: event.attendees?.map((a) => a.displayName || a.email) || [],
+        isAllDay: !event.start.dateTime,
+      };
+    });
+  } catch (error) {
+    return [];
   }
 }

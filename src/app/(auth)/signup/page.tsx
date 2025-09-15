@@ -1,82 +1,70 @@
-"use client";
+"use client"
 
-import type React from "react";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { getBrowserSupabaseClient } from "@/lib/supabase/client";
-import { LoadingOverlay } from "@/components/loading-overlay";
-import Image from "next/image";
-import { Eye, EyeOff } from "lucide-react";
+import type React from "react"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
+import { getBrowserSupabaseClient } from "@/lib/supabase/client"
+import { LoadingOverlay } from "@/components/loading-overlay"
+import { notifications } from "@/lib/notifications"
+import Image from "next/image"
+import { Eye, EyeOff } from "lucide-react"
 
 export default function SignupPage() {
-  const router = useRouter();
-  const supabase = getBrowserSupabaseClient();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState("Please wait…");
+  const router = useRouter()
+  const supabase = getBrowserSupabaseClient()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [name, setName] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [loadingMessage, setLoadingMessage] = useState("Please wait…")
 
   async function signUpWithGoogle() {
-    setLoadingMessage("Redirecting to Google…");
-    setLoading(true);
+    setLoadingMessage("Redirecting to Google…")
+    setLoading(true)
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${
-          window.location.origin
-        }/api/auth/callback?returnTo=${encodeURIComponent("/dashboard")}`,
+        redirectTo: `${window.location.origin}/api/auth/callback?returnTo=${encodeURIComponent("/dashboard")}`,
       },
-    });
+    })
     if (error) {
-      setLoading(false);
-      console.error("Authentication Error", error.message);
+      setLoading(false)
+      notifications.error("Authentication Error", error.message)
     }
   }
 
   async function signUpWithEmail(e: React.FormEvent) {
-    e.preventDefault();
-    setLoadingMessage("Creating your account…");
-    setLoading(true);
+    e.preventDefault()
+    setLoadingMessage("Creating your account…")
+    setLoading(true)
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { full_name: name },
-        emailRedirectTo: `${
-          window.location.origin
-        }/api/auth/callback?returnTo=${encodeURIComponent("/dashboard")}`,
+        emailRedirectTo: `${window.location.origin}/api/auth/callback?returnTo=${encodeURIComponent("/dashboard")}`,
       },
-    });
-    setLoading(false);
+    })
+    setLoading(false)
     if (error) {
-      console.error("Signup Failed", error.message);
+      notifications.error("Signup Failed", error.message)
     } else {
-      console.log(
-        "Account Created",
-        "Please check your email to verify your account."
-      );
-      router.push("/login");
+      notifications.success("Account Created", "Please check your email to verify your account.")
+      router.push("/login")
     }
   }
 
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       <LoadingOverlay open={loading} message={loadingMessage} />
-
+      
       {/* Left Side - Image */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-emerald-500 to-emerald-700 items-center justify-center p-8">
         <div className="text-center text-white max-w-md">
@@ -139,10 +127,7 @@ export default function SignupPage() {
 
             <form onSubmit={signUpWithEmail} className="space-y-4">
               <div className="space-y-2">
-                <Label
-                  htmlFor="name"
-                  className="text-sm font-medium text-gray-700"
-                >
+                <Label htmlFor="name" className="text-sm font-medium text-gray-700">
                   Full Name
                 </Label>
                 <Input
@@ -155,10 +140,7 @@ export default function SignupPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label
-                  htmlFor="email"
-                  className="text-sm font-medium text-gray-700"
-                >
+                <Label htmlFor="email" className="text-sm font-medium text-gray-700">
                   Email
                 </Label>
                 <Input
@@ -172,10 +154,7 @@ export default function SignupPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label
-                  htmlFor="password"
-                  className="text-sm font-medium text-gray-700"
-                >
+                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
                   Password
                 </Label>
                 <div className="relative">
@@ -201,9 +180,9 @@ export default function SignupPage() {
                   </button>
                 </div>
               </div>
-              <Button
-                type="submit"
-                disabled={loading}
+              <Button 
+                type="submit" 
+                disabled={loading} 
                 className="w-full bg-[#00885e] hover:bg-[#006649] text-white font-medium py-3 h-auto text-base shadow-md hover:shadow-lg transition-all duration-200 mt-6"
               >
                 Create account
@@ -212,8 +191,8 @@ export default function SignupPage() {
 
             <span className="text-gray-600 text-center w-full block">
               Already have an account?{" "}
-              <Link
-                className="text-emerald-600 hover:text-emerald-700 font-medium hover:underline transition-colors"
+              <Link 
+                className="text-emerald-600 hover:text-emerald-700 font-medium hover:underline transition-colors" 
                 href="/login"
               >
                 Sign in
@@ -226,5 +205,5 @@ export default function SignupPage() {
         </Card>
       </div>
     </div>
-  );
+  )
 }

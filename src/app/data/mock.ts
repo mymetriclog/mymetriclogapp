@@ -120,8 +120,8 @@ export const mockIntegrations: IntegrationItem[] = [
     key: "google-tasks",
     name: "Google Tasks",
     status: "connected",
-    lastSync: "just now",
+    lastSync: "1 hour ago",
     created_at: "2025-08-12 08:30:15",
-    notes: "Tracking task completion and productivity patterns",
+    notes: "Tracking task completion and productivity",
   },
 ];

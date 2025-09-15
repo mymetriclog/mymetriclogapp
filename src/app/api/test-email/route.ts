@@ -1,48 +1,44 @@
-import { NextRequest, NextResponse } from "next/server";
-import { DynamicReportGenerator } from "@/lib/reports/dynamic-report-generator";
+import { NextResponse } from "next/server";
+import { generateDailyReport } from "@/lib/reports/daily-report-generator";
+import { generateDailyReportEmail } from "@/lib/sendgrid/templates/daily-email-template";
 
-export async function POST(request: NextRequest) {
+export async function GET() {
   try {
-    const { userEmail, userId } = await request.json();
+    // Use a test user ID for development
+    const testUserId = "test-user-123";
 
-    if (!userEmail || !userId) {
-      return NextResponse.json(
-        { error: "userEmail and userId are required" },
-        { status: 400 }
-      );
-    }
+    console.log("🧪 Testing email generation...");
 
-    console.log(`🧪 [Test Email] Starting test email for ${userEmail}`);
+    const reportData = await generateDailyReport(testUserId);
+    const emailHTML = generateDailyReportEmail(reportData);
 
-    // Create test user data
-    const userData = {
-      userId: userId,
-      userEmail: userEmail,
-      userName: userEmail.split("@")[0],
-      date: new Date().toISOString().split("T")[0],
-      timezone: "UTC",
-      latitude: 40.7128,
-      longitude: -74.006,
-    };
-
-    // Generate report
-    const reportGenerator = new DynamicReportGenerator();
-    const report = await reportGenerator.generateDailyReport(userData);
-
-    console.log(
-      `✅ [Test Email] Test email generated successfully for ${userEmail}`
-    );
+    console.log("📧 Generated email HTML length:", emailHTML.length);
 
     return NextResponse.json({
       success: true,
-      message: "Test email sent successfully",
-      reportId: report.id,
+      message: "Email generated successfully",
+      emailHTML: emailHTML,
+      reportData: {
+        date: reportData.date,
+        scores: reportData.scores,
+        gpt_summary: reportData.gpt_summary,
+        mantra: reportData.mantra,
+        weatherSummary: reportData.weatherSummary,
+        calSummary: reportData.calSummary,
+        emailSummary: reportData.emailSummary,
+        spotifySummary: reportData.spotifySummary,
+        fitbitActivity: reportData.fitbitActivity,
+        fitbitSleep: reportData.fitbitSleep,
+        fitbitHeart: reportData.fitbitHeart,
+        badges: reportData.badges,
+        aiMoodAndEnergy: reportData.aiMoodAndEnergy,
+      },
     });
   } catch (error) {
-    console.error("❌ [Test Email] Error:", error);
+    console.error("❌ Error testing email generation:", error);
     return NextResponse.json(
       {
-        error: "Failed to send test email",
+        error: "Failed to generate test email",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }

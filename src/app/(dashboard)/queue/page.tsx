@@ -1,9 +1,9 @@
+import { QueueDashboard } from "@/components/queue-dashboard";
+import { WeeklyReportInterface } from "@/components/weekly-report-interface";
 import { getServerSession } from "@/lib/supabase/server";
 import { isUserAdmin } from "@/lib/auth/admin-check";
 import { redirect } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DynamicReportQueue } from "@/components/dynamic-report-queue";
-import { WeeklyReportQueue } from "@/components/weekly-report-queue";
 
 // Force dynamic rendering since we use cookies for authentication
 export const dynamic = "force-dynamic";
@@ -51,11 +51,11 @@ export default async function QueuePage() {
         </TabsList>
 
         <TabsContent value="daily" className="mt-6">
-          <DynamicReportQueue />
+          <QueueDashboard />
         </TabsContent>
 
         <TabsContent value="weekly" className="mt-6">
-          <WeeklyReportQueue />
+          <WeeklyReportInterface />
         </TabsContent>
       </Tabs>
     </div>

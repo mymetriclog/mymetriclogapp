@@ -1,683 +1,305 @@
 import { getServerSupabaseClient } from "@/lib/supabase/server";
 
-export interface FitbitData {
-  activity: {
+type TokenResponse = {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  refresh_token?: string;
+  scope?: string;
+};
+
+type FitbitProfile = {
+  user: {
+    encodedId: string;
+    fullName: string;
+    email: string;
+    avatar: string;
+    dateOfBirth: string;
+    height: number;
+    weight: number;
+    gender: string;
+    timezone: string;
+  };
+};
+
+type FitbitStats = {
+  today: {
     steps: number;
-    activeMinutes: number;
     calories: number;
     distance: number;
-    summary: string;
+    activeMinutes: number;
+    heartRate: {
+      resting: number;
+      current: number;
+    };
+    sleep: {
+      duration: number;
+      efficiency: number;
+      startTime?: string | null;
+      endTime?: string | null;
+      timeInBed?: number;
+      stages: {
+        light: number;
+        deep: number;
+        rem: number;
+        wake: number;
+      };
+    };
   };
-  sleep: {
-    duration: number;
-    efficiency: number;
-    deepSleep: number;
-    remSleep: number;
-    summary: string;
+  weekly: {
+    steps: number[];
+    calories: number[];
+    distance: number[];
+    activeMinutes: number[];
   };
-  heart: {
-    restingHR: number;
-    hrv: number;
-    peakHR: number;
-    zones: any;
-    summary: string;
+  goals: {
+    steps: number;
+    calories: number;
+    distance: number;
+    activeMinutes: number;
   };
-  hrv: any;
-  activityLog: any[];
+};
+
+export async function upsertFitbitTokens(userId: string, tok: TokenResponse) {
+  const supabase = await getServerSupabaseClient();
+  const now = Math.floor(Date.now() / 1000);
+  const expires_at = now + (tok.expires_in ?? 604800) - 60; // 7 days default
+
+  const { data: existing } = await supabase
+    .from("integration_tokens")
+    .select("refresh_token")
+    .eq("user_id", userId)
+    .eq("provider", "fitbit")
+    .maybeSingle();
+
+  const { error } = await supabase.from("integration_tokens").upsert(
+    {
+      user_id: userId,
+      provider: "fitbit",
+      access_token: tok.access_token,
+      refresh_token: tok.refresh_token ?? existing?.refresh_token ?? null,
+      scope: tok.scope ?? null,
+      token_type: tok.token_type ?? "Bearer",
+      expires_at,
+    },
+    { onConflict: "user_id,provider" }
+  );
+  if (error) throw error;
 }
 
-export class FitbitService {
-  private baseUrl = "https://api.fitbit.com/1/user/-";
+export async function getFitbitAccessToken(
+  userId: string
+): Promise<string | null> {
+  try {
+    console.log("🔍 Getting Fitbit access token for user:", userId);
 
-  /**
-   * Get daily Fitbit data for a user
-   */
-  async getDailyData(userId: string, date: Date): Promise<FitbitData> {
-    try {
-      const accessToken = await this.getValidAccessToken(userId);
-      if (!accessToken) {
-        throw new Error("No valid Fitbit access token found");
-      }
+    const { getServerSupabaseClientWithServiceRole } = await import(
+      "@/lib/supabase/server"
+    );
+    const supabase = await getServerSupabaseClientWithServiceRole();
 
-      const dateStr = this.formatDate(date);
+    const { data, error } = await supabase
+      .from("integration_tokens")
+      .select("access_token, refresh_token, expires_at")
+      .eq("user_id", userId)
+      .eq("provider", "fitbit")
+      .maybeSingle();
 
-      // Fetch all data concurrently
-      const [activityData, sleepData, heartData, hrvData] = await Promise.all([
-        this.fetchActivityData(accessToken, dateStr),
-        this.fetchSleepData(accessToken, dateStr),
-        this.fetchHeartData(accessToken, dateStr),
-        this.fetchHRVData(accessToken, dateStr),
-      ]);
-
-      return {
-        activity: activityData,
-        sleep: sleepData,
-        heart: heartData,
-        hrv: hrvData,
-        activityLog: await this.fetchActivityLog(accessToken, dateStr),
-      };
-    } catch (error) {
-      console.error("❌ [FitbitService] Error fetching daily data:", error);
-      return this.getFallbackData();
-    }
-  }
-
-  /**
-   * Get weekly Fitbit data for a user
-   */
-  async getWeeklyData(
-    userId: string,
-    startDate: Date,
-    endDate: Date
-  ): Promise<FitbitData> {
-    try {
-      const accessToken = await this.getValidAccessToken(userId);
-      if (!accessToken) {
-        throw new Error("No valid Fitbit access token found");
-      }
-
-      const startDateStr = this.formatDate(startDate);
-      const endDateStr = this.formatDate(endDate);
-
-      // Fetch weekly data
-      const [activityData, sleepData, heartData, hrvData] = await Promise.all([
-        this.fetchWeeklyActivityData(accessToken, startDateStr, endDateStr),
-        this.fetchWeeklySleepData(accessToken, startDateStr, endDateStr),
-        this.fetchWeeklyHeartData(accessToken, startDateStr, endDateStr),
-        this.fetchWeeklyHRVData(accessToken, startDateStr, endDateStr),
-      ]);
-
-      return {
-        activity: activityData,
-        sleep: sleepData,
-        heart: heartData,
-        hrv: hrvData,
-        activityLog: [],
-      };
-    } catch (error) {
-      console.error("❌ [FitbitService] Error fetching weekly data:", error);
-      return this.getFallbackData();
-    }
-  }
-
-  /**
-   * Get valid access token for user
-   */
-  private async getValidAccessToken(userId: string): Promise<string | null> {
-    try {
-      const supabase = await getServerSupabaseClient();
-
-      const { data: tokenData } = await supabase
-        .from("integration_tokens")
-        .select("access_token, refresh_token, expires_at")
-        .eq("user_id", userId)
-        .eq("provider", "fitbit")
-        .single();
-
-      if (!tokenData) return null;
-
-      // Check if token is expired
-      const now = Math.floor(Date.now() / 1000);
-      if (tokenData.expires_at && tokenData.expires_at < now) {
-        // Try to refresh token
-        const refreshedToken = await this.refreshAccessToken(
-          tokenData.refresh_token
-        );
-        if (refreshedToken) {
-          // Update token in database
-          await supabase
-            .from("integration_tokens")
-            .update({
-              access_token: refreshedToken.access_token,
-              refresh_token: refreshedToken.refresh_token,
-              expires_at: refreshedToken.expires_at,
-            })
-            .eq("user_id", userId)
-            .eq("provider", "fitbit");
-
-          return refreshedToken.access_token;
-        }
-        return null;
-      }
-
-      return tokenData.access_token;
-    } catch (error) {
-      console.error("❌ [FitbitService] Error getting access token:", error);
+    if (error) {
+      console.log("❌ Fitbit token query error:", error);
       return null;
     }
-  }
 
-  /**
-   * Refresh access token
-   */
-  private async refreshAccessToken(refreshToken: string): Promise<any> {
-    try {
-      const response = await fetch("https://api.fitbit.com/oauth2/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: `Basic ${Buffer.from(
-            `${process.env.FITBIT_CLIENT_ID}:${process.env.FITBIT_CLIENT_SECRET}`
-          ).toString("base64")}`,
-        },
-        body: new URLSearchParams({
-          grant_type: "refresh_token",
-          refresh_token: refreshToken,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Token refresh failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return {
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
-        expires_at: Math.floor(Date.now() / 1000) + data.expires_in,
-      };
-    } catch (error) {
-      console.error("❌ [FitbitService] Error refreshing token:", error);
+    if (!data) {
+      console.log("❌ No Fitbit token data found for user:", userId);
       return null;
     }
-  }
 
-  /**
-   * Fetch activity data for a specific date
-   */
-  private async fetchActivityData(
-    accessToken: string,
-    date: string
-  ): Promise<any> {
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/activities/date/${date}.json`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
+    const now = Math.floor(Date.now() / 1000);
 
-      if (!response.ok) {
-        throw new Error(`Activity API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const summary = data.summary;
-
-      return {
-        steps: summary.steps || 0,
-        activeMinutes:
-          summary.veryActiveMinutes +
-            summary.fairlyActiveMinutes +
-            summary.lightlyActiveMinutes || 0,
-        calories: summary.caloriesOut || 0,
-        distance: summary.distances?.[0]?.distance || 0,
-        summary: `👣 Steps: ${(
-          summary.steps || 0
-        ).toLocaleString()} • 🔥 Calories: ${(
-          summary.caloriesOut || 0
-        ).toLocaleString()} • 📏 Distance: ${(
-          (summary.distances?.[0]?.distance || 0) * 0.621371
-        ).toFixed(1)} mi`,
-      };
-    } catch (error) {
-      console.error("❌ [FitbitService] Error fetching activity data:", error);
-      return {
-        steps: 0,
-        activeMinutes: 0,
-        calories: 0,
-        distance: 0,
-        summary: "No activity data available",
-      };
+    if (data.expires_at && data.expires_at > now && data.access_token) {
+      console.log("✅ Fitbit token is valid and not expired");
+      return data.access_token;
     }
-  }
 
-  /**
-   * Fetch sleep data for a specific date
-   */
-  private async fetchSleepData(
-    accessToken: string,
-    date: string
-  ): Promise<any> {
-    try {
-      const response = await fetch(`${this.baseUrl}/sleep/date/${date}.json`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Sleep API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const sleep = data.sleep?.[0];
-
-      if (!sleep) {
-        return {
-          duration: 0,
-          efficiency: 0,
-          deepSleep: 0,
-          remSleep: 0,
-          summary: "No sleep data available",
-        };
-      }
-
-      const duration = sleep.duration;
-      const efficiency = sleep.efficiency;
-      const deepSleep = sleep.levels?.summary?.deep?.minutes || 0;
-      const remSleep = sleep.levels?.summary?.rem?.minutes || 0;
-
-      return {
-        duration,
-        efficiency,
-        deepSleep,
-        remSleep,
-        summary: `😴 Sleep: ${Math.floor(duration / 60)}h ${
-          duration % 60
-        }m • Efficiency: ${efficiency}% • Deep: ${Math.floor(
-          deepSleep / 60
-        )}h ${deepSleep % 60}m • REM: ${Math.floor(remSleep / 60)}h ${
-          remSleep % 60
-        }m`,
-      };
-    } catch (error) {
-      console.error("❌ [FitbitService] Error fetching sleep data:", error);
-      return {
-        duration: 0,
-        efficiency: 0,
-        deepSleep: 0,
-        remSleep: 0,
-        summary: "No sleep data available",
-      };
-    }
-  }
-
-  /**
-   * Fetch heart rate data for a specific date
-   */
-  private async fetchHeartData(
-    accessToken: string,
-    date: string
-  ): Promise<any> {
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/activities/heart/date/${date}/1d.json`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Heart API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const heart = data["activities-heart"]?.[0];
-
-      if (!heart) {
-        return {
-          restingHR: 0,
-          hrv: 0,
-          peakHR: 0,
-          zones: {},
-          summary: "No heart data available",
-        };
-      }
-
-      const restingHR = heart.value?.restingHeartRate || 0;
-      const peakHR = this.calculatePeakHR(heart.value?.heartRateZones || []);
-      const zones = heart.value?.heartRateZones || {};
-
-      return {
-        restingHR,
-        hrv: 0, // HRV is fetched separately
-        peakHR,
-        zones,
-        summary: `❤️ Resting HR: ${restingHR} bpm • Peak HR: ${peakHR} bpm`,
-      };
-    } catch (error) {
-      console.error("❌ [FitbitService] Error fetching heart data:", error);
-      return {
-        restingHR: 0,
-        hrv: 0,
-        peakHR: 0,
-        zones: {},
-        summary: "No heart data available",
-      };
-    }
-  }
-
-  /**
-   * Fetch HRV data for a specific date
-   */
-  private async fetchHRVData(accessToken: string, date: string): Promise<any> {
-    try {
-      const response = await fetch(`${this.baseUrl}/hrv/date/${date}.json`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        return null; // HRV data might not be available
-      }
-
-      const data = await response.json();
-      const hrv = data.hrv?.[0];
-
-      if (!hrv) {
-        return null;
-      }
-
-      return {
-        value: hrv.value?.dailyRmssd || 0,
-        summary: `📊 HRV: ${hrv.value?.dailyRmssd || 0} ms`,
-      };
-    } catch (error) {
-      console.error("❌ [FitbitService] Error fetching HRV data:", error);
+    if (!data.refresh_token) {
+      console.log("❌ No refresh token available for Fitbit");
       return null;
     }
-  }
 
-  /**
-   * Fetch activity log for a specific date
-   */
-  private async fetchActivityLog(
-    accessToken: string,
-    date: string
-  ): Promise<any[]> {
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/activities/list.json?afterDate=${date}&sort=asc&limit=20`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        return [];
-      }
-
-      const data = await response.json();
-      return data.activities || [];
-    } catch (error) {
-      console.error("❌ [FitbitService] Error fetching activity log:", error);
-      return [];
-    }
-  }
-
-  /**
-   * Fetch weekly activity data
-   */
-  private async fetchWeeklyActivityData(
-    accessToken: string,
-    startDate: string,
-    endDate: string
-  ): Promise<any> {
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/activities/date/${startDate}/${endDate}.json`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Weekly activity API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const activities = data["activities-steps"] || [];
-
-      const totalSteps = activities.reduce(
-        (sum: number, day: any) => sum + (day.value || 0),
-        0
-      );
-      const avgSteps = totalSteps / activities.length;
-
-      return {
-        steps: Math.round(avgSteps),
-        activeMinutes: 0, // Would need separate API call
-        calories: 0, // Would need separate API call
-        distance: 0, // Would need separate API call
-        summary: `👣 Weekly Avg Steps: ${Math.round(
-          avgSteps
-        ).toLocaleString()}`,
-      };
-    } catch (error) {
-      console.error(
-        "❌ [FitbitService] Error fetching weekly activity data:",
-        error
-      );
-      return {
-        steps: 0,
-        activeMinutes: 0,
-        calories: 0,
-        distance: 0,
-        summary: "No weekly activity data available",
-      };
-    }
-  }
-
-  /**
-   * Fetch weekly sleep data
-   */
-  private async fetchWeeklySleepData(
-    accessToken: string,
-    startDate: string,
-    endDate: string
-  ): Promise<any> {
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/sleep/date/${startDate}/${endDate}.json`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Weekly sleep API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const sleepData = data.sleep || [];
-
-      const totalDuration = sleepData.reduce(
-        (sum: number, day: any) => sum + (day.duration || 0),
-        0
-      );
-      const avgDuration = totalDuration / sleepData.length;
-      const totalEfficiency = sleepData.reduce(
-        (sum: number, day: any) => sum + (day.efficiency || 0),
-        0
-      );
-      const avgEfficiency = totalEfficiency / sleepData.length;
-
-      return {
-        duration: Math.round(avgDuration),
-        efficiency: Math.round(avgEfficiency),
-        deepSleep: 0, // Would need detailed calculation
-        remSleep: 0, // Would need detailed calculation
-        summary: `😴 Weekly Avg Sleep: ${Math.floor(
-          avgDuration / 60
-        )}h ${Math.round(avgDuration % 60)}m • Efficiency: ${Math.round(
-          avgEfficiency
-        )}%`,
-      };
-    } catch (error) {
-      console.error(
-        "❌ [FitbitService] Error fetching weekly sleep data:",
-        error
-      );
-      return {
-        duration: 0,
-        efficiency: 0,
-        deepSleep: 0,
-        remSleep: 0,
-        summary: "No weekly sleep data available",
-      };
-    }
-  }
-
-  /**
-   * Fetch weekly heart data
-   */
-  private async fetchWeeklyHeartData(
-    accessToken: string,
-    startDate: string,
-    endDate: string
-  ): Promise<any> {
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/activities/heart/date/${startDate}/${endDate}.json`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Weekly heart API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const heartData = data["activities-heart"] || [];
-
-      const totalRestingHR = heartData.reduce(
-        (sum: number, day: any) => sum + (day.value?.restingHeartRate || 0),
-        0
-      );
-      const avgRestingHR = totalRestingHR / heartData.length;
-
-      return {
-        restingHR: Math.round(avgRestingHR),
-        hrv: 0, // Would need separate calculation
-        peakHR: 0, // Would need separate calculation
-        zones: {},
-        summary: `❤️ Weekly Avg Resting HR: ${Math.round(avgRestingHR)} bpm`,
-      };
-    } catch (error) {
-      console.error(
-        "❌ [FitbitService] Error fetching weekly heart data:",
-        error
-      );
-      return {
-        restingHR: 0,
-        hrv: 0,
-        peakHR: 0,
-        zones: {},
-        summary: "No weekly heart data available",
-      };
-    }
-  }
-
-  /**
-   * Fetch weekly HRV data
-   */
-  private async fetchWeeklyHRVData(
-    accessToken: string,
-    startDate: string,
-    endDate: string
-  ): Promise<any> {
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/hrv/date/${startDate}/${endDate}.json`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        return null;
-      }
-
-      const data = await response.json();
-      const hrvData = data.hrv || [];
-
-      const totalHRV = hrvData.reduce(
-        (sum: number, day: any) => sum + (day.value?.dailyRmssd || 0),
-        0
-      );
-      const avgHRV = totalHRV / hrvData.length;
-
-      return {
-        value: Math.round(avgHRV),
-        summary: `📊 Weekly Avg HRV: ${Math.round(avgHRV)} ms`,
-      };
-    } catch (error) {
-      console.error(
-        "❌ [FitbitService] Error fetching weekly HRV data:",
-        error
-      );
+    const refreshed = await refreshFitbitToken(data.refresh_token);
+    if (!refreshed) {
+      console.log("❌ Failed to refresh Fitbit token");
       return null;
     }
+    await upsertFitbitTokens(userId, refreshed);
+    return refreshed.access_token;
+  } catch (error) {
+    console.error("❌ Error in getFitbitAccessToken:", error);
+    return null;
   }
+}
 
-  /**
-   * Calculate peak heart rate from zones
-   */
-  private calculatePeakHR(zones: any[]): number {
-    if (!zones || zones.length === 0) return 0;
+async function refreshFitbitToken(
+  refreshToken: string
+): Promise<TokenResponse | null> {
+  try {
+    const clientId = process.env.FITBIT_CLIENT_ID;
+    const clientSecret = process.env.FITBIT_CLIENT_SECRET;
 
-    let peakHR = 0;
-    zones.forEach((zone) => {
-      if (zone.max && zone.max > peakHR) {
-        peakHR = zone.max;
-      }
+    if (!clientId || !clientSecret) {
+      return null;
+    }
+
+    const response = await fetch("https://api.fitbit.com/oauth2/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${Buffer.from(
+          `${clientId}:${clientSecret}`
+        ).toString("base64")}`,
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+      }),
     });
 
-    return peakHR;
-  }
+    if (!response.ok) {
+      return null;
+    }
 
-  /**
-   * Format date for Fitbit API
-   */
-  private formatDate(date: Date): string {
-    return date.toISOString().split("T")[0];
-  }
-
-  /**
-   * Get fallback data when API fails
-   */
-  private getFallbackData(): FitbitData {
+    const tokenData = await response.json();
     return {
-      activity: {
-        steps: 0,
-        activeMinutes: 0,
-        calories: 0,
-        distance: 0,
-        summary: "No activity data available",
-      },
-      sleep: {
-        duration: 0,
-        efficiency: 0,
-        deepSleep: 0,
-        remSleep: 0,
-        summary: "No sleep data available",
-      },
-      heart: {
-        restingHR: 0,
-        hrv: 0,
-        peakHR: 0,
-        zones: {},
-        summary: "No heart data available",
-      },
-      hrv: null,
-      activityLog: [],
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token || refreshToken,
+      expires_in: tokenData.expires_in,
+      token_type: tokenData.token_type || "Bearer",
+      scope: tokenData.scope,
     };
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function getFitbitProfile(
+  accessToken: string
+): Promise<FitbitProfile | null> {
+  try {
+    const response = await fetch(
+      "https://api.fitbit.com/1/user/-/profile.json",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const profile = await response.json();
+    return profile;
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function getFitbitStats(
+  accessToken: string,
+  date?: Date
+): Promise<FitbitStats | null> {
+  try {
+    const targetDate = date || new Date();
+    const today = targetDate.toISOString().split("T")[0];
+
+    // Fetch today's data
+    const [stepsRes, caloriesRes, distanceRes, heartRateRes, sleepRes] =
+      await Promise.all([
+        fetch(
+          `https://api.fitbit.com/1/user/-/activities/steps/date/${today}/1d.json`,
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            cache: "no-store",
+          }
+        ),
+        fetch(
+          `https://api.fitbit.com/1/user/-/activities/calories/date/${today}/1d.json`,
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            cache: "no-store",
+          }
+        ),
+        fetch(
+          `https://api.fitbit.com/1/user/-/activities/distance/date/${today}/1d.json`,
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            cache: "no-store",
+          }
+        ),
+        fetch(
+          `https://api.fitbit.com/1/user/-/activities/heart/date/${today}/1d.json`,
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            cache: "no-store",
+          }
+        ),
+        fetch(`https://api.fitbit.com/1/user/-/sleep/date/${today}.json`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          cache: "no-store",
+        }),
+      ]);
+
+    // Parse responses
+    const steps = stepsRes.ok ? await stepsRes.json() : null;
+    const calories = caloriesRes.ok ? await caloriesRes.json() : null;
+    const distance = distanceRes.ok ? await distanceRes.json() : null;
+    const heartRate = heartRateRes.ok ? await heartRateRes.json() : null;
+    const sleep = sleepRes.ok ? await sleepRes.json() : null;
+
+    // Build stats object
+    const stats: FitbitStats = {
+      today: {
+        steps: steps?.summary?.steps || 0,
+        calories: calories?.summary?.caloriesOut || 0,
+        distance: distance?.summary?.distances?.[0]?.distance || 0,
+        activeMinutes: 0, // Would need additional API call
+        heartRate: {
+          resting: heartRate?.summary?.restingHeartRate || 0,
+          current: 0, // Would need additional API call
+        },
+        sleep: {
+          duration: sleep?.summary?.totalMinutesAsleep || 0,
+          efficiency: sleep?.summary?.efficiency || 0,
+          startTime: sleep?.summary?.startTime || null,
+          endTime: sleep?.summary?.endTime || null,
+          timeInBed: sleep?.summary?.totalTimeInBed || 0,
+          stages: {
+            light: sleep?.summary?.stages?.light || 0,
+            deep: sleep?.summary?.stages?.deep || 0,
+            rem: sleep?.summary?.stages?.rem || 0,
+            wake: sleep?.summary?.stages?.wake || 0,
+          },
+        },
+      },
+      weekly: {
+        steps: [],
+        calories: [],
+        distance: [],
+        activeMinutes: [],
+      },
+      goals: {
+        steps: 10000,
+        calories: 2000,
+        distance: 5,
+        activeMinutes: 30,
+      },
+    };
+
+    return stats;
+  } catch (error) {
+    return null;
   }
 }

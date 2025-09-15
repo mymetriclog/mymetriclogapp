@@ -5,7 +5,7 @@ import {
 import { getGmailAccessToken } from "@/lib/integrations/gmail";
 
 // Force dynamic rendering since we use cookies for authentication
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 export default async function GmailDebugPage() {
   const session = await getServerSession();

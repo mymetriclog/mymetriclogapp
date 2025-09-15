@@ -1,273 +1,246 @@
 import { getServerSupabaseClient } from "@/lib/supabase/server";
 
-export interface MoodData {
-  id?: string;
+export type MoodType = "predicted" | "manual" | "ai_generated";
+
+export interface UserMood {
+  id: string;
   user_id: string;
   date: string;
   mood: string;
-  mood_type?: "predicted" | "manual" | "ai_generated";
+  mood_type: MoodType;
   confidence_score?: number;
-  factors?: string[];
-  created_at?: string;
-  updated_at?: string;
+  factors: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MoodPrediction {
+  mood: string;
+  confidence_score: number;
+  factors: string[];
+  reasoning: string;
 }
 
 export class MoodService {
   /**
-   * Set mood for a specific date
+   * Get mood for a specific date
    */
-  async setMoodForDate(
+  static async getMoodForDate(
     userId: string,
-    date: string,
-    mood: string,
-    moodType: "predicted" | "manual" | "ai_generated" = "ai_generated",
-    confidenceScore?: number,
-    factors?: string[]
-  ): Promise<MoodData> {
+    date: Date
+  ): Promise<UserMood | null> {
     try {
       const supabase = await getServerSupabaseClient();
+      const dateStr = date.toISOString().split("T")[0];
 
-      // Upsert mood data (update if exists, insert if new)
+      const { data, error } = await supabase
+        .from("user_moods")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("date", dateStr)
+        .maybeSingle();
+
+      if (error) {
+        console.error("❌ Error fetching mood:", error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("❌ Error in getMoodForDate:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Set mood for a specific date
+   */
+  static async setMoodForDate(
+    userId: string,
+    date: Date,
+    mood: string,
+    moodType: MoodType = "manual",
+    confidenceScore?: number,
+    factors: string[] = []
+  ): Promise<UserMood | null> {
+    try {
+      const supabase = await getServerSupabaseClient();
+      const dateStr = date.toISOString().split("T")[0];
+
       const { data, error } = await supabase
         .from("user_moods")
         .upsert(
           {
             user_id: userId,
-            date: date,
-            mood: mood,
+            date: dateStr,
+            mood,
             mood_type: moodType,
             confidence_score: confidenceScore,
-            factors: factors,
+            factors,
             updated_at: new Date().toISOString(),
           },
-          {
-            onConflict: "user_id,date",
-          }
+          { onConflict: "user_id,date" }
         )
         .select()
         .single();
 
       if (error) {
-        console.error("❌ [MoodService] Error setting mood:", error);
-        throw error;
-      }
-
-      console.log("✅ [MoodService] Mood set successfully:", {
-        userId,
-        date,
-        mood: mood.substring(0, 50) + "...",
-        moodType,
-      });
-
-      return data;
-    } catch (error) {
-      console.error("❌ [MoodService] Error setting mood for date:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get mood for a specific date
-   */
-  async getMoodForDate(userId: string, date: string): Promise<MoodData | null> {
-    try {
-      const supabase = await getServerSupabaseClient();
-
-      const { data, error } = await supabase
-        .from("user_moods")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("date", date)
-        .single();
-
-      if (error && error.code !== "PGRST116") {
-        // PGRST116 = no rows returned
-        console.error("❌ [MoodService] Error getting mood:", error);
-        throw error;
+        console.error("❌ Error setting mood:", error);
+        return null;
       }
 
       return data;
     } catch (error) {
-      console.error("❌ [MoodService] Error getting mood for date:", error);
+      console.error("❌ Error in setMoodForDate:", error);
       return null;
     }
   }
 
   /**
-   * Get mood from day before (for historical analysis)
+   * Get mood from previous day
    */
-  async getMoodFromDayBefore(
-    userId: string,
-    currentDate: string
-  ): Promise<MoodData | null> {
+  static async getMoodFromDayBefore(userId: string): Promise<string> {
     try {
-      const yesterday = new Date(currentDate);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split("T")[0];
+      const twoDaysAgo = new Date();
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 
-      return await this.getMoodForDate(userId, yesterdayStr);
+      const mood = await this.getMoodForDate(userId, twoDaysAgo);
+      return mood?.mood || "Unknown";
     } catch (error) {
-      console.error("❌ [MoodService] Error getting yesterday's mood:", error);
-      return null;
+      console.error("❌ Error in getMoodFromDayBefore:", error);
+      return "Unknown";
     }
   }
 
   /**
-   * Get mood history for a date range
+   * Get recent moods for trend analysis
    */
-  async getMoodHistory(
+  static async getRecentMoods(
     userId: string,
-    startDate: string,
-    endDate: string
-  ): Promise<MoodData[]> {
+    days: number = 7
+  ): Promise<UserMood[]> {
     try {
       const supabase = await getServerSupabaseClient();
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
 
       const { data, error } = await supabase
         .from("user_moods")
         .select("*")
         .eq("user_id", userId)
-        .gte("date", startDate)
-        .lte("date", endDate)
-        .order("date", { ascending: true });
+        .gte("date", startDate.toISOString().split("T")[0])
+        .lte("date", endDate.toISOString().split("T")[0])
+        .order("date", { ascending: false });
 
       if (error) {
-        console.error("❌ [MoodService] Error getting mood history:", error);
-        throw error;
+        console.error("❌ Error fetching recent moods:", error);
+        return [];
       }
 
       return data || [];
     } catch (error) {
-      console.error("❌ [MoodService] Error getting mood history:", error);
+      console.error("❌ Error in getRecentMoods:", error);
       return [];
     }
   }
 
   /**
-   * Clean up old mood data (keep only last 90 days)
+   * Clean up old mood entries (older than 30 days)
    */
-  async cleanupOldMoodData(userId: string): Promise<void> {
+  static async cleanupOldMoods(userId: string): Promise<void> {
     try {
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - 90);
-      const cutoffDateStr = cutoffDate.toISOString().split("T")[0];
-
       const supabase = await getServerSupabaseClient();
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 30);
 
       const { error } = await supabase
         .from("user_moods")
         .delete()
         .eq("user_id", userId)
-        .lt("date", cutoffDateStr);
+        .lt("date", cutoffDate.toISOString().split("T")[0]);
 
       if (error) {
-        console.error(
-          "❌ [MoodService] Error cleaning up old mood data:",
-          error
-        );
-        throw error;
+        console.error("❌ Error cleaning up old moods:", error);
+      } else {
+        console.log("✅ Cleaned up old mood entries");
       }
-
-      console.log(
-        "✅ [MoodService] Cleaned up old mood data for user:",
-        userId
-      );
     } catch (error) {
-      console.error("❌ [MoodService] Error cleaning up old mood data:", error);
-      throw error;
+      console.error("❌ Error in cleanupOldMoods:", error);
     }
   }
 
   /**
-   * Get mood trends and patterns
+   * Get mood statistics for a date range
    */
-  async getMoodTrends(userId: string, days: number = 30): Promise<any> {
+  static async getMoodStats(
+    userId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<{
+    totalMoods: number;
+    averageConfidence: number;
+    moodDistribution: Record<string, number>;
+    mostCommonMood: string;
+    moodTrend: "improving" | "declining" | "stable";
+  }> {
     try {
-      const endDate = new Date().toISOString().split("T")[0];
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
-      const startDateStr = startDate.toISOString().split("T")[0];
-
-      const moodHistory = await this.getMoodHistory(
+      const moods = await this.getRecentMoods(
         userId,
-        startDateStr,
-        endDate
+        Math.ceil(
+          (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+        )
       );
 
-      // Analyze trends
-      const totalDays = moodHistory.length;
-      const positiveMoods = moodHistory.filter(
-        (m) =>
-          m.mood.toLowerCase().includes("positive") ||
-          m.mood.toLowerCase().includes("good") ||
-          m.mood.toLowerCase().includes("energetic")
-      ).length;
+      const totalMoods = moods.length;
+      const averageConfidence =
+        moods.reduce((sum, mood) => sum + (mood.confidence_score || 0), 0) /
+          totalMoods || 0;
 
-      const negativeMoods = moodHistory.filter(
-        (m) =>
-          m.mood.toLowerCase().includes("negative") ||
-          m.mood.toLowerCase().includes("tired") ||
-          m.mood.toLowerCase().includes("stressed")
-      ).length;
+      const moodDistribution = moods.reduce((acc, mood) => {
+        acc[mood.mood] = (acc[mood.mood] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const mostCommonMood =
+        Object.entries(moodDistribution).sort(
+          ([, a], [, b]) => b - a
+        )[0]?.[0] || "Unknown";
+
+      // Simple trend analysis based on confidence scores
+      const recentMoods = moods.slice(0, 3);
+      const olderMoods = moods.slice(-3);
+      const recentAvg =
+        recentMoods.reduce(
+          (sum, mood) => sum + (mood.confidence_score || 0),
+          0
+        ) / recentMoods.length || 0;
+      const olderAvg =
+        olderMoods.reduce(
+          (sum, mood) => sum + (mood.confidence_score || 0),
+          0
+        ) / olderMoods.length || 0;
+
+      let moodTrend: "improving" | "declining" | "stable" = "stable";
+      if (recentAvg > olderAvg + 0.1) moodTrend = "improving";
+      else if (recentAvg < olderAvg - 0.1) moodTrend = "declining";
 
       return {
-        totalDays,
-        positiveMoods,
-        negativeMoods,
-        neutralMoods: totalDays - positiveMoods - negativeMoods,
-        averageConfidence:
-          moodHistory.reduce((sum, m) => sum + (m.confidence_score || 0), 0) /
-            totalDays || 0,
-        trends: this.analyzeMoodPatterns(moodHistory),
+        totalMoods,
+        averageConfidence,
+        moodDistribution,
+        mostCommonMood,
+        moodTrend,
       };
     } catch (error) {
-      console.error("❌ [MoodService] Error getting mood trends:", error);
-      return null;
+      console.error("❌ Error in getMoodStats:", error);
+      return {
+        totalMoods: 0,
+        averageConfidence: 0,
+        moodDistribution: {},
+        mostCommonMood: "Unknown",
+        moodTrend: "stable",
+      };
     }
   }
-
-  /**
-   * Analyze mood patterns from history
-   */
-  private analyzeMoodPatterns(moodHistory: MoodData[]): any {
-    const patterns = {
-      weeklyPattern: {} as Record<string, string[]>,
-      commonFactors: {} as Record<string, number>,
-      moodDistribution: {},
-    };
-
-    // Analyze weekly patterns
-    moodHistory.forEach((mood) => {
-      const dayOfWeek = new Date(mood.date).getDay();
-      const dayName = [
-        "Sunday",
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-      ][dayOfWeek];
-
-      if (!patterns.weeklyPattern[dayName]) {
-        patterns.weeklyPattern[dayName] = [];
-      }
-      patterns.weeklyPattern[dayName].push(mood.mood);
-    });
-
-    // Analyze common factors
-    moodHistory.forEach((mood) => {
-      if (mood.factors) {
-        mood.factors.forEach((factor) => {
-          patterns.commonFactors[factor] =
-            (patterns.commonFactors[factor] || 0) + 1;
-        });
-      }
-    });
-
-    return patterns;
-  }
 }
-
-// Export singleton instance
-export const moodService = new MoodService();

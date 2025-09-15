@@ -7,6 +7,7 @@ import Link from "next/link";
 import { WeatherCard } from "@/components/weather-card";
 import { WeatherForecastCard } from "@/components/weather-forecast-card";
 import { WeatherLocationButton } from "@/components/weather-location-button";
+import { GoogleTasksCard } from "@/components/google-tasks-card";
 import { DashboardClientWrapper } from "@/components/dashboard-client-wrapper";
 import { IntegrationTokenNotifications } from "@/components/integration-token-notifications";
 
@@ -410,9 +411,10 @@ export default async function DashboardPage() {
               }
             />
 
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-6 lg:grid-cols-3">
               <WeatherCard userTimezone={timezone} />
               <WeatherForecastCard userTimezone={timezone} />
+              <GoogleTasksCard userTimezone={timezone} />
             </div>
           </section>
 
