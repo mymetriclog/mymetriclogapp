@@ -784,49 +784,44 @@ export function composeEnhancedMyMetricLogEmail(
     ${generateRecoveryInsights(recoveryQuotient)}
   </div>
   
-  <!-- Environment & Lifestyle Section - Code.js Style -->
+  <!-- Environment & Lifestyle Section - Single Row Layout -->
   <div style='background:#f8f9fa; padding:20px; border-radius:8px; margin:20px 0; border:1px solid #e9ecef;'>
     <h3 style='font-size:20px; font-weight:600; color:#1a1a1a; margin:0 0 20px 0;'>🌍 Environment & Lifestyle</h3>
     
     <!-- Weather and Music in Single Row -->
-    <table style='width:100%; border-collapse: collapse;'>
-      <tr>
-        <td style='width:50%; padding-right:10px; vertical-align:top;'>
-          <!-- Weather Section -->
-          <div style='background:white; padding:20px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1);'>
-            <div style='display:flex; align-items:center; margin-bottom:20px;'>
-              <div style='width:60px; height:60px; background:#e3f2fd; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-right:15px;'>
-          <img src='${getSageImage(
-            "weather"
-          )}' alt='Weather Fox' style='width:40px; height:40px;'/>
+    <div style='display:flex; gap:20px;'>
+      <!-- Weather Section -->
+      <div style='flex:1; background:white; padding:20px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1);'>
+        <div style='display:flex; align-items:center; margin-bottom:20px;'>
+          <div style='width:60px; height:60px; background:#e3f2fd; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-right:15px;'>
+            <img src='${getSageImage(
+              "weather"
+            )}' alt='Weather Fox' style='width:40px; height:40px;'/>
           </div>
-              <h4 style='font-size:18px; font-weight:600; color:#1a1a1a; margin:0;'>Weather</h4>
+          <h4 style='font-size:18px; font-weight:600; color:#1a1a1a; margin:0;'>Weather</h4>
+        </div>
+        
+        ${generateWeatherInsights(
+          weatherSummary,
+          hourlyWeather,
+          environmentalFactorsData
+        )}
       </div>
       
-            ${generateWeatherInsights(
-              weatherSummary,
-              hourlyWeather,
-              environmentalFactorsData
-            )}
+      <!-- Music Section -->
+      <div style='flex:1; background:white; padding:20px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1);'>
+        <div style='display:flex; align-items:center; margin-bottom:20px;'>
+          <div style='width:60px; height:60px; background:#f3e5f5; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-right:15px;'>
+            <img src='${getSageImage(
+              "music"
+            )}' alt='Music Fox' style='width:40px; height:40px;'/>
           </div>
-        </td>
-        <td style='width:50%; padding-left:10px; vertical-align:top;'>
-          <!-- Music Section -->
-          <div style='background:white; padding:20px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1);'>
-            <div style='display:flex; align-items:center; margin-bottom:20px;'>
-              <div style='width:60px; height:60px; background:#f3e5f5; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-right:15px;'>
-          <img src='${getSageImage(
-            "music"
-          )}' alt='Music Fox' style='width:40px; height:40px;'/>
+          <h4 style='font-size:18px; font-weight:600; color:#1a1a1a; margin:0;'>Music</h4>
+        </div>
+        
+        ${generateMusicInsights(spotifySummary, spotifyInsights)}
       </div>
-              <h4 style='font-size:18px; font-weight:600; color:#1a1a1a; margin:0;'>Music</h4>
-          </div>
-            
-            ${generateMusicInsights(spotifySummary, spotifyInsights)}
-          </div>
-        </td>
-      </tr>
-    </table>
+    </div>
   </div>
   
   <!-- Daily Mantra - Code.js Style -->
