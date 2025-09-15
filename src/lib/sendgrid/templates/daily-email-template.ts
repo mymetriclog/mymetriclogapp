@@ -205,6 +205,7 @@ export function generateDailyReportEmail(
   emailResponseAnalysis: any,
   fitbitActivityLog: string,
   audioFeatures: any,
+  historicalData: any,
   insightHeadline?: string
 ): string {
   // Helper functions
@@ -333,6 +334,218 @@ export function generateDailyReportEmail(
     ? `${fitbitRawData.heart.restingHR} bpm`
     : "N/A";
 
+  // Helper function to get badge design based on rarity
+  function getBadgeDesign(rarity: string) {
+    const designs: { [key: string]: any } = {
+      legendary: {
+        background: "linear-gradient(135deg, #FFF8E1 0%, #FFD700 100%)",
+        border: "#FFB300",
+        shadow: "rgba(255,215,0,0.3)",
+        rarityColor: "#FF6F00",
+        titleColor: "#F57C00",
+        descColor: "#5D4037",
+        emojiShadow: "rgba(255,193,7,0.4)",
+      },
+      epic: {
+        background: "linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%)",
+        border: "#9C27B0",
+        shadow: "rgba(156,39,176,0.25)",
+        rarityColor: "#7B1FA2",
+        titleColor: "#6A1B9A",
+        descColor: "#4A148C",
+        emojiShadow: "rgba(156,39,176,0.4)",
+      },
+      rare: {
+        background: "linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%)",
+        border: "#2196F3",
+        shadow: "rgba(33,150,243,0.25)",
+        rarityColor: "#1976D2",
+        titleColor: "#1565C0",
+        descColor: "#0D47A1",
+        emojiShadow: "rgba(33,150,243,0.4)",
+      },
+      uncommon: {
+        background: "linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%)",
+        border: "#4CAF50",
+        shadow: "rgba(76,175,80,0.25)",
+        rarityColor: "#388E3C",
+        titleColor: "#2E7D32",
+        descColor: "#1B5E20",
+        emojiShadow: "rgba(76,175,80,0.4)",
+      },
+      common: {
+        background: "linear-gradient(135deg, #FAFAFA 0%, #F5F5F5 100%)",
+        border: "#BDBDBD",
+        shadow: "rgba(0,0,0,0.1)",
+        rarityColor: "#757575",
+        titleColor: "#424242",
+        descColor: "#212121",
+        emojiShadow: "rgba(0,0,0,0.2)",
+      },
+    };
+    return designs[rarity] || designs.common;
+  }
+
+  // Helper function to generate Today's Achievements section
+  function generateTodaysAchievementsSection(
+    badges: any[],
+    streakBadges: any[],
+    badgeNarrative: string
+  ) {
+    if (badges.length === 0 && streakBadges.length === 0) return "";
+
+    let html =
+      '<section style="background: #fffbeb; border-left: 4px solid #fde68a; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">';
+
+    // Add narrative BEFORE the header
+    if (badgeNarrative) {
+      html +=
+        '<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333; margin-bottom: 16px;">' +
+        convertAndFormatInsight(badgeNarrative) +
+        "</div>";
+    }
+
+    // Header with icon
+    html +=
+      '<h3 style="font-size: 20px; font-weight: 600; color: #1a1a1a; margin: 0 0 16px 0; display: flex; align-items: center;">' +
+      "🏅 Today's Achievements " +
+      '<span style="font-size: 14px; font-weight: normal; color: #666; margin-left: 10px;">(' +
+      badges.length +
+      " earned)</span>" +
+      "</h3>";
+
+    // Badge grid
+    if (badges.length > 0) {
+      html +=
+        '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 16px;">';
+
+      badges.forEach((badge) => {
+        const design = getBadgeDesign(badge.rarity);
+
+        html +=
+          '<div style="' +
+          "background: " +
+          design.background +
+          "; " +
+          "border: 1px solid " +
+          design.border +
+          "; " +
+          "border-radius: 8px; " +
+          "padding: 14px; " +
+          "position: relative; " +
+          "box-shadow: 0 1px 3px " +
+          design.shadow +
+          ';">' +
+          // Rarity tag
+          '<div style="position: absolute; top: 8px; right: 8px; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: white; background: ' +
+          design.rarityColor +
+          ';">' +
+          badge.rarity +
+          "</div>" +
+          // Badge content
+          '<div style="display: flex; align-items: center;">' +
+          '<div style="font-size: 36px; margin-right: 14px; filter: drop-shadow(0 2px 4px ' +
+          design.emojiShadow +
+          ');">' +
+          badge.emoji +
+          "</div>" +
+          '<div style="flex: 1;">' +
+          '<div style="font-weight: 600; font-size: 16px; margin-bottom: 2px; color: ' +
+          design.titleColor +
+          ';">' +
+          badge.name +
+          "</div>" +
+          '<div style="font-size: 13px; color: ' +
+          design.descColor +
+          ';">' +
+          badge.description +
+          "</div>" +
+          "</div>" +
+          "</div>" +
+          "</div>";
+      });
+
+      html += "</div>";
+    }
+
+    // Streak section
+    if (streakBadges.length > 0) {
+      html +=
+        '<div style="background: #e8f0fe; border-radius: 6px; padding: 14px; border-left: 4px solid #1976d2;">' +
+        '<div style="font-weight: 600; color: #1565c0; margin-bottom: 8px; font-size: 14px;">🔥 ACTIVE STREAKS</div>' +
+        '<div style="display: flex; flex-wrap: wrap; gap: 16px;">';
+
+      streakBadges.forEach((streak) => {
+        html +=
+          '<div style="display: flex; align-items: center;">' +
+          '<span style="font-size: 20px; margin-right: 8px;">' +
+          streak.emoji +
+          "</span>" +
+          "<div>" +
+          '<span style="font-weight: 600; color: #424242; font-size: 14px;">' +
+          streak.name +
+          "</span><br>" +
+          '<span style="color: #1976d2; font-weight: 700; font-size: 16px;">Day ' +
+          streak.count +
+          "</span>" +
+          "</div>" +
+          "</div>";
+      });
+
+      html += "</div></div>";
+    }
+
+    html += "</section>";
+    return html;
+  }
+
+  // Helper function to generate 7-day trend data
+  function generateTrendData(
+    metric: string,
+    historicalData: any[],
+    currentScore: number
+  ) {
+    if (!historicalData || historicalData.length === 0) {
+      return {
+        values: [
+          currentScore,
+          currentScore,
+          currentScore,
+          currentScore,
+          currentScore,
+          currentScore,
+          currentScore,
+        ],
+        trend: 0,
+        trendText: "→ 0",
+      };
+    }
+
+    // Get last 7 days of data (including today)
+    const last7Days = historicalData.slice(-7);
+    const values = last7Days.map((day) => {
+      switch (metric) {
+        case "sleep":
+          return day.scores?.sleep || currentScore;
+        case "heart":
+          return day.scores?.heart || currentScore;
+        case "activity":
+          return day.scores?.activity || currentScore;
+        case "work":
+          return day.scores?.work || currentScore;
+        default:
+          return currentScore;
+      }
+    });
+
+    // Calculate trend (difference between first and last day)
+    const trend = values.length > 1 ? values[values.length - 1] - values[0] : 0;
+    const trendText =
+      trend > 0 ? `↑ +${trend}` : trend < 0 ? `↓ ${trend}` : "→ 0";
+
+    return { values, trend, trendText };
+  }
+
   // Debug logging to help identify data extraction issues
   console.log("🔍 [EmailTemplate] Data extraction debug:", {
     fitbitActivity: fitbitActivity,
@@ -405,58 +618,174 @@ export function generateDailyReportEmail(
     convertAndFormatInsight(insight) +
     "</div>" +
     "</div>" +
-    // Performance Breakdown
+    // Performance Breakdown with 7-day trends
     "<div style='background:#f0f4ff; border-left: 4px solid #b8ccff; padding:20px; border-radius:8px; margin:20px 0; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>" +
-    "<h4 style='font-size:18px; font-weight:600; color:#1a1a1a; margin:0 0 12px 0;'>Performance Breakdown</h4>" +
-    "<table style='width:100%; border-collapse: collapse;'>" +
-    "<tr>" +
-    "<td style='width:50%; padding:10px; vertical-align:top;'>" +
-    "<div style='background:white; padding:15px; border-radius:6px; margin-bottom:10px;'>" +
-    "<div style='margin-bottom:10px;'>" +
-    "<span style='display:inline-block; width:70px; vertical-align:middle;'>Sleep:</span>" +
-    generateEnhancedBar(scores.sleep, true) +
-    "<span style='margin-left:10px; color:#666; font-weight:bold; vertical-align:middle;'>" +
-    scores.sleep +
-    "</span>" +
-    generateStatusTag("Sleep", scores.sleep, true) +
+    "<h4 style='font-size:20px; font-weight:700; color:#1a1a1a; margin:0 0 20px 0;'>Performance Breakdown</h4>" +
+    // Generate trend data for each metric
+    (() => {
+      const sleepTrend = generateTrendData(
+        "sleep",
+        historicalData,
+        scores.sleep
+      );
+      const heartTrend = generateTrendData(
+        "heart",
+        historicalData,
+        scores.heart
+      );
+      const activityTrend = generateTrendData(
+        "activity",
+        historicalData,
+        scores.activity
+      );
+      const workTrend = generateTrendData("work", historicalData, scores.work);
+
+      return (
+        "<table style='width:100%; border-collapse: collapse;'>" +
+        "<tr>" +
+        "<td style='width:50%; padding:10px; vertical-align:top;'>" +
+        // Sleep Section
+        "<div style='background:white; padding:20px; border-radius:8px; margin-bottom:15px; box-shadow:0 2px 4px rgba(0,0,0,0.1);'>" +
+        "<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;'>" +
+        "<span style='font-size:16px; font-weight:600; color:#333;'>Sleep:</span>" +
+        "<span style='font-size:24px; font-weight:700; color:#333;'>" +
+        scores.sleep +
+        "</span>" +
+        "</div>" +
+        generateEnhancedBar(scores.sleep, true) +
+        "<div style='margin-top:10px;'>" +
+        generateStatusTag("Sleep", scores.sleep, true) +
+        "</div>" +
+        "<div style='margin-top:15px; padding-top:15px; border-top:1px solid #eee;'>" +
+        "<div style='font-size:14px; color:#666; margin-bottom:8px;'>7-Day Trend " +
+        sleepTrend.trendText +
+        "</div>" +
+        "<div style='display:flex; justify-content:space-between; font-size:12px; color:#999;'>" +
+        "<span>6d</span><span>5d</span><span>4d</span><span>3d</span><span>2d</span><span>1d</span><span style='color:#8b5cf6; font-weight:600;'>Today</span>" +
+        "</div>" +
+        "<div style='display:flex; justify-content:space-between; font-size:12px; color:#666; margin-top:5px;'>" +
+        sleepTrend.values
+          .map(
+            (val, i) =>
+              "<span style='" +
+              (i === 6 ? "color:#8b5cf6; font-weight:600;" : "color:#666;") +
+              "'>" +
+              val +
+              "</span>"
+          )
+          .join("") +
+        "</div>" +
+        "</div>" +
+        "</div>" +
+        // Activity Section
+        "<div style='background:white; padding:20px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1);'>" +
+        "<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;'>" +
+        "<span style='font-size:16px; font-weight:600; color:#333;'>Activity:</span>" +
+        "<span style='font-size:24px; font-weight:700; color:#333;'>" +
+        scores.activity +
+        "</span>" +
+        "</div>" +
+        generateEnhancedBar(scores.activity, true) +
+        "<div style='margin-top:10px;'>" +
+        generateStatusTag("Activity", scores.activity, true) +
+        "</div>" +
+        "<div style='margin-top:15px; padding-top:15px; border-top:1px solid #eee;'>" +
+        "<div style='font-size:14px; color:#666; margin-bottom:8px;'>7-Day Trend " +
+        activityTrend.trendText +
+        "</div>" +
+        "<div style='display:flex; justify-content:space-between; font-size:12px; color:#999;'>" +
+        "<span>6d</span><span>5d</span><span>4d</span><span>3d</span><span>2d</span><span>1d</span><span style='color:#8b5cf6; font-weight:600;'>Today</span>" +
+        "</div>" +
+        "<div style='display:flex; justify-content:space-between; font-size:12px; color:#666; margin-top:5px;'>" +
+        activityTrend.values
+          .map(
+            (val, i) =>
+              "<span style='" +
+              (i === 6 ? "color:#8b5cf6; font-weight:600;" : "color:#666;") +
+              "'>" +
+              val +
+              "</span>"
+          )
+          .join("") +
+        "</div>" +
+        "</div>" +
+        "</div>" +
+        "</td>" +
+        "<td style='width:50%; padding:10px; vertical-align:top;'>" +
+        // Heart Section
+        "<div style='background:white; padding:20px; border-radius:8px; margin-bottom:15px; box-shadow:0 2px 4px rgba(0,0,0,0.1);'>" +
+        "<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;'>" +
+        "<span style='font-size:16px; font-weight:600; color:#333;'>Heart:</span>" +
+        "<span style='font-size:24px; font-weight:700; color:#333;'>" +
+        scores.heart +
+        "</span>" +
+        "</div>" +
+        generateEnhancedBar(scores.heart, true) +
+        "<div style='margin-top:10px;'>" +
+        generateStatusTag("Heart", scores.heart, true) +
+        "</div>" +
+        "<div style='margin-top:15px; padding-top:15px; border-top:1px solid #eee;'>" +
+        "<div style='font-size:14px; color:#666; margin-bottom:8px;'>7-Day Trend " +
+        heartTrend.trendText +
+        "</div>" +
+        "<div style='display:flex; justify-content:space-between; font-size:12px; color:#999;'>" +
+        "<span>6d</span><span>5d</span><span>4d</span><span>3d</span><span>2d</span><span>1d</span><span style='color:#8b5cf6; font-weight:600;'>Today</span>" +
+        "</div>" +
+        "<div style='display:flex; justify-content:space-between; font-size:12px; color:#666; margin-top:5px;'>" +
+        heartTrend.values
+          .map(
+            (val, i) =>
+              "<span style='" +
+              (i === 6 ? "color:#8b5cf6; font-weight:600;" : "color:#666;") +
+              "'>" +
+              val +
+              "</span>"
+          )
+          .join("") +
+        "</div>" +
+        "</div>" +
+        "</div>" +
+        // Work Section
+        "<div style='background:white; padding:20px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1);'>" +
+        "<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;'>" +
+        "<span style='font-size:16px; font-weight:600; color:#333;'>Work:</span>" +
+        "<span style='font-size:24px; font-weight:700; color:#333;'>" +
+        scores.work +
+        "</span>" +
+        "</div>" +
+        generateEnhancedBar(scores.work, true) +
+        "<div style='margin-top:10px;'>" +
+        generateStatusTag("Work", scores.work, true) +
+        "</div>" +
+        "<div style='margin-top:15px; padding-top:15px; border-top:1px solid #eee;'>" +
+        "<div style='font-size:14px; color:#666; margin-bottom:8px;'>7-Day Trend " +
+        workTrend.trendText +
+        "</div>" +
+        "<div style='display:flex; justify-content:space-between; font-size:12px; color:#999;'>" +
+        "<span>6d</span><span>5d</span><span>4d</span><span>3d</span><span>2d</span><span>1d</span><span style='color:#8b5cf6; font-weight:600;'>Today</span>" +
+        "</div>" +
+        "<div style='display:flex; justify-content:space-between; font-size:12px; color:#666; margin-top:5px;'>" +
+        workTrend.values
+          .map(
+            (val, i) =>
+              "<span style='" +
+              (i === 6 ? "color:#8b5cf6; font-weight:600;" : "color:#666;") +
+              "'>" +
+              val +
+              "</span>"
+          )
+          .join("") +
+        "</div>" +
+        "</div>" +
+        "</div>" +
+        "</td>" +
+        "</tr>" +
+        "</table>"
+      );
+    })() +
     "</div>" +
-    "</div>" +
-    "<div style='background:white; padding:15px; border-radius:6px;'>" +
-    "<div style='margin-bottom:10px;'>" +
-    "<span style='display:inline-block; width:70px; vertical-align:middle;'>Activity:</span>" +
-    generateEnhancedBar(scores.activity, true) +
-    "<span style='margin-left:10px; color:#666; font-weight:bold; vertical-align:middle;'>" +
-    scores.activity +
-    "</span>" +
-    generateStatusTag("Activity", scores.activity, true) +
-    "</div>" +
-    "</div>" +
-    "</td>" +
-    "<td style='width:50%; padding:10px; vertical-align:top;'>" +
-    "<div style='background:white; padding:15px; border-radius:6px; margin-bottom:10px;'>" +
-    "<div style='margin-bottom:10px;'>" +
-    "<span style='display:inline-block; width:70px; vertical-align:middle;'>Heart:</span>" +
-    generateEnhancedBar(scores.heart, true) +
-    "<span style='margin-left:10px; color:#666; font-weight:bold; vertical-align:middle;'>" +
-    scores.heart +
-    "</span>" +
-    generateStatusTag("Heart", scores.heart, true) +
-    "</div>" +
-    "</div>" +
-    "<div style='background:white; padding:15px; border-radius:6px;'>" +
-    "<div style='margin-bottom:10px;'>" +
-    "<span style='display:inline-block; width:70px; vertical-align:middle;'>Work:</span>" +
-    generateEnhancedBar(scores.work, true) +
-    "<span style='margin-left:10px; color:#666; font-weight:bold; vertical-align:middle;'>" +
-    scores.work +
-    "</span>" +
-    generateStatusTag("Work", scores.work, true) +
-    "</div>" +
-    "</div>" +
-    "</td>" +
-    "</tr>" +
-    "</table>" +
-    "</div>" +
+    // Today's Achievements Section
+    generateTodaysAchievementsSection(badges, streakBadges, badgeNarrative) +
     // Mood Card
     generateMoodCard(moodInsight, scores) +
     // Update the Work Overview Section header

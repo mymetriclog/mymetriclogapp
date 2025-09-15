@@ -155,6 +155,7 @@ export class EmailService {
         reportData.emailResponseAnalysis || null,
         reportData.fitbitActivityLog || "",
         reportData.audioFeatures || null,
+        reportData.historicalData || [],
         reportData.insightHeadline || ""
       );
     } else {
