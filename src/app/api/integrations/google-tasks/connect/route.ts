@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientId =
+      process.env.TASK_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
     // Use environment-specific redirect URI
     const redirectUri =
       process.env.NODE_ENV === "production"
