@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(request: NextRequest) {
   try {
     const clientId = process.env.GOOGLE_CLIENT_ID;
-    const redirectUri = process.env.GOOGLE_TASK_REDIRECT_URL || `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/google-tasks/callback`;
+    const redirectUri =
+      process.env.GOOGLE_TASK_REDIRECT_URL ||
+      `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/google-tasks/callback`;
     const scope = "https://www.googleapis.com/auth/tasks";
     const responseType = "code";
 
