@@ -11,6 +11,7 @@ import { BadgeService } from "@/lib/badges/badge-service";
 import { AIInsightsService } from "@/lib/ai/ai-insights-service";
 import { getSageImage } from "@/lib/constants/sage-images";
 import { emailAlreadySent } from "@/lib/utils/report-duplicate-checker";
+import { moodService } from "@/lib/mood/mood-service";
 
 export interface UserReportData {
   userId: string;
@@ -155,6 +156,8 @@ export class DynamicReportGenerator {
 
       // Generate AI insights
       const aiInsights = await this.aiService.generateDailyInsights({
+        userId,
+        date: yesterday.toISOString().split("T")[0],
         scores,
         fitbit: fitbitData,
         spotify: spotifyData,
@@ -164,6 +167,23 @@ export class DynamicReportGenerator {
         weather: weatherData,
         historical: historicalData,
       });
+
+      // Store mood data for historical analysis
+      if (aiInsights.moodInsight) {
+        try {
+          await moodService.setMoodForDate(
+            userId,
+            yesterday.toISOString().split("T")[0],
+            aiInsights.moodInsight,
+            "ai_generated",
+            0.8, // Confidence score
+            ["sleep_data", "heart_rate", "music_history", "activity_data"]
+          );
+          console.log("✅ [DynamicReportGenerator] Mood data stored successfully");
+        } catch (error) {
+          console.error("❌ [DynamicReportGenerator] Error storing mood data:", error);
+        }
+      }
 
       // Calculate badges and achievements
       const badges = await this.badgeService.calculateDailyBadges({

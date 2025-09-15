@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { moodService } from "@/lib/mood/mood-service";
 
 export interface AIInsights {
   summary: string;
@@ -19,6 +20,8 @@ export interface AIInsights {
 }
 
 export interface DataSources {
+  userId?: string;
+  date?: string;
   scores: any;
   fitbit: any;
   spotify: any;
@@ -51,12 +54,30 @@ export class AIInsightsService {
       // Generate daily mantra
       const mantra = await this.generateDailyMantra(context, data);
 
-      // Generate mood insight using getPredictedMood
+      // Get previous day's mood for context
+      let previousMood = "";
+      if (data.userId && data.date) {
+        try {
+          const yesterdayMood = await moodService.getMoodFromDayBefore(
+            data.userId,
+            data.date
+          );
+          previousMood = yesterdayMood?.mood || "";
+        } catch (error) {
+          console.error(
+            "❌ [AIInsightsService] Error getting previous mood:",
+            error
+          );
+        }
+      }
+
+      // Generate mood insight using getPredictedMood with previous mood context
       const moodInsight = await this.getPredictedMood(
         data.fitbit?.sleep?.summary || "",
         data.fitbit?.heart?.summary || "",
         data.spotify?.summary || "",
-        data.spotify?.audioFeatures
+        data.spotify?.audioFeatures,
+        previousMood
       );
 
       // Generate stress radar analysis
@@ -1172,7 +1193,8 @@ Please respond with only the forecast text, no additional formatting.`;
     fitbitSleep: string,
     fitbitHeart: string,
     spotifyHistory: string,
-    audioFeatures?: any
+    audioFeatures?: any,
+    previousMood?: string
   ): Promise<string> {
     try {
       // Ensure parameters are strings and have fallback values
