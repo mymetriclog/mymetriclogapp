@@ -20,34 +20,38 @@ export async function POST(request: NextRequest) {
     // Generate report directly using the new system
     const reportGenerator = new DynamicReportGenerator();
 
-    // Get user data
+    // Get user data from database using the provided userId
     const supabase = await getServerSupabaseClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: userData, error: userError } = await supabase
+      .from("profiles")
+      .select("id, email, full_name, timezone, latitude, longitude")
+      .eq("id", userId)
+      .single();
 
-    if (!user) {
+    if (userError || !userData) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const reportDate = new Date().toISOString().split("T")[0];
-    const userData = {
-      userId: user.id,
-      userEmail: user.email!,
-      userName: user.user_metadata?.full_name || user.email!.split("@")[0],
+    const userReportData = {
+      userId: userData.id,
+      userEmail: userData.email,
+      userName: userData.full_name || userData.email.split("@")[0],
       date: reportDate,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      timezone: userData.timezone || "UTC",
+      latitude: userData.latitude,
+      longitude: userData.longitude,
     };
 
     // Check if report already exists
     const reportAlreadyExists = await reportExists(
-      user.id,
+      userData.id,
       reportDate,
       reportType as "daily" | "weekly"
     );
     if (reportAlreadyExists) {
       const existingReport = await getExistingReport(
-        user.id,
+        userData.id,
         reportDate,
         reportType as "daily" | "weekly"
       );
@@ -62,9 +66,9 @@ export async function POST(request: NextRequest) {
 
     let report;
     if (reportType === "daily") {
-      report = await reportGenerator.generateDailyReport(userData);
+      report = await reportGenerator.generateDailyReport(userReportData);
     } else {
-      report = await reportGenerator.generateWeeklyReport(userData);
+      report = await reportGenerator.generateWeeklyReport(userReportData);
     }
 
     console.log(`✅ Generated ${reportType} report for ${userEmail}`);
@@ -133,34 +137,25 @@ export async function PUT(request: NextRequest) {
       });
     }
 
-    // Get user emails from Supabase Auth
+    // Get user data from profiles table
     const userIds = [...new Set(tokens.map((token) => token.user_id))];
-    const users = [];
 
-    for (const userId of userIds) {
-      try {
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
+    const { data: usersData, error: usersError } = await supabase
+      .from("profiles")
+      .select("id, email, full_name, timezone, latitude, longitude")
+      .in("id", userIds);
 
-        if (userError) {
-          console.error(`Failed to get user ${userId}:`, userError);
-          continue;
-        }
-
-        if (user && user.email) {
-          users.push({
-            id: user.id,
-            email: user.email,
-            name: user.user_metadata?.full_name || user.email.split("@")[0],
-          });
-        }
-      } catch (error) {
-        console.error(`Error fetching user ${userId}:`, error);
-        continue;
-      }
+    if (usersError) {
+      console.error("Error fetching users:", usersError);
+      return NextResponse.json({
+        success: false,
+        error: "Failed to fetch users",
+        reportsGenerated: 0,
+        usersProcessed: 0,
+      });
     }
+
+    const users = usersData || [];
 
     if (users.length === 0) {
       return NextResponse.json({
@@ -187,9 +182,11 @@ export async function PUT(request: NextRequest) {
         const userData = {
           userId: user.id,
           userEmail: user.email,
-          userName: user.name,
+          userName: user.full_name || user.email.split("@")[0],
           date: new Date().toISOString().split("T")[0],
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          timezone: user.timezone || "UTC",
+          latitude: user.latitude,
+          longitude: user.longitude,
         };
 
         let report;

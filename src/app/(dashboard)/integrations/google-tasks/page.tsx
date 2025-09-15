@@ -1,11 +1,24 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, Clock, AlertTriangle, List, Calendar, TrendingUp } from "lucide-react";
+import {
+  CheckCircle,
+  Clock,
+  AlertTriangle,
+  List,
+  Calendar,
+  TrendingUp,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type GoogleTasksData = {
@@ -45,10 +58,12 @@ export default function GoogleTasksIntegrationPage() {
     try {
       setLoading(true);
       const response = await fetch("/api/integrations/google-tasks/stats");
-      
+
       if (!response.ok) {
         if (response.status === 403) {
-          setError("Google Tasks not connected. Please connect your account first.");
+          setError(
+            "Google Tasks not connected. Please connect your account first."
+          );
           return;
         }
         throw new Error("Failed to fetch Google Tasks data");
@@ -64,16 +79,27 @@ export default function GoogleTasksIntegrationPage() {
     }
   };
 
-  const handleConnect = () => {
-    // Redirect to Google OAuth flow
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    const redirectUri = `${window.location.origin}/api/auth/google-tasks/callback`;
-    const scope = "https://www.googleapis.com/auth/tasks";
-    const responseType = "code";
-    
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&response_type=${responseType}&access_type=offline&prompt=consent`;
-    
-    window.location.href = authUrl;
+  const handleConnect = async () => {
+    try {
+      // Get the OAuth URL from the backend to ensure consistent client ID usage
+      const response = await fetch("/api/integrations/google-tasks/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (response.ok) {
+        const { authUrl } = await response.json();
+        window.location.href = authUrl;
+      } else {
+        const errorData = await response.json();
+        setError(
+          errorData.error || "Failed to initiate Google Tasks connection"
+        );
+      }
+    } catch (error) {
+      console.error("Error connecting Google Tasks:", error);
+      setError("Failed to connect Google Tasks. Please try again.");
+    }
   };
 
   if (loading) {
@@ -105,9 +131,14 @@ export default function GoogleTasksIntegrationPage() {
           <CardContent>
             <div className="text-center py-8">
               <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Connection Required</h3>
+              <h3 className="text-lg font-semibold mb-2">
+                Connection Required
+              </h3>
               <p className="text-gray-600 mb-4">{error}</p>
-              <Button onClick={handleConnect} className="bg-blue-600 hover:bg-blue-700">
+              <Button
+                onClick={handleConnect}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
                 Connect Google Tasks
               </Button>
             </div>
@@ -132,7 +163,9 @@ export default function GoogleTasksIntegrationPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Google Tasks Integration</h1>
-          <p className="text-gray-600">Track your task productivity and completion rates</p>
+          <p className="text-gray-600">
+            Track your task productivity and completion rates
+          </p>
         </div>
         <Button onClick={fetchGoogleTasksData} variant="outline">
           Refresh Data
@@ -160,7 +193,9 @@ export default function GoogleTasksIntegrationPage() {
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{data.stats.completedTasks}</div>
+            <div className="text-2xl font-bold text-green-600">
+              {data.stats.completedTasks}
+            </div>
             <p className="text-xs text-muted-foreground">
               {data.stats.completionRate}% completion rate
             </p>
@@ -173,7 +208,9 @@ export default function GoogleTasksIntegrationPage() {
             <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{data.stats.pendingTasks}</div>
+            <div className="text-2xl font-bold text-yellow-600">
+              {data.stats.pendingTasks}
+            </div>
             <p className="text-xs text-muted-foreground">
               {data.stats.tasksToday} due today
             </p>
@@ -186,10 +223,10 @@ export default function GoogleTasksIntegrationPage() {
             <AlertTriangle className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{data.stats.overdueTasks}</div>
-            <p className="text-xs text-muted-foreground">
-              Need attention
-            </p>
+            <div className="text-2xl font-bold text-red-600">
+              {data.stats.overdueTasks}
+            </div>
+            <p className="text-xs text-muted-foreground">Need attention</p>
           </CardContent>
         </Card>
       </div>
@@ -214,14 +251,18 @@ export default function GoogleTasksIntegrationPage() {
               </div>
               <Progress value={data.stats.completionRate} className="h-2" />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4 pt-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{data.stats.completedTasks}</div>
+                <div className="text-2xl font-bold text-green-600">
+                  {data.stats.completedTasks}
+                </div>
                 <div className="text-sm text-gray-600">Completed</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-yellow-600">{data.stats.pendingTasks}</div>
+                <div className="text-2xl font-bold text-yellow-600">
+                  {data.stats.pendingTasks}
+                </div>
                 <div className="text-sm text-gray-600">Pending</div>
               </div>
             </div>
@@ -243,21 +284,38 @@ export default function GoogleTasksIntegrationPage() {
         <CardContent>
           <div className="space-y-4">
             {data.lists.map((list) => {
-              const listTasks = data.tasks.filter(task => task.listId === list.id);
-              const completedCount = listTasks.filter(task => task.status === "completed").length;
-              const pendingCount = listTasks.filter(task => task.status === "needsAction").length;
-              
+              const listTasks = data.tasks.filter(
+                (task) => task.listId === list.id
+              );
+              const completedCount = listTasks.filter(
+                (task) => task.status === "completed"
+              ).length;
+              const pendingCount = listTasks.filter(
+                (task) => task.status === "needsAction"
+              ).length;
+
               return (
-                <div key={list.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div
+                  key={list.id}
+                  className="flex items-center justify-between p-4 border rounded-lg"
+                >
                   <div>
                     <h3 className="font-semibold">{list.title}</h3>
-                    <p className="text-sm text-gray-600">{listTasks.length} tasks</p>
+                    <p className="text-sm text-gray-600">
+                      {listTasks.length} tasks
+                    </p>
                   </div>
                   <div className="flex gap-2">
-                    <Badge variant="secondary" className="bg-green-100 text-green-800">
+                    <Badge
+                      variant="secondary"
+                      className="bg-green-100 text-green-800"
+                    >
                       {completedCount} completed
                     </Badge>
-                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                    <Badge
+                      variant="secondary"
+                      className="bg-yellow-100 text-yellow-800"
+                    >
                       {pendingCount} pending
                     </Badge>
                   </div>
@@ -279,7 +337,10 @@ export default function GoogleTasksIntegrationPage() {
         <CardContent>
           <div className="space-y-3">
             {data.tasks.slice(0, 10).map((task) => (
-              <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
+              <div
+                key={task.id}
+                className="flex items-center justify-between p-3 border rounded-lg"
+              >
                 <div className="flex items-center gap-3">
                   {task.status === "completed" ? (
                     <CheckCircle className="h-5 w-5 text-green-600" />
@@ -287,7 +348,13 @@ export default function GoogleTasksIntegrationPage() {
                     <Clock className="h-5 w-5 text-yellow-600" />
                   )}
                   <div>
-                    <p className={`font-medium ${task.status === "completed" ? "line-through text-gray-500" : ""}`}>
+                    <p
+                      className={`font-medium ${
+                        task.status === "completed"
+                          ? "line-through text-gray-500"
+                          : ""
+                      }`}
+                    >
                       {task.title}
                     </p>
                     <p className="text-sm text-gray-600">{task.listTitle}</p>
@@ -299,9 +366,15 @@ export default function GoogleTasksIntegrationPage() {
                       Due: {new Date(task.due).toLocaleDateString()}
                     </p>
                   )}
-                  <Badge 
-                    variant={task.status === "completed" ? "default" : "secondary"}
-                    className={task.status === "completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}
+                  <Badge
+                    variant={
+                      task.status === "completed" ? "default" : "secondary"
+                    }
+                    className={
+                      task.status === "completed"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-yellow-100 text-yellow-800"
+                    }
                   >
                     {task.status === "completed" ? "Completed" : "Pending"}
                   </Badge>

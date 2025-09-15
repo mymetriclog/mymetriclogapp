@@ -57,13 +57,14 @@ export async function emailAlreadySent(
   try {
     const supabase = await getServerSupabaseClient();
 
+    // Check email_logs table instead of reports.email_sent column
     const { data, error } = await supabase
-      .from("reports")
-      .select("id, email_sent")
+      .from("email_logs")
+      .select("id, status")
       .eq("user_id", userId)
-      .eq("date", date)
-      .eq("kind", reportType)
-      .eq("email_sent", true)
+      .eq("report_date", date)
+      .eq("report_type", reportType)
+      .eq("status", "sent")
       .limit(1);
 
     if (error) {
