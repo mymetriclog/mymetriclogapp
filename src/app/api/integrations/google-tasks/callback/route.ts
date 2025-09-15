@@ -36,11 +36,15 @@ export async function GET(req: NextRequest) {
           process.env.TASK_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET!,
         code,
         grant_type: "authorization_code",
-        redirect_uri:
-          process.env.NODE_ENV === "production"
-            ? "https://www.mymetriclog.com/api/integrations/google-tasks/callback"
-            : process.env.GOOGLE_TASK_REDIRECT_URL ||
-              `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/google-tasks/callback`,
+        redirect_uri: (() => {
+          if (process.env.GOOGLE_TASK_REDIRECT_URL) {
+            return process.env.GOOGLE_TASK_REDIRECT_URL;
+          } else if (process.env.NODE_ENV === "production") {
+            return "https://www.mymetriclog.com/api/integrations/google-tasks/callback";
+          } else {
+            return `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/google-tasks/callback`;
+          }
+        })(),
       }),
     });
 
