@@ -191,9 +191,14 @@ export default function GoogleTasksIntegrationPage() {
             Track your task productivity and completion rates
           </p>
         </div>
-        <Button onClick={fetchGoogleTasksData} variant="outline">
-          Refresh Data
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleRefresh} variant="outline">
+            Refresh Data
+          </Button>
+          <Button onClick={handleDisconnect} variant="destructive">
+            Disconnect
+          </Button>
+        </div>
       </div>
 
       {/* Overview Cards */}
