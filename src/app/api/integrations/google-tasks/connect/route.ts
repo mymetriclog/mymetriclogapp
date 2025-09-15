@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(_req: NextRequest) {
   try {
     const clientId =
-      process.env.TASK_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+      process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
     const redirectUri = process.env.GOOGLE_TASK_REDIRECT_URL; // <-- set this per env
 
     if (!clientId) {
