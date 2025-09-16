@@ -374,7 +374,7 @@ export async function generateDailyReport(
     );
 
   // NEW: Get historical data for anomaly detection
-  const trends = await getScoreTrends(userId);
+  let trends = await getScoreTrends(userId);
   let historicalDataForAnomalies: any[] = [];
   if (trends && trends.overall && trends.overall.sparkline) {
     historicalDataForAnomalies = trends.overall.sparkline.map(
@@ -382,6 +382,25 @@ export async function generateDailyReport(
         score,
       })
     );
+  }
+
+  // Add today's score to the trends if it's not already there
+  if (trends && trends.overall && trends.overall.sparkline) {
+    // Check if today's score is already in the sparkline (it should be the last one)
+    const lastScore =
+      trends.overall.sparkline[trends.overall.sparkline.length - 1];
+    if (lastScore !== scores.total) {
+      // Add today's score to the sparkline
+      trends.overall.sparkline.push(scores.total);
+    }
+  } else {
+    // If no trends data, create it with just today's score
+    trends = {
+      overall: {
+        trend: 0,
+        sparkline: [scores.total],
+      },
+    };
   }
 
   // NEW: Biometric Anomaly Detection
@@ -1288,9 +1307,15 @@ async function getScoreTrends(userId: string): Promise<any> {
   try {
     const supabase = await getServerSupabaseClient();
 
-    // Get last 7 days of reports
+    // Get last 7 days of reports including today
     const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6); // Changed from 7 to 6 to include today
+
+    console.log("🔍 [getScoreTrends] Fetching trends for userId:", userId);
+    console.log(
+      "🔍 [getScoreTrends] Date range from:",
+      sevenDaysAgo.toISOString().split("T")[0]
+    );
 
     const { data: reports, error } = await supabase
       .from("reports")
@@ -1300,35 +1325,61 @@ async function getScoreTrends(userId: string): Promise<any> {
       .gte("report_date", sevenDaysAgo.toISOString().split("T")[0])
       .order("report_date", { ascending: true });
 
+    console.log(
+      "🔍 [getScoreTrends] Database query result - reports found:",
+      reports?.length || 0
+    );
+    console.log("🔍 [getScoreTrends] Database error:", error);
+
     if (error) {
       console.error("Error fetching score trends:", error);
       return generateFallbackTrends();
     }
 
     if (!reports || reports.length === 0) {
+      console.log(
+        "🔍 [getScoreTrends] No reports found, returning fallback trends"
+      );
       return generateFallbackTrends();
     }
 
     // Extract scores from reports
     const sparkline = reports.map((report: any) => {
       const reportData = report.report_data;
+      console.log(
+        "🔍 [getScoreTrends] Processing report for date:",
+        report.report_date
+      );
+      console.log(
+        "🔍 [getScoreTrends] Report data score:",
+        reportData?.scores?.total
+      );
+
       if (reportData && reportData.scores && reportData.scores.total) {
         return reportData.scores.total;
       }
-      // Fallback to calculated score if not available
+      // This should not happen with real data
+      console.warn(
+        "🔍 [getScoreTrends] No score found in report, using fallback"
+      );
       return Math.floor(Math.random() * 40) + 50; // 50-90 range
     });
+
+    console.log("🔍 [getScoreTrends] Final sparkline data:", sparkline);
 
     // Calculate trend (difference between last and first score)
     const trend =
       sparkline.length > 1 ? sparkline[sparkline.length - 1] - sparkline[0] : 0;
 
-    return {
+    const result = {
       overall: {
         trend: trend,
-        sparkline: sparkline,
+        sparkline: sparkline, // This will contain only the actual data from database
       },
     };
+
+    console.log("🔍 [getScoreTrends] Returning result:", result);
+    return result;
   } catch (error) {
     console.error("Error in getScoreTrends:", error);
     return generateFallbackTrends();
@@ -1336,19 +1387,12 @@ async function getScoreTrends(userId: string): Promise<any> {
 }
 
 function generateFallbackTrends(): any {
-  // Generate realistic 7-day trend data
-  const sparkline = [];
-  for (let i = 0; i < 7; i++) {
-    sparkline.push(Math.floor(Math.random() * 40) + 50); // 50-90 range
-  }
-
-  const trend =
-    sparkline.length > 1 ? sparkline[sparkline.length - 1] - sparkline[0] : 0;
-
+  // Return empty sparkline when no historical data is available
+  // This will show only today's data in the chart
   return {
     overall: {
-      trend: trend,
-      sparkline: sparkline,
+      trend: 0,
+      sparkline: [],
     },
   };
 }

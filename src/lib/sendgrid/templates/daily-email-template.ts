@@ -581,27 +581,27 @@ export function composeEnhancedMyMetricLogEmail(
             : ""
         }
       </div>
-      
-      <!-- Work Insight Section -->
-      <div style='background:#fef3c7; padding:10px; border-radius:4px; margin-top:10px; margin-bottom:10px; border-left:3px solid #fbbf24;'>
-        <strong style='color:#1565c0; font-size:13px;'>💡 Insight:</strong> 
-        <span style='font-size:13px;'>${generateWorkInsight(
-          scores,
-          calendarIntelligence,
-          emailResponseAnalysis
-        )}</span>
     </div>
     
-      <!-- Work Recommendation Section -->
-      <div style='background:#dbeafe; padding:12px; border-radius:6px; margin-bottom:16px; border-left:3px solid #93c5fd;'>
-        <strong style='color:#1565c0;'>🎯 Recommendation:</strong> 
-        <span style='font-size:13px;'>${generateWorkRecommendation(
-          scores,
-          calendarIntelligence,
-          emailResponseAnalysis
-        )}</span>
-          </div>
-  </div>
+    <!-- Work Insight Section -->
+    <div style='background:#fef3c7; padding:10px; border-radius:4px; margin-top:10px; margin-bottom:10px; border-left:3px solid #fbbf24;'>
+      <strong style='color:#1565c0; font-size:13px;'>💡 Insight:</strong> 
+      <span style='font-size:13px;'>${generateWorkInsight(
+        scores,
+        calendarIntelligence,
+        emailResponseAnalysis
+      )}</span>
+    </div>
+    
+    <!-- Work Recommendation Section -->
+    <div style='background:#dbeafe; padding:12px; border-radius:6px; margin-bottom:16px; border-left:3px solid #93c5fd;'>
+      <strong style='color:#1565c0;'>🎯 Recommendation:</strong> 
+      <span style='font-size:13px;'>${generateWorkRecommendation(
+        scores,
+        calendarIntelligence,
+        emailResponseAnalysis
+      )}</span>
+    </div>
   
   <!-- Physical Wellness Section - Code.js Style -->
   <div style='padding:20px; border-radius:8px; margin:20px 0; background: #f0fdf4; border-left: 4px solid #bbf7d0;'>
@@ -2549,27 +2549,54 @@ function generate7DayBarChart(scores: number[], color: string): string {
   const minScore = Math.min(...scores);
   const range = maxScore - minScore || 1; // Avoid division by zero
 
-  const dayLabels = ["6d", "5d", "4d", "3d", "2d", "1d", "Today"];
+  // Dynamic day labels based on number of scores
+  const generateDayLabels = (count: number): string[] => {
+    const labels = [];
+    for (let i = count - 1; i >= 1; i--) {
+      labels.push(`${i}d`);
+    }
+    labels.push("Today");
+    return labels;
+  };
+
+  const dayLabels = generateDayLabels(scores.length);
+
+  // Dynamic colors - use different colors for each bar
+  const allColors = [
+    "#ef4444", // Red
+    "#f97316", // Orange
+    "#f59e0b", // Amber
+    "#10b981", // Green
+    "#3b82f6", // Blue
+    "#8b5cf6", // Purple
+    "#ec4899", // Pink
+    "#06b6d4", // Cyan
+    "#84cc16", // Lime
+    "#f43f5e", // Rose
+  ];
 
   const bars = scores
     .map((score, index) => {
       const height = ((score - minScore) / range) * 40 + 20; // 20-60px height
-      const barColor =
-        score >= 80 ? "#10b981" : score >= 60 ? "#f59e0b" : "#ef4444";
+      const barColor = allColors[index % allColors.length]; // Cycle through colors
 
       return `
-      <div style='display: inline-block; margin: 0 2px; text-align: center; vertical-align: bottom;'>
-        <div style='font-size:11px; color:#6b7280; margin-bottom:4px; font-weight:500;'>${score}</div>
-        <div style='width: 20px; height: ${height}px; background: ${barColor}; border-radius: 2px 2px 0 0; margin: 0 auto;'></div>
-        <div style='font-size:10px; color:#9ca3af; margin-top:4px;'>${dayLabels[index]}</div>
-      </div>
-    `;
+        <td style='text-align: center; vertical-align: bottom; padding: 0 4px;'>
+          <div style='font-size:11px; color:#6b7280; margin-bottom:4px; font-weight:500;'>${score}</div>
+          <div style='width: 20px; height: ${height}px; background: ${barColor}; border-radius: 2px 2px 0 0; margin: 0 auto;'></div>
+          <div style='font-size:10px; color:#9ca3af; margin-top:4px;'>${dayLabels[index]}</div>
+        </td>
+      `;
     })
     .join("");
 
   return `
-    <div style='display: flex; align-items: end; justify-content: center; height: 80px; padding: 10px 0; gap: 8px;'>
-      ${bars}
+    <div style='text-align: center; padding: 10px 0;'>
+      <table style='margin: 0 auto; border-collapse: collapse;'>
+        <tr style='height: 80px; vertical-align: bottom;'>
+          ${bars}
+        </tr>
+      </table>
     </div>
   `;
 }
