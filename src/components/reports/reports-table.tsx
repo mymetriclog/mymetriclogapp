@@ -189,32 +189,32 @@ export function ReportsTable({ isLoading, reports }: ReportsTableProps) {
     };
 
     // Generate the HTML content
-    const emailHTML = generateReportHTML();
-
+    // const emailHTML = generateReportHTML();
+const emailHtml = report.html
     // Remove the historical chart section from the download
-    const htmlContent = emailHTML.replace(
-      /<div class="chart-section">[\s\S]*?<\/div>\s*<!-- At a Glance Section -->/,
-      "<!-- At a Glance Section -->"
-    );
+    // const htmlContent = emailHTML.replace(
+    //   /<div class="chart-section">[\s\S]*?<\/div>\s*<!-- At a Glance Section -->/,
+    //   "<!-- At a Glance Section -->"
+    // );
 
     // Create a complete HTML document
-    const fullHTML = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${report.kind === "daily" ? "Daily" : "Weekly"} Report - ${
-      report.date
-    }</title>
-</head>
-<body>
-    ${htmlContent}
-</body>
-</html>`;
+//     const fullHTML = `
+// <!DOCTYPE html>
+// <html lang="en">
+// <head>
+//     <meta charset="UTF-8">
+//     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+//     <title>${report.kind === "daily" ? "Daily" : "Weekly"} Report - ${
+//       report.date
+//     }</title>
+// </head>
+// <body>
+//     ${htmlContent}
+// </body>
+// </html>`;
 
     // Create a blob with the HTML content
-    const blob = new Blob([fullHTML], { type: "text/html" });
+    const blob = new Blob([emailHtml], { type: "text/html" });
 
     // Create a download link
     const url = window.URL.createObjectURL(blob);
