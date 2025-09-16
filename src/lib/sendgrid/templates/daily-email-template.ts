@@ -325,7 +325,7 @@ export function composeEnhancedMyMetricLogEmail(
   const htmlBody = `
   <div style='font-family:Helvetica,Arial,sans-serif; color:#333; max-width:600px; margin:auto;'>
     <!-- Logo -->
-    <div style='text-align:center; margin:20px 0;'>
+    <div style='display:flex; justify-content:center; margin:20px 0;'>
       <img src='${MYMETRICLOG_LOGO}' alt='MyMetricLog Logo' style='max-width:300px; height:auto;'/>
     </div>
     
