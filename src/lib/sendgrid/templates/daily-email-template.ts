@@ -786,7 +786,7 @@ export function composeEnhancedMyMetricLogEmail(
       <!-- Weather Section - Full Width -->
       <div style='background:white; padding:20px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1); margin-bottom:20px;'>
         <div style='display:flex; align-items:center; margin-bottom:20px;'>
-          <div style='width:60px; height:60px; background:#e3f2fd; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-right:15px;'>
+          <div style='width:60px; height:60px;  border-radius:8px; display:flex; align-items:center; justify-content:center; margin-right:15px;'>
             <img src='${getSageImage(
               "weather"
             )}' alt='Weather Fox' style='width:40px; height:40px;'/>
@@ -804,7 +804,7 @@ export function composeEnhancedMyMetricLogEmail(
       <!-- Music Section - Full Width -->
       <div style='background:white; padding:20px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1);'>
         <div style='display:flex; align-items:center; margin-bottom:20px;'>
-          <div style='width:60px; height:60px; background:#f3e5f5; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-right:15px;'>
+          <div style='width:60px; height:60px;  border-radius:8px; display:flex; align-items:center; justify-content:center; margin-right:15px;'>
             <img src='${getSageImage(
               "music"
             )}' alt='Music Fox' style='width:40px; height:40px;'/>
@@ -819,7 +819,7 @@ export function composeEnhancedMyMetricLogEmail(
     <!-- Daily Mantra - Code.js Style -->
     <div style='background:#faf5ff; padding:20px; border-radius:12px; margin:20px 0; box-shadow:0 2px 8px rgba(0,0,0,0.1);'>
       <div style='display:flex; align-items:center; margin-bottom:16px;'>
-        <div style='width:60px; height:60px; background:#e9d5ff; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-right:15px;'>
+        <div style='width:60px; height:60px; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-right:15px;'>
         <img src='${getSageImage(
           "meditation"
         )}' alt='Meditation Fox' style='width:40px; height:40px;'/>
@@ -3102,26 +3102,23 @@ function generateMusicInsights(
 ): string {
   // Parse music data
   const musicData = parseMusicData(spotifySummary);
-
+  const tracksPlayed = musicData.tracksPlayed
+const topArtist = musicData.topArtist.split('\n')[0]
+const topTrack = musicData.topTrack.split('\n')[0]
   let html = `
     <!-- Music Summary -->
     <div style='font-size:14px; color:#424242; margin-bottom:16px;'>
-      <div style='margin-bottom:8px;'><strong>Tracks played:</strong> ${
-        musicData.tracksPlayed
+      <div style='margin-bottom:4px;'><strong>🎧 Tracks played:</strong> ${
+        tracksPlayed
       }</div>
-      <div style='margin-bottom:8px;'><strong>Top Artist:</strong> ${
-        musicData.topArtist
+      <div style='margin-bottom:4px;'><strong>👤 Top Artist:</strong> ${
+        topArtist
       }</div>
-      <div style='margin-bottom:8px;'><strong>Top Track:</strong> ${
-        musicData.topTrack
+      <div style='margin-bottom:4px;'><strong>🎵 Top Track:</strong> ${
+        topTrack
       }</div>
-    </div>
-    
-    <!-- Listening Activity Breakdown -->
-    <div style='background:#f8f9fa; padding:16px; border-radius:6px; margin-bottom:16px;'>
-      <div style='font-size:14px; font-weight:600; color:#424242; margin-bottom:8px;'>Listening Activity Breakdown:</div>
       <div style='font-size:13px; color:#666; margin-bottom:8px;'>
-        Morning: ${musicData.morning} | Midday: ${
+        🕓 Morning: ${musicData.morning} | Midday: ${
     musicData.midday
   } | Afternoon: ${musicData.afternoon} | Evening: ${
     musicData.evening
@@ -3138,6 +3135,11 @@ function generateMusicInsights(
           : ""
       }
     </div>
+    
+    
+     
+    
+    
   `;
 
   // Add Music Insight
