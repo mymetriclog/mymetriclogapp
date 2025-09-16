@@ -113,7 +113,7 @@ export function ReportViewerModal({
     });
 
     // Use the exact same generateReportHTML function that the modal uses
-    const htmlContent = generateReportHTML(report);
+    const htmlContent = report.html;
 
     // Debug: Log the generated HTML content length
     console.log("📄 Generated HTML Content Length:", htmlContent.length);
@@ -166,7 +166,7 @@ export function ReportViewerModal({
   };
 
   // Generate the HTML content for modal display (without historical chart)
-  const generateReportHTML = (report: ReportData) => {
+  const generateReportHTML = () => {
     // Debug: Log the incoming report data
     console.log("🔄 generateReportHTML called with report:", {
       id: report.id,
@@ -603,7 +603,7 @@ export function ReportViewerModal({
         <div className="overflow-y-auto h-full p-2 sm:p-4">
           <div
             className="report-content"
-            dangerouslySetInnerHTML={{ __html: generateReportHTML(report) }}
+            dangerouslySetInnerHTML={{ __html: report.html }}
             style={{
               transformOrigin: "top center",
               margin: "0 auto",

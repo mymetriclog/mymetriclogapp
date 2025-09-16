@@ -60,7 +60,7 @@ export async function GET() {
           date: report.report_date,
           kind: report.report_type,
           score: getScoreFromReport(report),
-          html: generateComprehensiveHTMLFromReportData(reportData),
+          html: report.html_content,
           json: reportData, // Return the full report data instead of just report.report_data
           ai_insights: reportData.ai_insights || report.ai_insights,
           created_at: report.created_at,

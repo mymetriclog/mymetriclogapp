@@ -325,6 +325,9 @@ async function sendEmailToUser(
 
       const emailHTML = generateDailyReportEmail(reportResult.reportData);
 
+      // Save email HTML content to database
+      await saveEmailHTMLToDatabase(userId, reportResult.reportData.date, emailHTML, "daily");
+
       // Add CC for specific user
       const ccEmails = userEmail === "josh987@gmail.com" ? [""] : undefined;
 
@@ -356,6 +359,9 @@ async function sendEmailToUser(
         "@/lib/sendgrid/templates/weekly-email-template"
       );
       const emailHTML = generateWeeklyReportEmail(reportResult.reportData);
+
+      // Save email HTML content to database
+      await saveEmailHTMLToDatabase(userId, reportResult.reportData.startDate, emailHTML, "weekly");
 
       // Add CC for specific user
       const ccEmails = userEmail === "josh987@gmail.com" ? [""] : undefined;
@@ -392,5 +398,41 @@ async function sendEmailToUser(
     }
 
     // Don't fail the entire job if email fails
+  }
+}
+
+// Save email HTML content to database
+async function saveEmailHTMLToDatabase(
+  userId: string,
+  reportDate: string,
+  htmlContent: string,
+  reportType: "daily" | "weekly"
+): Promise<void> {
+  try {
+    const { getServerSupabaseClientWithServiceRole } = await import(
+      "@/lib/supabase/server"
+    );
+    const supabase = await getServerSupabaseClientWithServiceRole();
+
+    // Update the existing report record with HTML content
+    const { error } = await supabase
+      .from("reports")
+      .update({
+        html_content: htmlContent,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId)
+      .eq("report_type", reportType)
+      .eq("report_date", reportDate);
+
+    if (error) {
+      console.error("❌ Error saving email HTML to database:", error);
+      // Don't throw error to avoid failing the entire job
+    } else {
+      console.log(`✅ Email HTML content saved to database for ${reportType} report on ${reportDate}`);
+    }
+  } catch (error) {
+    console.error("❌ Error saving email HTML to database:", error);
+    // Don't throw error to avoid failing the entire job
   }
 }
