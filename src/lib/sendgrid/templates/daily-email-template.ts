@@ -323,9 +323,9 @@ export function composeEnhancedMyMetricLogEmail(
 
   // Build HTML with inline styles for email compatibility
   const htmlBody = `
-  <div style='font-family:Helvetica,Arial,sans-serif; color:#333; max-width:600px; margin:auto;'>
+  <div  style='font-family:Helvetica,Arial,sans-serif; color:#333; max-width:600px; margin:auto;'>
     <!-- Logo -->
-    <div style='display:flex; justify-content:center; margin:20px 0; text-align:center; margin:20px 0;'>
+    <div class='email-container-wrapper' style='justify-content:center; margin:20px 0; text-align:center; margin:20px 0;'>
       <img src='${MYMETRICLOG_LOGO}' alt='MyMetricLog Logo' style='max-width:300px; height:auto;'/>
     </div>
     
