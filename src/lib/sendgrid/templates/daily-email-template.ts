@@ -325,7 +325,7 @@ export function composeEnhancedMyMetricLogEmail(
   const htmlBody = `
   <div style='font-family:Helvetica,Arial,sans-serif; color:#333; max-width:600px; margin:auto;'>
     <!-- Logo -->
-    <div style='display:flex; justify-content:center; margin:20px 0;'>
+    <div style='display:flex; justify-content:center; margin:20px 0; text-align:center; margin:20px 0;'>
       <img src='${MYMETRICLOG_LOGO}' alt='MyMetricLog Logo' style='max-width:300px; height:auto;'/>
     </div>
     
@@ -335,8 +335,8 @@ export function composeEnhancedMyMetricLogEmail(
     <!-- Overall Score -->
     <div style='text-align:center; margin:20px 0;'>
       <div style='font-size:52px; font-weight:bold; color:${scoreColor};'>${
-      scores?.total || 0
-    }</div>
+    scores?.total || 0
+  }</div>
       <div style='font-size:18px; color:#555; margin-bottom:5px;'><strong>Overall Score</strong>${scoreTrend}</div>
       <div style='margin-top:8px;'>${generateStatusTag(
         "Overall",
@@ -394,8 +394,8 @@ export function composeEnhancedMyMetricLogEmail(
       <br><br>
       <span style='font-size:14px; color:#666;'>
         Yesterday's (${dayContext?.dayName || "day"}) mood: ${
-      previousMood || ""
-    }<br>
+    previousMood || ""
+  }<br>
         Note: Sleep data reflects last night's rest (affecting today's energy)
       </span>
     </div>
@@ -559,7 +559,9 @@ export function composeEnhancedMyMetricLogEmail(
                   • Average response time: <strong>${
                     emailResponseAnalysis.avgMinutes < 60
                       ? emailResponseAnalysis.avgMinutes + " minutes"
-                      : Math.round((emailResponseAnalysis.avgMinutes / 60) * 10) /
+                      : Math.round(
+                          (emailResponseAnalysis.avgMinutes / 60) * 10
+                        ) /
                           10 +
                         " hours"
                   }</strong><br>
@@ -688,7 +690,9 @@ export function composeEnhancedMyMetricLogEmail(
         <!-- Activity Insight -->
         <div style='background:#fef3c7; padding:10px; border-radius:4px; margin-top:10px; margin-bottom:10px; border-left:3px solid #fbbf24;'>
           <strong style='color:#2e7d32; font-size:13px;'>💡 Insight:</strong> 
-          <span style='font-size:13px;'>${generateActivityInsight(scores)}</span>
+          <span style='font-size:13px;'>${generateActivityInsight(
+            scores
+          )}</span>
         </div>
         
         <!-- Activity Recommendation -->
@@ -841,9 +845,9 @@ export function composeEnhancedMyMetricLogEmail(
       🦊 Tracking • 📊 Analyzing • 🎯 Growing Together
     </div>
   </div>`;
-  
-    return htmlBody;
-  }
+
+  return htmlBody;
+}
 
 // Updated function to use composeEnhancedMyMetricLogEmail
 export function generateDailyReportEmail(data: any): string {
@@ -3102,21 +3106,15 @@ function generateMusicInsights(
 ): string {
   // Parse music data
   const musicData = parseMusicData(spotifySummary);
-  const tracksPlayed = musicData.tracksPlayed
-const topArtist = musicData.topArtist.split('\n')[0]
-const topTrack = musicData.topTrack.split('\n')[0]
+  const tracksPlayed = musicData.tracksPlayed;
+  const topArtist = musicData.topArtist.split("\n")[0];
+  const topTrack = musicData.topTrack.split("\n")[0];
   let html = `
     <!-- Music Summary -->
     <div style='font-size:14px; color:#424242; margin-bottom:16px;'>
-      <div style='margin-bottom:4px;'><strong>🎧 Tracks played:</strong> ${
-        tracksPlayed
-      }</div>
-      <div style='margin-bottom:4px;'><strong>👤 Top Artist:</strong> ${
-        topArtist
-      }</div>
-      <div style='margin-bottom:4px;'><strong>🎵 Top Track:</strong> ${
-        topTrack
-      }</div>
+      <div style='margin-bottom:4px;'><strong>🎧 Tracks played:</strong> ${tracksPlayed}</div>
+      <div style='margin-bottom:4px;'><strong>👤 Top Artist:</strong> ${topArtist}</div>
+      <div style='margin-bottom:4px;'><strong>🎵 Top Track:</strong> ${topTrack}</div>
       <div style='font-size:13px; color:#666; margin-bottom:8px;'>
         🕓 Morning: ${musicData.morning} | Midday: ${
     musicData.midday
