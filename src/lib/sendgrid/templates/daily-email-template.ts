@@ -323,526 +323,527 @@ export function composeEnhancedMyMetricLogEmail(
 
   // Build HTML with inline styles for email compatibility
   const htmlBody = `
-<div style='font-family:Helvetica,Arial,sans-serif; color:#333; max-width:600px; margin:auto;'>
-  <!-- Logo -->
-  <div style='text-align:center; margin:20px 0;'>
-    <img src='${MYMETRICLOG_LOGO}' alt='MyMetricLog Logo' style='max-width:300px; height:auto;'/>
-  </div>
-  
-  <!-- Date header -->
-  <div style='text-align:center; margin:10px 0; font-size:18px; color:#555;'>${fullDateStr}</div>
-  
-  <!-- Overall Score -->
-  <div style='text-align:center; margin:20px 0;'>
-    <div style='font-size:52px; font-weight:bold; color:${scoreColor};'>${
-    scores?.total || 0
-  }</div>
-    <div style='font-size:18px; color:#555; margin-bottom:5px;'><strong>Overall Score</strong>${scoreTrend}</div>
-    <div style='margin-top:8px;'>${generateStatusTag(
-      "Overall",
-      scores?.total || 0,
-      false,
-      true
-    )}</div>
+  <div style='font-family:Helvetica,Arial,sans-serif; color:#333; max-width:600px; margin:auto;'>
+    <!-- Logo -->
+    <div style='text-align:center; margin:20px 0;'>
+      <img src='${MYMETRICLOG_LOGO}' alt='MyMetricLog Logo' style='max-width:300px; height:auto;'/>
+    </div>
     
-    <!-- Daily Comparison -->
-    ${generateDailyComparison(scores?.total || 0, dayContext, trendsData)}
+    <!-- Date header -->
+    <div style='text-align:center; margin:10px 0; font-size:18px; color:#555;'>${fullDateStr}</div>
     
-    <!-- 7-Day Bar Chart -->
+    <!-- Overall Score -->
+    <div style='text-align:center; margin:20px 0;'>
+      <div style='font-size:52px; font-weight:bold; color:${scoreColor};'>${
+      scores?.total || 0
+    }</div>
+      <div style='font-size:18px; color:#555; margin-bottom:5px;'><strong>Overall Score</strong>${scoreTrend}</div>
+      <div style='margin-top:8px;'>${generateStatusTag(
+        "Overall",
+        scores?.total || 0,
+        false,
+        true
+      )}</div>
+      
+      <!-- Daily Comparison -->
+      ${generateDailyComparison(scores?.total || 0, dayContext, trendsData)}
+      
+      <!-- 7-Day Bar Chart -->
+      ${
+        trendsData &&
+        trendsData.overall &&
+        trendsData.overall.sparkline &&
+        trendsData.overall.sparkline.length > 0
+          ? `<div style='margin-top:15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef; text-align: center;'>
+              ${generate7DayBarChart(trendsData.overall.sparkline, scoreColor)}
+          </div>`
+          : ""
+      }
+    </div>
+    
+    <!-- Anomalies Alert -->
     ${
-      trendsData &&
-      trendsData.overall &&
-      trendsData.overall.sparkline &&
-      trendsData.overall.sparkline.length > 0
-        ? `<div style='margin-top:15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef; text-align: center;'>
-            ${generate7DayBarChart(trendsData.overall.sparkline, scoreColor)}
-        </div>`
-        : ""
-    }
-  </div>
-  
-  <!-- Anomalies Alert -->
-  ${
-    anomaliesData.detected.length > 0
-      ? `<div style='background:#fef2f2; padding:16px; border-radius:8px; margin:20px 0; border-left: 4px solid #fecaca;'>
-        <div style='display: flex; align-items: center;'>
-          <span style='font-size:24px; margin-right:10px;'>🚨</span>
-          <div>
-            <strong style='font-size:16px; color:#d33;'>Biometric Anomalies Detected</strong><br>
-            ${anomaliesData.detected
-              .map(
-                (a: any) => `
-              <div style='margin-top:8px;'>
-                <strong>${a.type}:</strong> ${a.value}<br>
-                <span style='color:#666; font-size:14px;'>${a.insight}</span>
-    </div>
-            `
-              )
-              .join("")}
-  </div>
-        </div>
-      </div>`
-      : ""
-  }
-  
-  <!-- At a Glance -->
-  <div style='background:#e8f0fe; padding:16px; border-radius:8px; text-align:center; margin:20px 0; border-left: 4px solid #1976d2; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
-    <strong style='font-size:16px;'>At a Glance:</strong><br>
-    <span style='font-size:15px; color:#424242; line-height:1.6;'>
-      ${sleepStr} sleep | ${stepsStr} steps | ${caloriesStr} | ${activeStr} | ${restingHRStr}
-    </span>
-    <br><br>
-    <span style='font-size:14px; color:#666;'>
-      Yesterday's (${dayContext?.dayName || "day"}) mood: ${
-    previousMood || ""
-  }<br>
-      Note: Sleep data reflects last night's rest (affecting today's energy)
-    </span>
-  </div>
-  
-  <!-- Intraday Visualization -->
-  ${intradayViz}
-  
-  <!-- Overall Analysis section -->
-  <div style='margin:16px 0; padding:16px; background: #f0f4ff; border-left: 4px solid #b8ccff; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
-    <h3 style='font-size:20px; font-weight:600; color:#1a1a1a; margin:0 0 12px 0;'>
-      <img src='${getSageImage(
-        "analysis"
-      )}' alt='Sage Analysis' style='height:60px; width:auto; vertical-align:middle; margin-right:12px;'/>
-      Your Day, Decoded by Sage
-    </h3>
-    <p style='margin:10px 0; font-size:16px; color:#6c5ce7; font-style:italic;'>${insightHeadline}</p>
-    <div style='font-family:Arial, sans-serif; font-size:14px; line-height:1.6; color:#333;'>
-      ${convertAndFormatInsight(gptSummary)}
-    </div>
-  </div>
-  
-  <!-- Performance Breakdown - Code.js Style -->
-  <div style='background:#f0f4ff; border-left: 4px solid #b8ccff; padding:20px; border-radius:8px; margin:20px 0; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
-    <h4 style='font-size:18px; font-weight:600; color:#1a1a1a; margin:0 0 12px 0;'>Performance Breakdown</h4>
-    <table style='width:100%; border-collapse: collapse;'>
-      <tr>
-        <td style='width:50%; padding:10px; vertical-align:top;'>
-          ${generatePerformanceMetricCard(
-            "Sleep",
-            scores?.sleep || 0,
-            "#7c4dff",
-            trendsData?.overall?.sparkline || []
-          )}
-          ${generatePerformanceMetricCard(
-            "Activity",
-            scores?.activity || 0,
-            "#0f9d58",
-            trendsData?.overall?.sparkline || []
-          )}
-        </td>
-        <td style='width:50%; padding:10px; vertical-align:top;'>
-          ${generatePerformanceMetricCard(
-            "Heart",
-            scores?.heart || 0,
-            "#ea4335",
-            trendsData?.overall?.sparkline || []
-          )}
-          ${generatePerformanceMetricCard(
-            "Work",
-            scores?.work || 0,
-            "#f9ab00",
-            trendsData?.overall?.sparkline || []
-          )}
-        </td>
-      </tr>
-    </table>
-  </div>
-  
-
-  <!-- Mood Reflection Section - Matching reportold.tsx -->
-  <div style='background:#f0f4ff; padding:20px; border-radius:8px; margin:20px 0; border-left: 4px solid #b8ccff;'>
-    <h3 style='font-size:20px; font-weight:600; color:#1a1a1a; margin:0 0 16px 0;'>
-      <img src='${getSageImage(
-        "meditation"
-      )}' alt='Sage Meditation' style='height:60px; width:auto; vertical-align:middle; margin-right:12px;'/>
-      😊 Mood Reflection
-    </h3>
-    <div style='background:white; padding:16px; border-radius:6px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
-      <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
-        ${moodInsight}
-      </div>
-    </div>
-  </div>
-  
-  <!-- Badge Section -->
-  ${generateBadgeSection(badges, [], badgeNarrative)}
-  
-  <!-- AI Deep Insights -->
-  ${
-    (deepInsightsData.patterns?.length || 0) > 0 ||
-    (deepInsightsData.prescriptions?.length || 0) > 0
-      ? `<div style='background: #f0f4ff; padding:16px; border-radius:8px; margin:20px 0; border-left: 4px solid #b8ccff;'>
-        <h4 style='font-size:18px; font-weight:600; color:#1a1a1a; margin:0 0 12px 0;'>🤖 AI Pattern Recognition</h4>
-        ${(deepInsightsData.patterns || [])
-          .map(
-            (p: any) => `
-          <div style='margin-bottom:10px;'>
-            <strong>${p.type}:</strong> ${p.detail} 
-            <span style='color:#666; font-size:12px;'>(${Math.round(
-              p.confidence * 100
-            )}% confidence)</span>
-          </div>
-        `
-          )
-          .join("")}
-        ${
-          (deepInsightsData.prescriptions?.length || 0) > 0
-            ? `<div style='margin-top:15px; padding-top:15px; border-top:1px solid rgba(0,0,0,0.1);'>
-              <strong style='color:#4a148c;'>Recommended Actions:</strong>
-              ${(deepInsightsData.prescriptions || [])
+      anomaliesData.detected.length > 0
+        ? `<div style='background:#fef2f2; padding:16px; border-radius:8px; margin:20px 0; border-left: 4px solid #fecaca;'>
+          <div style='display: flex; align-items: center;'>
+            <span style='font-size:24px; margin-right:10px;'>🚨</span>
+            <div>
+              <strong style='font-size:16px; color:#d33;'>Biometric Anomalies Detected</strong><br>
+              ${anomaliesData.detected
                 .map(
-                  (p: any) => `
-                <div style='margin-top:8px; padding:8px; background:rgba(255,255,255,0.7); border-radius:4px;'>
-                  <strong>${p.action}</strong><br>
-                  <span style='font-size:13px; color:#555;'>${p.detail}</span>
-                </div>
+                  (a: any) => `
+                <div style='margin-top:8px;'>
+                  <strong>${a.type}:</strong> ${a.value}<br>
+                  <span style='color:#666; font-size:14px;'>${a.insight}</span>
+      </div>
               `
                 )
                 .join("")}
-            </div>`
-            : ""
-        }
-      </div>`
-      : ""
-  }
-  
-  <!-- Work Overview Section - Code.js Style -->
-  <div style='padding:20px; border-radius:8px; margin:20px 0; background: #f0f4f7; border-left: 4px solid #cbd5e1;'>
-    <table style='width:100%; margin-bottom:20px;'>
-      <tr>
-        <td rowspan='2' style='width:60px; vertical-align:middle;'>
-          <img src='${getSageImage(
-            "working"
-          )}' alt='Sage Working' style='height:60px; width:auto;'/>
-        </td>
-        <td style='vertical-align:bottom; padding-left:12px;'>
-          <h3 style='font-size:20px; font-weight:600; color:#1a1a1a; margin:0;'>Work Overview</h3>
-        </td>
-      </tr>
-      <tr>
-        <td style='vertical-align:top; padding-left:12px;'>
-          <div style='font-size:36px; font-weight:bold; color:${getScoreColor(
-            scores?.work || 0,
-            false
-          )};'>${scores?.work || 0}</div>
-        </td>
-      </tr>
-    </table>
-    <div style='background:white; padding:16px; border-radius:6px; margin-bottom:12px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
-      <h4 style='font-size:16px; font-weight:600; color:#424242; margin:0 0 8px 0;'>📅 Calendar</h4>
-      <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
-        ${calSummary.replace(/\n/g, "<br>")}
-        ${
-          calendarIntelligence && calendarIntelligence.score < 100
-            ? `<br><span style='color:#ff6f00;'>⚠️ ${calendarIntelligence.insights.join(
-                ", "
-              )}</span>`
-            : ""
-        }
-      </div>
     </div>
-    <div style='background:white; padding:16px; border-radius:6px; margin-bottom:12px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
-      <h4 style='font-size:16px; font-weight:600; color:#424242; margin:0 0 8px 0;'>✉️ Email</h4>
-      <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
-        ${emailSummary.replace(/\n/g, "<br>")}
-        ${
-          emailResponseAnalysis && emailResponseAnalysis.avgMinutes
-            ? `<br><div style='background:#f3e5f5; padding:10px; border-radius:4px; margin-top:8px;'>
-              <strong>⚡ Email Response Patterns:</strong><br>
-              <span style='font-size:13px;'>
-                • Average response time: <strong>${
-                  emailResponseAnalysis.avgMinutes < 60
-                    ? emailResponseAnalysis.avgMinutes + " minutes"
-                    : Math.round((emailResponseAnalysis.avgMinutes / 60) * 10) /
-                        10 +
-                      " hours"
-                }</strong><br>
-              • Response pattern: <strong>${
-                emailResponseAnalysis.pattern
-              }</strong><br>
-              • Productivity insight: ${emailResponseAnalysis.insight}
-              </span>
-            </div>`
-            : ""
-        }
-        ${
-          emailManagementInsight
-            ? `<div style='border-left:3px solid #3b82f6; padding-left:12px; margin-top:12px;'>
-              <div style='font-size:13px; color:#5f6368;'>
-        ${emailManagementInsight}
           </div>
-            </div>`
-            : ""
-        }
+        </div>`
+        : ""
+    }
+    
+    <!-- At a Glance -->
+    <div style='background:#e8f0fe; padding:16px; border-radius:8px; text-align:center; margin:20px 0; border-left: 4px solid #1976d2; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
+      <strong style='font-size:16px;'>At a Glance:</strong><br>
+      <span style='font-size:15px; color:#424242; line-height:1.6;'>
+        ${sleepStr} sleep | ${stepsStr} steps | ${caloriesStr} | ${activeStr} | ${restingHRStr}
+      </span>
+      <br><br>
+      <span style='font-size:14px; color:#666;'>
+        Yesterday's (${dayContext?.dayName || "day"}) mood: ${
+      previousMood || ""
+    }<br>
+        Note: Sleep data reflects last night's rest (affecting today's energy)
+      </span>
+    </div>
+    
+    <!-- Intraday Visualization -->
+    ${intradayViz}
+    
+    <!-- Overall Analysis section -->
+    <div style='margin:16px 0; padding:16px; background: #f0f4ff; border-left: 4px solid #b8ccff; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
+      <h3 style='font-size:20px; font-weight:600; color:#1a1a1a; margin:0 0 12px 0;'>
+        <img src='${getSageImage(
+          "analysis"
+        )}' alt='Sage Analysis' style='height:60px; width:auto; vertical-align:middle; margin-right:12px;'/>
+        Your Day, Decoded by Sage
+      </h3>
+      <p style='margin:10px 0; font-size:16px; color:#6c5ce7; font-style:italic;'>${insightHeadline}</p>
+      <div style='font-family:Arial, sans-serif; font-size:14px; line-height:1.6; color:#333;'>
+        ${convertAndFormatInsight(gptSummary)}
       </div>
     </div>
     
-    <!-- Work Insight Section -->
-    <div style='background:#fef3c7; padding:10px; border-radius:4px; margin-top:10px; margin-bottom:10px; border-left:3px solid #fbbf24;'>
-      <strong style='color:#1565c0; font-size:13px;'>💡 Insight:</strong> 
-      <span style='font-size:13px;'>${generateWorkInsight(
-        scores,
-        calendarIntelligence,
-        emailResponseAnalysis
-      )}</span>
-    </div>
-    
-    <!-- Work Recommendation Section -->
-    <div style='background:#dbeafe; padding:12px; border-radius:6px; margin-bottom:16px; border-left:3px solid #93c5fd;'>
-      <strong style='color:#1565c0;'>🎯 Recommendation:</strong> 
-      <span style='font-size:13px;'>${generateWorkRecommendation(
-        scores,
-        calendarIntelligence,
-        emailResponseAnalysis
-      )}</span>
-    </div>
-  
-  <!-- Physical Wellness Section - Code.js Style -->
-  <div style='padding:20px; border-radius:8px; margin:20px 0; background: #f0fdf4; border-left: 4px solid #bbf7d0;'>
-    <h3 style='font-size:20px; font-weight:600; color:#1a1a1a; margin:0 0 16px 0;'>🏃 Physical Wellness</h3>
-    
-    <!-- Sleep subsection -->
-    <div style='background:white; padding:16px; border-radius:6px; margin-bottom:12px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
-      <table style='width:100%; margin-bottom:16px;'>
+    <!-- Performance Breakdown - Code.js Style -->
+    <div style='background:#f0f4ff; border-left: 4px solid #b8ccff; padding:20px; border-radius:8px; margin:20px 0; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
+      <h4 style='font-size:18px; font-weight:600; color:#1a1a1a; margin:0 0 12px 0;'>Performance Breakdown</h4>
+      <table style='width:100%; border-collapse: collapse;'>
         <tr>
-          <td rowspan='2' style='width:48px; vertical-align:middle;'>
-            <img src='${getSageImage(
-              "sleep"
-            )}' alt='Sage Sleep' style='width:48px; height:auto;'/>
-          </td>
-          <td style='vertical-align:bottom; padding-left:10px;'>
-            <h4 style='font-size:16px; font-weight:600; color:#424242; margin:0;'>Sleep</h4>
-          </td>
-        </tr>
-        <tr>
-          <td style='vertical-align:top; padding-left:10px;'>
-            <div style='font-size:36px; font-weight:bold; color:${getScoreColor(
+          <td style='width:50%; padding:10px; vertical-align:top;'>
+            ${generatePerformanceMetricCard(
+              "Sleep",
               scores?.sleep || 0,
-              false
-            )};'>${scores?.sleep || 0}</div>
-          </td>
-        </tr>
-      </table>
-      <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
-        ${fitbitSleep.replace(/\n/g, "<br>")}
-        ${generateSleepStagesVisualization(fitbitSleep)}
-      </div>
-      
-      <!-- Sleep Insight -->
-      <div style='background:#fef3c7; padding:10px; border-radius:4px; margin-top:10px; margin-bottom:10px; border-left:3px solid #fbbf24;'>
-        <strong style='color:#6a1b9a; font-size:13px;'>💡 Insight:</strong> 
-        <span style='font-size:13px;'>${generateSleepInsight(scores)}</span>
-      </div>
-      
-      <!-- Sleep Recommendation -->
-      <div style='background:#dbeafe; padding:10px; border-radius:4px; margin-bottom:12px; border-left:3px solid #93c5fd;'>
-        <strong style='color:#6a1b9a; font-size:13px;'>🎯 Recommendation:</strong> 
-        <span style='font-size:13px;'>${generateSleepRecommendation(
-          scores
-        )}</span>
-      </div>
-    </div>
-    
-    <!-- Activity subsection -->
-    <div style='background:white; padding:16px; border-radius:6px; margin-bottom:12px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
-      <table style='width:100%; margin-bottom:16px;'>
-        <tr>
-          <td rowspan='2' style='width:48px; vertical-align:middle;'>
-            <img src='${getSageImage(
-              "active"
-            )}' alt='Sage Active' style='width:48px; height:auto;'/>
-          </td>
-          <td style='vertical-align:bottom; padding-left:10px;'>
-            <h4 style='font-size:16px; font-weight:600; color:#424242; margin:0;'>Activity</h4>
-          </td>
-        </tr>
-        <tr>
-          <td style='vertical-align:top; padding-left:10px;'>
-            <div style='font-size:36px; font-weight:bold; color:${getScoreColor(
+              "#7c4dff",
+              trendsData?.overall?.sparkline || []
+            )}
+            ${generatePerformanceMetricCard(
+              "Activity",
               scores?.activity || 0,
-              false
-            )};'>${scores?.activity || 0}</div>
+              "#0f9d58",
+              trendsData?.overall?.sparkline || []
+            )}
+          </td>
+          <td style='width:50%; padding:10px; vertical-align:top;'>
+            ${generatePerformanceMetricCard(
+              "Heart",
+              scores?.heart || 0,
+              "#ea4335",
+              trendsData?.overall?.sparkline || []
+            )}
+            ${generatePerformanceMetricCard(
+              "Work",
+              scores?.work || 0,
+              "#f9ab00",
+              trendsData?.overall?.sparkline || []
+            )}
           </td>
         </tr>
       </table>
-      <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
-        ${
-          fitbitActivityLog
-            ? `<div style='background:#e3f2fd; padding:10px; border-radius:4px; margin-bottom:10px;'><strong>📋 Logged Activities:</strong><br>${
-                typeof fitbitActivityLog === "string"
-                  ? fitbitActivityLog.replace(/\n/g, "<br>")
-                  : JSON.stringify(fitbitActivityLog)
-              }</div>`
-            : ""
-        }
-        ${generateActivityZonesVisualization(fitbitActivity)}
+    </div>
+    
+  
+    <!-- Mood Reflection Section - Matching reportold.tsx -->
+    <div style='background:#f0f4ff; padding:20px; border-radius:8px; margin:20px 0; border-left: 4px solid #b8ccff;'>
+      <h3 style='font-size:20px; font-weight:600; color:#1a1a1a; margin:0 0 16px 0;'>
+        <img src='${getSageImage(
+          "meditation"
+        )}' alt='Sage Meditation' style='height:60px; width:auto; vertical-align:middle; margin-right:12px;'/>
+        😊 Mood Reflection
+      </h3>
+      <div style='background:white; padding:16px; border-radius:6px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
+        <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
+          ${moodInsight}
+        </div>
+      </div>
+    </div>
+    
+    <!-- Badge Section -->
+    ${generateBadgeSection(badges, [], badgeNarrative)}
+    
+    <!-- AI Deep Insights -->
+    ${
+      (deepInsightsData.patterns?.length || 0) > 0 ||
+      (deepInsightsData.prescriptions?.length || 0) > 0
+        ? `<div style='background: #f0f4ff; padding:16px; border-radius:8px; margin:20px 0; border-left: 4px solid #b8ccff;'>
+          <h4 style='font-size:18px; font-weight:600; color:#1a1a1a; margin:0 0 12px 0;'>🤖 AI Pattern Recognition</h4>
+          ${(deepInsightsData.patterns || [])
+            .map(
+              (p: any) => `
+            <div style='margin-bottom:10px;'>
+              <strong>${p.type}:</strong> ${p.detail} 
+              <span style='color:#666; font-size:12px;'>(${Math.round(
+                p.confidence * 100
+              )}% confidence)</span>
+            </div>
+          `
+            )
+            .join("")}
+          ${
+            (deepInsightsData.prescriptions?.length || 0) > 0
+              ? `<div style='margin-top:15px; padding-top:15px; border-top:1px solid rgba(0,0,0,0.1);'>
+                <strong style='color:#4a148c;'>Recommended Actions:</strong>
+                ${(deepInsightsData.prescriptions || [])
+                  .map(
+                    (p: any) => `
+                  <div style='margin-top:8px; padding:8px; background:rgba(255,255,255,0.7); border-radius:4px;'>
+                    <strong>${p.action}</strong><br>
+                    <span style='font-size:13px; color:#555;'>${p.detail}</span>
+                  </div>
+                `
+                  )
+                  .join("")}
+              </div>`
+              : ""
+          }
+        </div>`
+        : ""
+    }
+    
+    <!-- Work Overview Section - Code.js Style -->
+    <div style='padding:20px; border-radius:8px; margin:20px 0; background: #f0f4f7; border-left: 4px solid #cbd5e1;'>
+      <table style='width:100%; margin-bottom:20px;'>
+        <tr>
+          <td rowspan='2' style='width:60px; vertical-align:middle;'>
+            <img src='${getSageImage(
+              "working"
+            )}' alt='Sage Working' style='height:60px; width:auto;'/>
+          </td>
+          <td style='vertical-align:bottom; padding-left:12px;'>
+            <h3 style='font-size:20px; font-weight:600; color:#1a1a1a; margin:0;'>Work Overview</h3>
+          </td>
+        </tr>
+        <tr>
+          <td style='vertical-align:top; padding-left:12px;'>
+            <div style='font-size:36px; font-weight:bold; color:${getScoreColor(
+              scores?.work || 0,
+              false
+            )};'>${scores?.work || 0}</div>
+          </td>
+        </tr>
+      </table>
+      <div style='background:white; padding:16px; border-radius:6px; margin-bottom:12px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
+        <h4 style='font-size:16px; font-weight:600; color:#424242; margin:0 0 8px 0;'>📅 Calendar</h4>
+        <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
+          ${calSummary.replace(/\n/g, "<br>")}
+          ${
+            calendarIntelligence && calendarIntelligence.score < 100
+              ? `<br><span style='color:#ff6f00;'>⚠️ ${calendarIntelligence.insights.join(
+                  ", "
+                )}</span>`
+              : ""
+          }
+        </div>
+      </div>
+      <div style='background:white; padding:16px; border-radius:6px; margin-bottom:12px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
+        <h4 style='font-size:16px; font-weight:600; color:#424242; margin:0 0 8px 0;'>✉️ Email</h4>
+        <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
+          ${emailSummary.replace(/\n/g, "<br>")}
+          ${
+            emailResponseAnalysis && emailResponseAnalysis.avgMinutes
+              ? `<br><div style='background:#f3e5f5; padding:10px; border-radius:4px; margin-top:8px;'>
+                <strong>⚡ Email Response Patterns:</strong><br>
+                <span style='font-size:13px;'>
+                  • Average response time: <strong>${
+                    emailResponseAnalysis.avgMinutes < 60
+                      ? emailResponseAnalysis.avgMinutes + " minutes"
+                      : Math.round((emailResponseAnalysis.avgMinutes / 60) * 10) /
+                          10 +
+                        " hours"
+                  }</strong><br>
+                • Response pattern: <strong>${
+                  emailResponseAnalysis.pattern
+                }</strong><br>
+                • Productivity insight: ${emailResponseAnalysis.insight}
+                </span>
+              </div>`
+              : ""
+          }
+          ${
+            emailManagementInsight
+              ? `<div style='border-left:3px solid #3b82f6; padding-left:12px; margin-top:12px;'>
+                <div style='font-size:13px; color:#5f6368;'>
+          ${emailManagementInsight}
+            </div>
+              </div>`
+              : ""
+          }
+        </div>
       </div>
       
-      <!-- Activity Insight -->
+      <!-- Work Insight Section -->
       <div style='background:#fef3c7; padding:10px; border-radius:4px; margin-top:10px; margin-bottom:10px; border-left:3px solid #fbbf24;'>
-        <strong style='color:#2e7d32; font-size:13px;'>💡 Insight:</strong> 
-        <span style='font-size:13px;'>${generateActivityInsight(scores)}</span>
+        <strong style='color:#1565c0; font-size:13px;'>💡 Insight:</strong> 
+        <span style='font-size:13px;'>${generateWorkInsight(
+          scores,
+          calendarIntelligence,
+          emailResponseAnalysis
+        )}</span>
       </div>
       
-      <!-- Activity Recommendation -->
-      <div style='background:#dbeafe; padding:10px; border-radius:4px; margin-bottom:12px; border-left:3px solid #93c5fd;'>
-        <strong style='color:#2e7d32; font-size:13px;'>🎯 Recommendation:</strong> 
-        <span style='font-size:13px;'>${generateActivityRecommendation(
-          scores
+      <!-- Work Recommendation Section -->
+      <div style='background:#dbeafe; padding:12px; border-radius:6px; margin-bottom:16px; border-left:3px solid #93c5fd;'>
+        <strong style='color:#1565c0;'>🎯 Recommendation:</strong> 
+        <span style='font-size:13px;'>${generateWorkRecommendation(
+          scores,
+          calendarIntelligence,
+          emailResponseAnalysis
         )}</span>
       </div>
     </div>
     
-    <!-- Heart Health subsection -->
-    <div style='background:white; padding:16px; border-radius:6px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
+    <!-- Physical Wellness Section - Code.js Style -->
+    <div style='padding:20px; border-radius:8px; margin:20px 0; background: #f0fdf4; border-left: 4px solid #bbf7d0;'>
+      <h3 style='font-size:20px; font-weight:600; color:#1a1a1a; margin:0 0 16px 0;'>🏃 Physical Wellness</h3>
+      
+      <!-- Sleep subsection -->
+      <div style='background:white; padding:16px; border-radius:6px; margin-bottom:12px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
+        <table style='width:100%; margin-bottom:16px;'>
+          <tr>
+            <td rowspan='2' style='width:48px; vertical-align:middle;'>
+              <img src='${getSageImage(
+                "sleep"
+              )}' alt='Sage Sleep' style='width:48px; height:auto;'/>
+            </td>
+            <td style='vertical-align:bottom; padding-left:10px;'>
+              <h4 style='font-size:16px; font-weight:600; color:#424242; margin:0;'>Sleep</h4>
+            </td>
+          </tr>
+          <tr>
+            <td style='vertical-align:top; padding-left:10px;'>
+              <div style='font-size:36px; font-weight:bold; color:${getScoreColor(
+                scores?.sleep || 0,
+                false
+              )};'>${scores?.sleep || 0}</div>
+            </td>
+          </tr>
+        </table>
+        <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
+          ${fitbitSleep.replace(/\n/g, "<br>")}
+          ${generateSleepStagesVisualization(fitbitSleep)}
+        </div>
+        
+        <!-- Sleep Insight -->
+        <div style='background:#fef3c7; padding:10px; border-radius:4px; margin-top:10px; margin-bottom:10px; border-left:3px solid #fbbf24;'>
+          <strong style='color:#6a1b9a; font-size:13px;'>💡 Insight:</strong> 
+          <span style='font-size:13px;'>${generateSleepInsight(scores)}</span>
+        </div>
+        
+        <!-- Sleep Recommendation -->
+        <div style='background:#dbeafe; padding:10px; border-radius:4px; margin-bottom:12px; border-left:3px solid #93c5fd;'>
+          <strong style='color:#6a1b9a; font-size:13px;'>🎯 Recommendation:</strong> 
+          <span style='font-size:13px;'>${generateSleepRecommendation(
+            scores
+          )}</span>
+        </div>
+      </div>
+      
+      <!-- Activity subsection -->
+      <div style='background:white; padding:16px; border-radius:6px; margin-bottom:12px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
+        <table style='width:100%; margin-bottom:16px;'>
+          <tr>
+            <td rowspan='2' style='width:48px; vertical-align:middle;'>
+              <img src='${getSageImage(
+                "active"
+              )}' alt='Sage Active' style='width:48px; height:auto;'/>
+            </td>
+            <td style='vertical-align:bottom; padding-left:10px;'>
+              <h4 style='font-size:16px; font-weight:600; color:#424242; margin:0;'>Activity</h4>
+            </td>
+          </tr>
+          <tr>
+            <td style='vertical-align:top; padding-left:10px;'>
+              <div style='font-size:36px; font-weight:bold; color:${getScoreColor(
+                scores?.activity || 0,
+                false
+              )};'>${scores?.activity || 0}</div>
+            </td>
+          </tr>
+        </table>
+        <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
+          ${
+            fitbitActivityLog
+              ? `<div style='background:#e3f2fd; padding:10px; border-radius:4px; margin-bottom:10px;'><strong>📋 Logged Activities:</strong><br>${
+                  typeof fitbitActivityLog === "string"
+                    ? fitbitActivityLog.replace(/\n/g, "<br>")
+                    : JSON.stringify(fitbitActivityLog)
+                }</div>`
+              : ""
+          }
+          ${generateActivityZonesVisualization(fitbitActivity)}
+        </div>
+        
+        <!-- Activity Insight -->
+        <div style='background:#fef3c7; padding:10px; border-radius:4px; margin-top:10px; margin-bottom:10px; border-left:3px solid #fbbf24;'>
+          <strong style='color:#2e7d32; font-size:13px;'>💡 Insight:</strong> 
+          <span style='font-size:13px;'>${generateActivityInsight(scores)}</span>
+        </div>
+        
+        <!-- Activity Recommendation -->
+        <div style='background:#dbeafe; padding:10px; border-radius:4px; margin-bottom:12px; border-left:3px solid #93c5fd;'>
+          <strong style='color:#2e7d32; font-size:13px;'>🎯 Recommendation:</strong> 
+          <span style='font-size:13px;'>${generateActivityRecommendation(
+            scores
+          )}</span>
+        </div>
+      </div>
+      
+      <!-- Heart Health subsection -->
+      <div style='background:white; padding:16px; border-radius:6px; border:1px solid #ddd; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
+        <table style='width:100%; margin-bottom:16px;'>
+          <tr>
+            <td rowspan='2' style='width:48px; vertical-align:middle;'>
+              <img src='${getSageImage(
+                "heart"
+              )}' alt='Sage Heart' style='width:48px; height:auto;'/>
+            </td>
+            <td style='vertical-align:bottom; padding-left:10px;'>
+              <h4 style='font-size:16px; font-weight:600; color:#424242; margin:0;'>Heart Health</h4>
+            </td>
+          </tr>
+          <tr>
+            <td style='vertical-align:top; padding-left:10px;'>
+              <div style='font-size:36px; font-weight:bold; color:${getScoreColor(
+                scores?.heart || 0,
+                false
+              )};'>${scores?.heart || 0}</div>
+            </td>
+          </tr>
+        </table>
+        <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
+          ${fitbitHeart.replace(/\n/g, "<br>")}
+          ${
+            fitbitHRV
+              ? `<br>💗 HRV: ${fitbitHRV.value} ms (${fitbitHRV.status})<br><em style='color:#666; font-size:13px;'>${fitbitHRV.insight}</em>`
+              : ""
+          }
+          ${generateHeartRateZonesVisualization(fitbitHeart)}
+        </div>
+        
+        <!-- Heart Insight -->
+        <div style='background:#fef3c7; padding:10px; border-radius:4px; margin-top:10px; margin-bottom:10px; border-left:3px solid #fbbf24;'>
+          <strong style='color:#5d4037; font-size:13px;'>💡 Insight:</strong> 
+          <span style='font-size:13px;'>${generateHeartInsight(scores)}</span>
+        </div>
+        
+        <!-- Heart Recommendation -->
+        <div style='background:#dbeafe; padding:10px; border-radius:4px; margin-bottom:12px; border-left:3px solid #93c5fd;'>
+          <strong style='color:#5d4037; font-size:13px;'>🎯 Recommendation:</strong> 
+          <span style='font-size:13px;'>${generateHeartRecommendation(
+            scores
+          )}</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Recovery Score section - Detailed Design -->
+    <div style='background:#f0fdfa; padding:20px; border-radius:8px; margin:20px 0; border-left:4px solid #99f6e4;'>
       <table style='width:100%; margin-bottom:16px;'>
         <tr>
           <td rowspan='2' style='width:48px; vertical-align:middle;'>
             <img src='${getSageImage(
-              "heart"
-            )}' alt='Sage Heart' style='width:48px; height:auto;'/>
+              "recovery"
+            )}' alt='Sage Recovery' style='width:48px; height:auto;'/>
           </td>
           <td style='vertical-align:bottom; padding-left:10px;'>
-            <h4 style='font-size:16px; font-weight:600; color:#424242; margin:0;'>Heart Health</h4>
+            <h4 style='font-size:18px; font-weight:600; color:#1a1a1a; margin:0;'>Recovery</h4>
           </td>
         </tr>
         <tr>
           <td style='vertical-align:top; padding-left:10px;'>
             <div style='font-size:36px; font-weight:bold; color:${getScoreColor(
-              scores?.heart || 0,
+              recoveryQuotient.score,
               false
-            )};'>${scores?.heart || 0}</div>
+            )};'>${recoveryQuotient.score}</div>
           </td>
         </tr>
       </table>
-      <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
-        ${fitbitHeart.replace(/\n/g, "<br>")}
-        ${
-          fitbitHRV
-            ? `<br>💗 HRV: ${fitbitHRV.value} ms (${fitbitHRV.status})<br><em style='color:#666; font-size:13px;'>${fitbitHRV.insight}</em>`
-            : ""
-        }
-        ${generateHeartRateZonesVisualization(fitbitHeart)}
+      
+      <div style='font-size:14px; line-height:1.6; color:#5f6368; margin-bottom:16px;'>
+        This score reflects your body's readiness for today based on sleep, heart rate recovery, and yesterday's activity balance.
       </div>
       
-      <!-- Heart Insight -->
-      <div style='background:#fef3c7; padding:10px; border-radius:4px; margin-top:10px; margin-bottom:10px; border-left:3px solid #fbbf24;'>
-        <strong style='color:#5d4037; font-size:13px;'>💡 Insight:</strong> 
-        <span style='font-size:13px;'>${generateHeartInsight(scores)}</span>
-      </div>
+      <!-- Recovery Insights and Recommendations -->
+      ${generateRecoveryInsights(recoveryQuotient)}
+    </div>
+    
+    <!-- Environment & Lifestyle Section - Stacked Layout -->
+    <div style='background:#f8f9fa; padding:20px; border-radius:8px; margin:20px 0; border:1px solid #e9ecef;'>
+      <h3 style='font-size:20px; font-weight:600; color:#1a1a1a; margin:0 0 20px 0;'>🌍 Environment & Lifestyle</h3>
       
-      <!-- Heart Recommendation -->
-      <div style='background:#dbeafe; padding:10px; border-radius:4px; margin-bottom:12px; border-left:3px solid #93c5fd;'>
-        <strong style='color:#5d4037; font-size:13px;'>🎯 Recommendation:</strong> 
-        <span style='font-size:13px;'>${generateHeartRecommendation(
-          scores
-        )}</span>
-      </div>
-    </div>
-  </div>
-  
-  <!-- Recovery Score section - Detailed Design -->
-  <div style='background:#f0fdfa; padding:20px; border-radius:8px; margin:20px 0; border-left:4px solid #99f6e4;'>
-    <table style='width:100%; margin-bottom:16px;'>
-      <tr>
-        <td rowspan='2' style='width:48px; vertical-align:middle;'>
-          <img src='${getSageImage(
-            "recovery"
-          )}' alt='Sage Recovery' style='width:48px; height:auto;'/>
-        </td>
-        <td style='vertical-align:bottom; padding-left:10px;'>
-          <h4 style='font-size:18px; font-weight:600; color:#1a1a1a; margin:0;'>Recovery</h4>
-        </td>
-      </tr>
-      <tr>
-        <td style='vertical-align:top; padding-left:10px;'>
-          <div style='font-size:36px; font-weight:bold; color:${getScoreColor(
-            recoveryQuotient.score,
-            false
-          )};'>${recoveryQuotient.score}</div>
-        </td>
-      </tr>
-    </table>
-    
-    <div style='font-size:14px; line-height:1.6; color:#5f6368; margin-bottom:16px;'>
-      This score reflects your body's readiness for today based on sleep, heart rate recovery, and yesterday's activity balance.
-    </div>
-    
-    <!-- Recovery Insights and Recommendations -->
-    ${generateRecoveryInsights(recoveryQuotient)}
-  </div>
-  
-  <!-- Environment & Lifestyle Section - Stacked Layout -->
-  <div style='background:#f8f9fa; padding:20px; border-radius:8px; margin:20px 0; border:1px solid #e9ecef;'>
-    <h3 style='font-size:20px; font-weight:600; color:#1a1a1a; margin:0 0 20px 0;'>🌍 Environment & Lifestyle</h3>
-    
-    <!-- Weather Section - Full Width -->
-    <div style='background:white; padding:20px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1); margin-bottom:20px;'>
-      <div style='display:flex; align-items:center; margin-bottom:20px;'>
-        <div style='width:60px; height:60px; background:#e3f2fd; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-right:15px;'>
-          <img src='${getSageImage(
-            "weather"
-          )}' alt='Weather Fox' style='width:40px; height:40px;'/>
+      <!-- Weather Section - Full Width -->
+      <div style='background:white; padding:20px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1); margin-bottom:20px;'>
+        <div style='display:flex; align-items:center; margin-bottom:20px;'>
+          <div style='width:60px; height:60px; background:#e3f2fd; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-right:15px;'>
+            <img src='${getSageImage(
+              "weather"
+            )}' alt='Weather Fox' style='width:40px; height:40px;'/>
+          </div>
+          <h4 style='font-size:18px; font-weight:600; color:#1a1a1a; margin:0;'>Weather</h4>
         </div>
-        <h4 style='font-size:18px; font-weight:600; color:#1a1a1a; margin:0;'>Weather</h4>
+        
+        ${generateWeatherInsights(
+          weatherSummary,
+          hourlyWeather,
+          environmentalFactorsData
+        )}
       </div>
       
-      ${generateWeatherInsights(
-        weatherSummary,
-        hourlyWeather,
-        environmentalFactorsData
-      )}
+      <!-- Music Section - Full Width -->
+      <div style='background:white; padding:20px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1);'>
+        <div style='display:flex; align-items:center; margin-bottom:20px;'>
+          <div style='width:60px; height:60px; background:#f3e5f5; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-right:15px;'>
+            <img src='${getSageImage(
+              "music"
+            )}' alt='Music Fox' style='width:40px; height:40px;'/>
+          </div>
+          <h4 style='font-size:18px; font-weight:600; color:#1a1a1a; margin:0;'>Music</h4>
+        </div>
+        
+        ${generateMusicInsights(spotifySummary, spotifyInsights)}
+      </div>
     </div>
     
-    <!-- Music Section - Full Width -->
-    <div style='background:white; padding:20px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1);'>
-      <div style='display:flex; align-items:center; margin-bottom:20px;'>
-        <div style='width:60px; height:60px; background:#f3e5f5; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-right:15px;'>
-          <img src='${getSageImage(
-            "music"
-          )}' alt='Music Fox' style='width:40px; height:40px;'/>
+    <!-- Daily Mantra - Code.js Style -->
+    <div style='background:#faf5ff; padding:20px; border-radius:12px; margin:20px 0; box-shadow:0 2px 8px rgba(0,0,0,0.1);'>
+      <div style='display:flex; align-items:center; margin-bottom:16px;'>
+        <div style='width:60px; height:60px; background:#e9d5ff; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-right:15px;'>
+        <img src='${getSageImage(
+          "meditation"
+        )}' alt='Meditation Fox' style='width:40px; height:40px;'/>
         </div>
-        <h4 style='font-size:18px; font-weight:600; color:#1a1a1a; margin:0;'>Music</h4>
+        <h4 style='font-size:18px; font-weight:600; color:#5f27cd; margin:0;'>Daily Mantra</h4>
       </div>
-      
-      ${generateMusicInsights(spotifySummary, spotifyInsights)}
+      <div style='background:white; padding:20px; border-radius:8px; text-align:center;'>
+        <div style='font-size:16px; color:#4a148c; font-style:italic; line-height:1.6; font-weight:500;'>
+          "${escapeHtml(
+            mantra || "Small consistent actions lead to big results."
+          )}"
+        </div>
+      </div>
     </div>
-  </div>
+    
+    <!-- Footer -->
+    <div style='margin-top:40px; padding-top:20px; border-top:1px solid #e0e0e0; text-align:center; color:#999; font-size:12px;'>
+      MyMetricLog • Your Personal Wellness Companion<br>
+      🦊 Tracking • 📊 Analyzing • 🎯 Growing Together
+    </div>
+  </div>`;
   
-  <!-- Daily Mantra - Code.js Style -->
-  <div style='background:#faf5ff; padding:20px; border-radius:12px; margin:20px 0; box-shadow:0 2px 8px rgba(0,0,0,0.1);'>
-    <div style='display:flex; align-items:center; margin-bottom:16px;'>
-      <div style='width:60px; height:60px; background:#e9d5ff; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-right:15px;'>
-      <img src='${getSageImage(
-        "meditation"
-      )}' alt='Meditation Fox' style='width:40px; height:40px;'/>
-      </div>
-      <h4 style='font-size:18px; font-weight:600; color:#5f27cd; margin:0;'>Daily Mantra</h4>
-    </div>
-    <div style='background:white; padding:20px; border-radius:8px; text-align:center;'>
-      <div style='font-size:16px; color:#4a148c; font-style:italic; line-height:1.6; font-weight:500;'>
-        "${escapeHtml(
-          mantra || "Small consistent actions lead to big results."
-        )}"
-      </div>
-    </div>
-  </div>
-  
-  <!-- Footer -->
-  <div style='margin-top:40px; padding-top:20px; border-top:1px solid #e0e0e0; text-align:center; color:#999; font-size:12px;'>
-    MyMetricLog • Your Personal Wellness Companion<br>
-    🦊 Tracking • 📊 Analyzing • 🎯 Growing Together
-  </div>
-</div>`;
-
-  return htmlBody;
-}
+    return htmlBody;
+  }
 
 // Updated function to use composeEnhancedMyMetricLogEmail
 export function generateDailyReportEmail(data: any): string {
