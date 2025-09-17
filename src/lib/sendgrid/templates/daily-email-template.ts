@@ -2506,30 +2506,18 @@ function generateHeartRateZonesVisualization(heartData: string): string {
       
       <!-- Heart Rate Zones Legend -->
       <div style='display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; font-size:12px; width:100%;'>
-        ${
-          fatBurn > 0
-            ? `<div style='display:flex; align-items:center; width:25%;'>
+        <div style='display:flex; align-items:center; width:25%;'>
           <div style='width:12px; height:12px; background:#d4a574; border-radius:2px; margin-right:6px;'></div>
           <span>Fat Burn: ${fatBurn}m</span>
-        </div>`
-            : ""
-        }
-        ${
-          cardio > 0
-            ? `<div style='display:flex; align-items:center; width:25%;'>
+        </div>
+        <div style='display:flex; align-items:center; width:25%;'>
           <div style='width:12px; height:12px; background:#8b4513; border-radius:2px; margin-right:6px;'></div>
           <span>Cardio: ${cardio}m</span>
-        </div>`
-            : ""
-        }
-        ${
-          peakZone > 0
-            ? `<div style='display:flex; align-items:center; width:25%;'>
+        </div>
+        <div style='display:flex; align-items:center; width:25%;'>
           <div style='width:12px; height:12px; background:#654321; border-radius:2px; margin-right:6px;'></div>
           <span>Peak: ${peakZone}m</span>
-        </div>`
-            : ""
-        }
+        </div>
       </div>
       
       ${
