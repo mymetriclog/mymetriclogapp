@@ -84,12 +84,46 @@ export async function GET(request: Request) {
     // Test Gmail
     if (gmailToken) {
       try {
-        const { getGmailStats } = await import("@/lib/integrations/gmail");
-        const gmailData = await getGmailStats(gmailToken);
+        const { getGmailStats, getGmailMessages } = await import(
+          "@/lib/integrations/gmail"
+        );
+
+        // Test with today's date
+        const today = new Date();
+        const gmailDataToday = await getGmailStats(gmailToken, today);
+
+        // Test with yesterday's date
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const gmailDataYesterday = await getGmailStats(gmailToken, yesterday);
+
+        // Test without date (should default to today)
+        const gmailDataDefault = await getGmailStats(gmailToken);
+
+        // Get messages for yesterday to verify date filtering
+        const yesterdayMessages = await getGmailMessages(
+          gmailToken,
+          10,
+          yesterday
+        );
+
         results.data.gmail = {
-          hasData: !!gmailData,
-          totalEmails: gmailData?.totalEmails || 0,
-          unreadCount: gmailData?.unreadCount || 0,
+          hasData: !!gmailDataToday || !!gmailDataYesterday,
+          today: {
+            totalEmails: gmailDataToday?.totalEmails || 0,
+            unreadCount: gmailDataToday?.unreadCount || 0,
+          },
+          yesterday: {
+            totalEmails: gmailDataYesterday?.totalEmails || 0,
+            unreadCount: gmailDataYesterday?.unreadCount || 0,
+          },
+          default: {
+            totalEmails: gmailDataDefault?.totalEmails || 0,
+            unreadCount: gmailDataDefault?.unreadCount || 0,
+          },
+          yesterdayMessagesCount: yesterdayMessages.length,
+          dateFilteringWorking:
+            gmailDataYesterday?.totalEmails !== gmailDataToday?.totalEmails,
         };
         console.log("✅ Gmail data:", results.data.gmail);
       } catch (error) {

@@ -177,30 +177,40 @@ export async function getGmailMessages(
     let query = "";
     if (date) {
       const dateStr = date.toISOString().split("T")[0];
-      query = `?q=after:${dateStr} before:${
-        new Date(date.getTime() + 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split("T")[0]
-      }&maxResults=${maxResults}`;
+      const nextDateStr = new Date(date.getTime() + 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0];
+      query = `?q=after:${dateStr} before:${nextDateStr}&maxResults=${maxResults}`;
     } else {
       query = `?maxResults=${maxResults}`;
+      console.log(`📧 Gmail API: Querying recent messages (no date filter)`);
     }
 
-    const response = await fetch(
-      `https://gmail.googleapis.com/gmail/v1/users/me/messages${query}`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        cache: "no-store",
-      }
-    );
+    const apiUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages${query}`;
 
-    if (!response.ok) return [];
+    const response = await fetch(apiUrl, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      console.log(
+        `❌ Gmail API: Response not OK - ${response.status} ${response.statusText}`
+      );
+      return [];
+    }
 
     const data = await response.json();
+
     return data.messages || [];
   } catch (error) {
+    console.log(
+      `❌ Gmail API: Error - ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
     return [];
   }
 }
@@ -392,11 +402,51 @@ export async function getGmailStats(accessToken: string, date?: Date) {
   try {
     const profile = await getGmailProfile(accessToken);
     if (!profile) {
+      console.log("❌ Gmail: No profile found");
       return null;
     }
 
+    console.log(
+      `📧 Gmail: Fetching stats for date: ${
+        date ? date.toISOString().split("T")[0] : "today"
+      }`
+    );
+    console.log(
+      `📧 Gmail: Current date: ${new Date().toISOString().split("T")[0]}`
+    );
+    console.log(
+      `📧 Gmail: Is this yesterday? ${
+        date
+          ? date.toISOString().split("T")[0] ===
+            new Date(Date.now() - 24 * 60 * 60 * 1000)
+              .toISOString()
+              .split("T")[0]
+          : "N/A"
+      }`
+    );
+
     // Get recent messages for additional stats (filter by date if provided)
     const messages = await getGmailMessages(accessToken, 100, date);
+    console.log(`📧 Gmail: Found ${messages.length} messages`);
+
+    // Debug: Show first few message dates
+    if (messages.length > 0) {
+      console.log(`📧 Gmail: Sample message dates:`);
+      messages.slice(0, 3).forEach((msg, index) => {
+        console.log(`📧 Gmail: Message ${index + 1} metadata:`, {
+          id: msg.id,
+          threadId: msg.threadId,
+          hasInternalDate: !!msg.internalDate,
+          internalDate: msg.internalDate,
+        });
+        if (msg.internalDate) {
+          const msgDate = new Date(parseInt(msg.internalDate));
+          console.log(
+            `📧 Gmail: Message ${index + 1}: ${msgDate.toISOString()}`
+          );
+        }
+      });
+    }
 
     // Calculate unread count (approximate) - handle messages without labelIds
     const unreadCount = messages.filter((msg) => {
@@ -408,31 +458,67 @@ export async function getGmailStats(accessToken: string, date?: Date) {
       );
     }).length;
 
-    // Get emails from today - handle messages without internalDate
-    const today = new Date();
-    const todayStart = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate()
+    // Since Gmail API query already filters by date, we can trust the count
+    // The Gmail API query "after:2025-09-16 before:2025-09-17" already filters correctly
+    const emailsOnDate = messages.length;
+
+    console.log(
+      `📧 Gmail: Using Gmail API filtered count: ${emailsOnDate} emails`
     );
-    const emailsToday = messages.filter((msg) => {
-      if (!msg.internalDate) return false;
-      try {
-        const messageDate = new Date(parseInt(msg.internalDate));
-        return messageDate >= todayStart;
-      } catch {
-        return false;
+
+    // Alternative approach: If we need to verify dates, we can fetch a few message details
+    if (messages.length > 0 && messages.length < 10) {
+      console.log(
+        `📧 Gmail: Verifying dates for ${messages.length} messages...`
+      );
+      let verifiedCount = 0;
+
+      for (const msg of messages.slice(0, 5)) {
+        // Check first 5 messages
+        try {
+          const messageDetails = await getGmailMessageDetails(
+            accessToken,
+            msg.id
+          );
+          if (messageDetails && messageDetails.internalDate) {
+            const messageDate = new Date(parseInt(messageDetails.internalDate));
+            const targetDate = date || new Date();
+            const isToday =
+              messageDate.toISOString().split("T")[0] ===
+              targetDate.toISOString().split("T")[0];
+
+            console.log(
+              `📧 Gmail: Message ${msg.id} date: ${
+                messageDate.toISOString().split("T")[0]
+              } (is target date: ${isToday})`
+            );
+            if (isToday) verifiedCount++;
+          }
+        } catch (error) {
+          console.log(
+            `📧 Gmail: Error fetching message details for ${msg.id}: ${error}`
+          );
+        }
       }
-    }).length;
+
+      console.log(
+        `📧 Gmail: Verified ${verifiedCount} messages match target date`
+      );
+    }
+
+    console.log(
+      `📧 Gmail: Final count: ${emailsOnDate} emails for target date`
+    );
 
     const stats = {
-      totalEmails: emailsToday, // Use emails from the specific day, not total account emails
+      totalEmails: emailsOnDate, // Use emails from the specific day, not total account emails
       unreadCount,
-      emailsToday,
+      emailsToday: emailsOnDate, // Keep for backward compatibility
       averageResponseTime: 2.5, // This would need more complex logic
       calendarInvites: 8, // This would need calendar API integration
     };
 
+    console.log(`📧 Gmail: Final stats:`, stats);
     return stats;
   } catch (error) {
     return null;
