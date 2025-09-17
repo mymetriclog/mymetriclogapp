@@ -2311,31 +2311,63 @@ function generateSleepStagesVisualization(sleepData: string): string {
       <!-- Sleep Stages Bar Chart -->
       <div style='margin-bottom:12px;'>
         <div style='display:flex;  border-radius:10px; overflow:hidden; background:#e9ecef;'>
-          <div style='width:${deep}%; background:#6f42c1; display:flex; align-items:center ; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${deep}%</div>
-          <div style='width:${light}%; background:#9c88ff; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${light}%</div>
-          <div style='width:${rem}%; background:#74c0fc; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${rem}%</div>
-          <div style='width:${awake}%; background:#ff6b6b; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${awake}%</div>
+          ${
+            deep > 0
+              ? `<div style='width:${deep}%; background:#6f42c1; display:flex; align-items:center ; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${deep}%</div>`
+              : ""
+          }
+          ${
+            light > 0
+              ? `<div style='width:${light}%; background:#9c88ff; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${light}%</div>`
+              : ""
+          }
+          ${
+            rem > 0
+              ? `<div style='width:${rem}%; background:#74c0fc; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${rem}%</div>`
+              : ""
+          }
+          ${
+            awake > 0
+              ? `<div style='width:${awake}%; background:#ff6b6b; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${awake}%</div>`
+              : ""
+          }
         </div>
       </div>
       
       <!-- Legend -->
-      <div style='display:flex; flex-wrap:wrap; gap:8px; font-size:12px;'>
-        <div style='display:flex; align-items:center;'>
+      <div style='display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; font-size:12px; width:100%;'>
+        ${
+          deep > 0
+            ? `<div style='display:flex; align-items:center; width:25%;'>
           <div style='width:12px; height:12px; background:#6f42c1; border-radius:2px; margin-right:6px;'></div>
           <span>Deep: ${deepMin}m</span>
-        </div>
-        <div style='display:flex; align-items:center;'>
+        </div>`
+            : ""
+        }
+        ${
+          light > 0
+            ? `<div style='display:flex; align-items:center; width:25%;'>
           <div style='width:12px; height:12px; background:#9c88ff; border-radius:2px; margin-right:6px;'></div>
           <span>Light: ${lightMin}m</span>
-        </div>
-        <div style='display:flex; align-items:center;'>
+        </div>`
+            : ""
+        }
+        ${
+          rem > 0
+            ? `<div style='display:flex; align-items:center; width:25%;'>
           <div style='width:12px; height:12px; background:#74c0fc; border-radius:2px; margin-right:6px;'></div>
           <span>REM: ${remMin}m</span>
-        </div>
-        <div style='display:flex; align-items:center;'>
+        </div>`
+            : ""
+        }
+        ${
+          awake > 0
+            ? `<div style='display:flex; align-items:center; width:25%;'>
           <div style='width:12px; height:12px; background:#ff6b6b; border-radius:2px; margin-right:6px;'></div>
           <span>Awake: ${awakeMin}m</span>
-        </div>
+        </div>`
+            : ""
+        }
       </div>
       
       ${
@@ -2454,26 +2486,50 @@ function generateHeartRateZonesVisualization(heartData: string): string {
       <!-- Heart Rate Zones Bar Chart -->
       <div style='margin-bottom:12px;'>
         <div style='display:flex;  border-radius:10px; overflow:hidden; background:#e9ecef;'>
-          <div style='width:${fatBurnPercent}%; background:#d4a574; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${fatBurnPercent}%</div>
-          <div style='width:${cardioPercent}%; background:#8b4513; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${cardioPercent}%</div>
-          <div style='width:${peakPercent}%; background:#654321; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${peakPercent}%</div>
+          ${
+            fatBurnPercent > 0
+              ? `<div style='width:${fatBurnPercent}%; background:#d4a574; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${fatBurnPercent}%</div>`
+              : ""
+          }
+          ${
+            cardioPercent > 0
+              ? `<div style='width:${cardioPercent}%; background:#8b4513; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${cardioPercent}%</div>`
+              : ""
+          }
+          ${
+            peakPercent > 0
+              ? `<div style='width:${peakPercent}%; background:#654321; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${peakPercent}%</div>`
+              : ""
+          }
         </div>
       </div>
       
       <!-- Heart Rate Zones Legend -->
-      <div style='display:flex; flex-wrap:wrap; gap:8px; font-size:12px;'>
-        <div style='display:flex; align-items:center;'>
+      <div style='display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; font-size:12px; width:100%;'>
+        ${
+          fatBurn > 0
+            ? `<div style='display:flex; align-items:center; width:25%;'>
           <div style='width:12px; height:12px; background:#d4a574; border-radius:2px; margin-right:6px;'></div>
           <span>Fat Burn: ${fatBurn}m</span>
-        </div>
-        <div style='display:flex; align-items:center;'>
+        </div>`
+            : ""
+        }
+        ${
+          cardio > 0
+            ? `<div style='display:flex; align-items:center; width:25%;'>
           <div style='width:12px; height:12px; background:#8b4513; border-radius:2px; margin-right:6px;'></div>
           <span>Cardio: ${cardio}m</span>
-        </div>
-        <div style='display:flex; align-items:center;'>
+        </div>`
+            : ""
+        }
+        ${
+          peakZone > 0
+            ? `<div style='display:flex; align-items:center; width:25%;'>
           <div style='width:12px; height:12px; background:#654321; border-radius:2px; margin-right:6px;'></div>
           <span>Peak: ${peakZone}m</span>
-        </div>
+        </div>`
+            : ""
+        }
       </div>
       
       ${
