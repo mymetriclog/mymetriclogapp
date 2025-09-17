@@ -164,10 +164,9 @@ export async function generateDailyReport(
     ComprehensiveIntegrationService.getAdvancedCalendarAnalysis(
       calendarData?.events || []
     );
-  const calSummary =
-    calendarData?.events?.length > 0
-      ? formatCalendarAnalysis(calendarAnalysis)
-      : generateFallbackCalendarData();
+  const calSummary = calendarToken
+    ? formatCalendarAnalysis(calendarAnalysis)
+    : generateFallbackCalendarData();
 
   // NEW: Calendar Intelligence
   const calendarIntelligence =
@@ -632,14 +631,29 @@ function formatDate(date: Date): string {
 
 function formatCalendarAnalysis(analysis: any): string {
   if (!analysis || analysis.totalEvents === 0) {
-    return "No calendar events scheduled - Integration not connected";
+    return "Events: 0 (Full focus day!)\nUninterrupted work time: Full day available\nCognitive load: Minimal";
   }
-  return `📅 ${analysis.totalEvents} events scheduled`;
+
+  // Generate insights based on event count
+  const eventCount = analysis.totalEvents;
+  if (eventCount <= 3) {
+    return `Events: ${eventCount} (Light schedule)
+Uninterrupted work time: Good availability
+Cognitive load: Low`;
+  } else if (eventCount <= 6) {
+    return `Events: ${eventCount} (Moderate schedule)
+Uninterrupted work time: Limited availability
+Cognitive load: Moderate`;
+  } else {
+    return `Events: ${eventCount} (Heavy schedule)
+Uninterrupted work time: Very limited
+Cognitive load: High`;
+  }
 }
 
 function summarizeSpotifyHistory(data: any): string {
   if (!data || data.tracksPlayed === 0) {
-    return "No Spotify listening data - Integration not connected";
+    return "No music listened to today";
   }
 
   const {
@@ -692,13 +706,14 @@ function generateSpotifyInsights(data: any): {
   insight: string;
   recommendation: string;
 } {
-  if (!data || data.tracksPlayed === 0) {
+  if (!data) {
     return {
       insight: "No music listening data available for analysis.",
       recommendation: "Connect Spotify to get personalized music insights.",
     };
   }
 
+  // If tracksPlayed is 0, still provide insights based on available data
   const { tracksPlayed, topTracks, topArtists, mood, trackAnalysis } = data;
 
   // Calculate time distribution
@@ -710,7 +725,10 @@ function generateSpotifyInsights(data: any): {
   let recommendation = "";
 
   // Generate insight based on listening patterns
-  if (afternoon > morning + midday) {
+  if (tracksPlayed === 0) {
+    insight = `No music was listened to today. Music can be a great mood enhancer and productivity booster.`;
+    recommendation = `Try listening to some background music during work or relaxation to improve your mood and focus.`;
+  } else if (afternoon > morning + midday) {
     insight = `Your afternoon mental fog correlates with your peak music listening time of ${afternoon} tracks, suggesting you use music to clear your mind.`;
 
     if (topTracks && topTracks.length > 0) {
@@ -1568,7 +1586,8 @@ function extractSteps(fitbitActivity: string): number {
 function extractTopTrack(spotifySummary: string): string {
   if (
     !spotifySummary ||
-    spotifySummary === "No Spotify listening data - Integration not connected"
+    spotifySummary === "No music listened to today" ||
+    spotifySummary.includes("Integration not connected")
   ) {
     return "🎵 Top Track: No music data available";
   }
