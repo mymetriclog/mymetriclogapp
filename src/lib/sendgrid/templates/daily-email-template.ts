@@ -2319,11 +2319,11 @@ function generateSleepStagesVisualization(sleepData: string): string {
       
       <!-- Sleep Stages Bar Chart -->
       <div style='margin-bottom:12px;'>
-        <div style='display:flex; height:20px; border-radius:10px; overflow:hidden; background:#e9ecef;'>
-          <div style='width:${deep}%; background:#6f42c1; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600;'>${deep}%</div>
-          <div style='width:${light}%; background:#9c88ff; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600;'>${light}%</div>
-          <div style='width:${rem}%; background:#74c0fc; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600;'>${rem}%</div>
-          <div style='width:${awake}%; background:#ff6b6b; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600;'>${awake}%</div>
+        <div style='display:flex;  border-radius:10px; overflow:hidden; background:#e9ecef;'>
+          <div style='width:${deep}%; background:#6f42c1; display:flex; align-items:center ; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${deep}%</div>
+          <div style='width:${light}%; background:#9c88ff; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${light}%</div>
+          <div style='width:${rem}%; background:#74c0fc; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${rem}%</div>
+          <div style='width:${awake}%; background:#ff6b6b; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${awake}%</div>
         </div>
       </div>
       
@@ -2394,9 +2394,9 @@ function generateActivityZonesVisualization(activityData: string): string {
       
       <!-- Activity Distribution Bar Chart -->
       <div style='margin-bottom:12px;'>
-        <div style='display:flex; height:20px; border-radius:10px; overflow:hidden; background:#e9ecef;'>
-          <div style='width:${activePercent}%; background:#28a745; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600;'>${activePercent}%</div>
-          <div style='width:${sedentaryPercent}%; background:#6c757d; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600;'>${sedentaryPercent}%</div>
+        <div style='display:flex; border-radius:10px; overflow:hidden; background:#e9ecef;'>
+          <div style='width:${activePercent}%; background:#28a745; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${activePercent}%</div>
+          <div style='width:${sedentaryPercent}%; background:#6c757d; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${sedentaryPercent}%</div>
         </div>
       </div>
       
@@ -2462,10 +2462,10 @@ function generateHeartRateZonesVisualization(heartData: string): string {
       
       <!-- Heart Rate Zones Bar Chart -->
       <div style='margin-bottom:12px;'>
-        <div style='display:flex; height:20px; border-radius:10px; overflow:hidden; background:#e9ecef;'>
-          <div style='width:${fatBurnPercent}%; background:#d4a574; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600;'>${fatBurnPercent}%</div>
-          <div style='width:${cardioPercent}%; background:#8b4513; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600;'>${cardioPercent}%</div>
-          <div style='width:${peakPercent}%; background:#654321; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600;'>${peakPercent}%</div>
+        <div style='display:flex;  border-radius:10px; overflow:hidden; background:#e9ecef;'>
+          <div style='width:${fatBurnPercent}%; background:#d4a574; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${fatBurnPercent}%</div>
+          <div style='width:${cardioPercent}%; background:#8b4513; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${cardioPercent}%</div>
+          <div style='width:${peakPercent}%; background:#654321; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; padding: 10px;'>${peakPercent}%</div>
         </div>
       </div>
       
