@@ -675,15 +675,6 @@ export function composeEnhancedMyMetricLogEmail(
           </tr>
         </table>
         <div style='font-size:14px; line-height:1.6; color:#5f6368;'>
-          ${
-            fitbitActivityLog
-              ? `<div style='background:#e3f2fd; padding:10px; border-radius:4px; margin-bottom:10px;'><strong>📋 Logged Activities:</strong><br>${
-                  typeof fitbitActivityLog === "string"
-                    ? fitbitActivityLog.replace(/\n/g, "<br>")
-                    : JSON.stringify(fitbitActivityLog)
-                }</div>`
-              : ""
-          }
           ${generateActivityZonesVisualization(fitbitActivity)}
         </div>
         
