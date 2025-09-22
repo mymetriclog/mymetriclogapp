@@ -18,6 +18,7 @@ import {
   getExpiringSoonTokens,
 } from "@/lib/integrations/token-validator";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 // Force dynamic rendering since we use cookies for authentication
 export const dynamic = "force-dynamic";
@@ -344,6 +345,11 @@ const EmptyReportsState = () => (
 export default async function DashboardPage() {
   const session = await getServerSession();
   const user = session?.user;
+
+  // If not authenticated, redirect to login
+  if (!user) {
+    redirect("/login");
+  }
 
   // Extract user information
   const name =
